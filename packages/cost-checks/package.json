@@ -1,18 +1,16 @@
 {
-  "name": "@ship-check/cli",
+  "name": "@ship-check/cost-checks",
   "version": "0.0.0-alpha.1",
   "type": "module",
-  "bin": { "ship-check": "./dist/index.js" },
+  "exports": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@ship-check/adapters": "workspace:*",
-    "@ship-check/checks": "workspace:*",
     "@ship-check/core": "workspace:*",
-    "@ship-check/cost-checks": "workspace:*",
     "@ship-check/schemas": "workspace:*"
   }
 }

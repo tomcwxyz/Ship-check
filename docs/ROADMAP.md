@@ -27,15 +27,18 @@
 - [ ] Gitleaks adapter for mature secret scanning.
 - [ ] dependency audit adapters (OSV/npm/pnpm) with explicit network boundary.
 - [ ] framework/database checks for Next.js, Vercel, Neon and Supabase patterns.
-- [ ] abuse-cost checks for AI/email/scraping endpoints.
+- [x] First Cost Aware checks for high-frequency Vercel cron jobs and frequent network polling.
+- [ ] Broaden abuse-cost checks for AI/email/scraping endpoints only after corpus evaluation.
 - [ ] safe dynamic smoke tests against a local target.
 
 ## Alpha 3 — ecosystem bridges
 
-- [ ] RACK Verification Plan adapter over the JSON/process contract.
+- [x] First RACK Verification Plan process/JSON result adapter with `pass | fail | uncertain | incomplete` outcomes.
+- [ ] RACK desktop executor for Ship Check trusted verifier IDs.
 - [ ] RACK repair-loop UI: run → evidence → repair prompt → rerun.
-- [ ] Optional purpose-bound TOPO context packet, visually separate from scan evidence.
-- [ ] Organisational OS assurance summary contract.
+- [x] TOPO purpose-bound context-request adapter matching the current OOS context-request shape; context remains separate from scan evidence.
+- [x] Metadata-only Organisational OS technical-assurance summary contract.
+- [ ] End-to-end TOPO authorisation/review UX from the Ship Check desktop.
 
 ## Later packs
 
