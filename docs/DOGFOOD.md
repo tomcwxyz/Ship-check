@@ -16,7 +16,11 @@ A sixth contrasting repository can be added after the first pass if the five abo
 
 ## Run shape
 
-Once the repo-first alpha is installed, each pass should run all current packs and retain only the structured report, not source content:
+The desktop alpha should be the easiest corpus surface: scan each repository with all packs enabled and leave the `Scan receipt & diagnostics` panel available. After the corpus pass, use **Copy diagnostics** once to capture the structured run metadata for comparison.
+
+The diagnostic history is deliberately bounded to the newest 100 scans. It stores repo label, source kind/ref, engine version, inventory source, file count, selected packs, total elapsed time, summary counts, and each check's status/finding count/duration. It does **not** store source contents, evidence excerpts, finding text, repair prompts, or matched secret values. Local project paths are reduced to the final folder name before storage.
+
+The CLI remains useful when a full structured report is wanted:
 
 ```bash
 ship-check scan tomcwxyz/attention-agent-pilot --format json > attention-agent.ship-check.json
@@ -41,6 +45,8 @@ The corpus review should answer:
 - Does the repair prompt lead to an appropriate change?
 - Does rerunning make it obvious that the underlying evidence changed?
 - Are scan time and repository inventory sensible for both small and larger apps?
+- Did any check error, time out, or produce an unexpectedly long duration?
+- Did inventory provenance stay `git-tracked` for Git repositories rather than silently falling back?
 
 ## Decision rule
 
