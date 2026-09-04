@@ -30,7 +30,18 @@ Normal repository validation now:
 - compiles the standalone engine;
 - smoke-tests the compiled binary against the safe Cost Aware fixture.
 
-Platform release workflows should compile the engine on the target operating system rather than checking generated executables into source control. Desktop packaging should bind a known engine version and record it in release provenance.
+Platform releases compile the engine on the target operating system rather than checking generated executables into source control. Desktop packaging should bind a known engine version and record it in release provenance.
+
+## Manual alpha release
+
+The `Standalone engine alpha release` workflow is deliberately manual. Dispatch it from `main` with:
+
+- `version` matching the root `package.json` version;
+- `confirm` set to `ALPHA`.
+
+The workflow reruns validation, creates a **draft pre-release**, compiles native Windows x64 and Linux x64 engines, smoke-tests each binary and uploads them to that draft. Builds are unsigned during alpha, so Windows warnings are expected.
+
+The draft stays unpublished until a person reviews the assets. A failed platform build therefore cannot silently publish an incomplete release.
 
 ## Next packaging step
 
