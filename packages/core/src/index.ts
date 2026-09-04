@@ -65,7 +65,23 @@ export async function createProjectContext(projectPath: string): Promise<Project
   if (!stat.isDirectory()) throw new Error(`Ship Check needs a project directory: ${root}`);
 
   const tracked = await gitTrackedFiles(root);
-  const files = tracked ?? (await walkFiles(root));
+  let files = tracked;
+
+  // A Git repository with an unexpectedly empty tracked-file result must not be
+  // treated as a successful zero-file scan. This can happen when the runtime
+  // cannot enumerate the index correctly, and it also covers newly-initialised
+  // repositories whose useful files have not been added yet. Fall back to the
+  // bounded filesystem inventory before deciding there is nothing to inspect.
+  if (!files || files.length === 0) {
+    files = await walkFiles(root);
+  }
+
+  if (files.length === 0) {
+    throw new Error(
+      `Ship Check found no inspectable files in ${root}. The scan was stopped rather than reporting a false clean result.`,
+    );
+  }
+
   const fileSet = new Set(files);
 
   return {

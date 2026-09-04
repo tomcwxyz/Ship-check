@@ -1,6 +1,6 @@
 {
   "name": "ship-check",
-  "version": "0.0.0-alpha.1",
+  "version": "0.0.0-alpha.2",
   "private": true,
   "type": "module",
   "description": "Local-first software assurance checks with portable findings and repair guidance.",
