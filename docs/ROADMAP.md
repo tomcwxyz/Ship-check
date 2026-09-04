@@ -9,17 +9,19 @@
 - [x] Plain and JSON CLI output.
 - [x] Optional severity exit gate for CI/RACK use.
 - [x] Risky/safe regression fixtures.
+- [x] Self-contained native engine compilation and dogfood gate.
 - [ ] Run the checks across a representative Good Ship app corpus and record false positives/false negatives.
 - [ ] Add check metadata/versioning and suppression with explicit rationale.
 
 ## Alpha 1 — useful review surface
 
-- [ ] Tauri + React desktop shell following RACK/TOPO conventions.
-- [ ] Folder selection, scan progress and summary.
-- [ ] One finding at a time: evidence, why it matters, fix, copy repair prompt, re-check.
+- [x] Dependency-light Tauri desktop shell following the RACK/TOPO local-first boundary without duplicating checker logic.
+- [x] Native folder selection, local-engine status, scan progress and summary.
+- [x] Finding review with severity/pack context, evidence, why it matters, fix, verification guidance, copy repair prompt and re-check.
+- [ ] Optional focused one-finding-at-a-time review mode for larger scans.
 - [ ] Local scan history with no source-content retention by default.
 - [ ] Windows test installer automatically built from coherent changes on `main`.
-- [ ] Manual unsigned Windows/Linux alpha pre-release with explicit confirmation.
+- [ ] Manual unsigned Windows/Linux desktop alpha pre-release with explicit confirmation and the matching engine bundled as a local resource.
 
 ## Alpha 2 — stronger deterministic packs
 
@@ -34,6 +36,7 @@
 ## Alpha 3 — ecosystem bridges
 
 - [x] First RACK Verification Plan process/JSON result adapter with `pass | fail | uncertain | incomplete` outcomes.
+- [x] Ship Check trusted verifier IDs registered in RACK as planned providers.
 - [ ] RACK desktop executor for Ship Check trusted verifier IDs.
 - [ ] RACK repair-loop UI: run → evidence → repair prompt → rerun.
 - [x] TOPO purpose-bound context-request adapter matching the current OOS context-request shape; context remains separate from scan evidence.
