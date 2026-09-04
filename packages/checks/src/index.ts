@@ -8,7 +8,7 @@ function lineNumber(text: string, index: number): number {
 
 function finding(input: {
   checkId: string;
-  pack: "secure-build" | "production-ready";
+  pack: Finding["pack"];
   suffix: string;
   title: string;
   summary: string;
@@ -307,6 +307,6 @@ export const builtInChecks: CheckDefinition[] = [
 ];
 
 export function checksForPacks(packs: Array<"secure-build" | "production-ready">): CheckDefinition[] {
-  const selected = new Set(packs);
+  const selected = new Set<CheckDefinition["pack"]>(packs);
   return builtInChecks.filter((check) => selected.has(check.pack));
 }
