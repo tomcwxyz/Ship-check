@@ -4,11 +4,15 @@ on:
   pull_request:
     paths:
       - "apps/desktop/**"
+      - "scripts/generate-desktop-assets.cjs"
+      - "package.json"
       - ".github/workflows/desktop-validate.yml"
   push:
     branches: [main]
     paths:
       - "apps/desktop/**"
+      - "scripts/generate-desktop-assets.cjs"
+      - "package.json"
       - ".github/workflows/desktop-validate.yml"
 
 concurrency:
@@ -30,6 +34,10 @@ jobs:
           node --check apps/desktop/ui/app.js
           node --check apps/desktop/ui/bridge.js
           node --check apps/desktop/ui/components.js
+          node --check scripts/generate-desktop-assets.cjs
+
+      - name: Generate desktop assets
+        run: node scripts/generate-desktop-assets.cjs
 
       - name: Install Linux desktop dependencies
         run: |
