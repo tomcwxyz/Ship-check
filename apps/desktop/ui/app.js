@@ -1,5 +1,14 @@
 import { desktopBridge } from "./bridge.js";
 import { renderFindings, renderSummary, setEnginePill } from "./components.js";
+import {
+  appendDiagnostic,
+  clearDiagnostics,
+  createFailureDiagnostic,
+  createSuccessDiagnostic,
+  formatDiagnostics,
+  formatReceipt,
+  readDiagnostics,
+} from "./diagnostics.js";
 
 const state = {
   sourceMode: "local",
@@ -34,6 +43,11 @@ const elements = {
   findingsList: document.querySelector("#findings-list"),
   emptyState: document.querySelector("#empty-state"),
   emptyCopy: document.querySelector("#empty-copy"),
+  diagnosticsPanel: null,
+  diagnosticsSummary: null,
+  scanReceipt: null,
+  copyDiagnostics: null,
+  clearDiagnostics: null,
 };
 
 function selectedPacks() {
@@ -55,6 +69,10 @@ function clearError() {
 function sourceReady() {
   if (state.sourceMode === "github") return Boolean(state.githubRepository.trim());
   return Boolean(state.projectPath);
+}
+
+function currentSourceValue() {
+  return state.sourceMode === "github" ? state.githubRepository.trim() : state.projectPath;
 }
 
 function updateRunAvailability() {
@@ -113,6 +131,7 @@ function assertScanReport(report) {
     report.schemaVersion === "0.1" &&
     report.tool?.name === "ship-check" &&
     report.project &&
+    ["git-tracked", "filesystem"].includes(report.project.inventorySource) &&
     Array.isArray(report.checks) &&
     Array.isArray(report.findings) &&
     report.summary;
@@ -120,6 +139,106 @@ function assertScanReport(report) {
     throw new Error("The local engine returned an unexpected report. Update the desktop app and engine together.");
   }
   return report;
+}
+
+function ensureDiagnosticsPanel() {
+  if (elements.diagnosticsPanel) return;
+
+  const panel = document.createElement("details");
+  panel.className = "diagnostics-card";
+
+  const summary = document.createElement("summary");
+  summary.textContent = "Scan receipt & diagnostics";
+  panel.append(summary);
+
+  const copy = document.createElement("p");
+  copy.className = "source-help";
+  copy.textContent = "Stored locally for alpha testing. Includes repo label, engine version, inventory source, timings and check outcomes — never source contents, evidence excerpts or matched secret values.";
+  panel.append(copy);
+
+  const receipt = document.createElement("pre");
+  receipt.className = "scan-receipt";
+  panel.append(receipt);
+
+  const actions = document.createElement("div");
+  actions.className = "diagnostics-actions";
+
+  const copyButton = document.createElement("button");
+  copyButton.className = "button button-quiet";
+  copyButton.type = "button";
+  copyButton.textContent = "Copy diagnostics";
+
+  const clearButton = document.createElement("button");
+  clearButton.className = "button button-quiet";
+  clearButton.type = "button";
+  clearButton.textContent = "Clear diagnostics";
+
+  actions.append(copyButton, clearButton);
+  panel.append(actions);
+  elements.summaryGrid.insertAdjacentElement("afterend", panel);
+
+  elements.diagnosticsPanel = panel;
+  elements.diagnosticsSummary = summary;
+  elements.scanReceipt = receipt;
+  elements.copyDiagnostics = copyButton;
+  elements.clearDiagnostics = clearButton;
+
+  copyButton.addEventListener("click", async () => {
+    try {
+      const entries = readDiagnostics(window.localStorage);
+      await navigator.clipboard.writeText(formatDiagnostics(entries));
+      copyButton.textContent = `Copied ${entries.length} scan${entries.length === 1 ? "" : "s"}`;
+      window.setTimeout(() => {
+        copyButton.textContent = "Copy diagnostics";
+      }, 1600);
+    } catch (error) {
+      showError(`Could not copy diagnostics: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  });
+
+  clearButton.addEventListener("click", () => {
+    clearDiagnostics(window.localStorage);
+    renderDiagnostics(null, 0);
+  });
+}
+
+function renderDiagnostics(entry, count) {
+  ensureDiagnosticsPanel();
+  elements.diagnosticsSummary.textContent = `Scan receipt & diagnostics · ${count} stored`;
+  elements.scanReceipt.textContent = formatReceipt(entry);
+}
+
+function restoreDiagnostics() {
+  const entries = readDiagnostics(window.localStorage);
+  renderDiagnostics(entries.at(-1) ?? null, entries.length);
+}
+
+function recordSuccess(report, packs, startedAt) {
+  const entry = createSuccessDiagnostic({
+    report,
+    sourceMode: state.sourceMode,
+    sourceValue: currentSourceValue(),
+    gitRef: state.githubRef.trim(),
+    packs,
+    elapsedMs: performance.now() - startedAt,
+  });
+  const entries = appendDiagnostic(window.localStorage, entry);
+  renderDiagnostics(entry, entries.length);
+}
+
+function recordFailure(error, packs, startedAt) {
+  const message = error instanceof Error ? error.message : String(error);
+  const entry = createFailureDiagnostic({
+    sourceMode: state.sourceMode,
+    sourceValue: currentSourceValue(),
+    gitRef: state.githubRef.trim(),
+    packs,
+    elapsedMs: performance.now() - startedAt,
+    engineVersion: state.engine?.version,
+    error: message,
+  });
+  const entries = appendDiagnostic(window.localStorage, entry);
+  renderDiagnostics(entry, entries.length);
 }
 
 function renderReport(report) {
@@ -131,7 +250,8 @@ function renderReport(report) {
     ? "just now"
     : generated.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   const source = state.sourceMode === "github" ? "GitHub repo" : "local repo";
-  elements.scanMeta.textContent = `${source} · ${report.project.fileCount.toLocaleString("en-GB")} files · ${report.checks.length} checks · ${when}`;
+  const inventory = report.project.inventorySource === "git-tracked" ? "Git tracked" : "filesystem";
+  elements.scanMeta.textContent = `${source} · ${report.project.fileCount.toLocaleString("en-GB")} files · ${report.checks.length} checks · ${inventory} · ${when}`;
 
   elements.emptyCopy.textContent = report.findings.length === 0
     ? "The selected checks did not surface any findings. This is not a security or compliance certification."
@@ -175,6 +295,7 @@ async function runScan() {
     return;
   }
 
+  const startedAt = performance.now();
   clearError();
   setScanning(true);
   try {
@@ -191,8 +312,10 @@ async function runScan() {
       button.classList.toggle("is-active", button.dataset.severity === "all");
     }
     renderReport(report);
+    recordSuccess(report, packs, startedAt);
     elements.results.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
+    recordFailure(error, packs, startedAt);
     showError(error instanceof Error ? error.message : String(error));
   } finally {
     setScanning(false);
@@ -244,4 +367,5 @@ elements.severityFilters.addEventListener("click", (event) => {
 
 setProjectPath("");
 setSourceMode("local");
+restoreDiagnostics();
 refreshEngineStatus();
