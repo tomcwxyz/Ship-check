@@ -43,7 +43,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
       - run: pnpm install
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
+      - name: Dogfood Ship Check against its own repository
+        run: pnpm dogfood
+      - name: Compile standalone engine
+        run: bun build packages/cli/src/index.ts --compile --outfile dist/ship-check
+      - name: Smoke standalone engine
+        run: |
+          ./dist/ship-check --version
+          ./dist/ship-check scan ./test-fixtures/cost-safe --pack cost-aware --fail-on high
