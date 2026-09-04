@@ -1,0 +1,117 @@
+.source-switch {
+  width: fit-content;
+  margin-top: 28px;
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f1ede4;
+}
+
+.source-option {
+  min-height: 38px;
+  padding: 8px 15px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.source-option.is-active {
+  background: var(--paper-strong);
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(30, 35, 31, 0.08);
+}
+
+.source-option:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.source-panel {
+  margin-top: 14px;
+}
+
+.source-panel .project-path {
+  margin-top: 0;
+  grid-template-columns: 92px minmax(0, 1fr) auto;
+}
+
+.github-source {
+  padding: 18px;
+  border: 1px solid var(--soft-line);
+  border-radius: 15px;
+  background: #f8f5ed;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(180px, 0.8fr);
+  gap: 12px;
+}
+
+.repo-field {
+  display: grid;
+  gap: 8px;
+}
+
+.repo-field > span {
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.repo-field small {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.repo-field input {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper-strong);
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+}
+
+.repo-field input::placeholder {
+  color: #99978f;
+}
+
+.repo-field input:disabled {
+  opacity: 0.55;
+}
+
+.source-help {
+  margin: 12px 0 0;
+  max-width: 850px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .source-panel .project-path {
+    grid-template-columns: 1fr;
+  }
+
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .source-switch {
+    width: 100%;
+  }
+
+  .source-option {
+    flex: 1;
+  }
+}
