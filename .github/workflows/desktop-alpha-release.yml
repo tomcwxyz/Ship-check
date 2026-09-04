@@ -71,6 +71,8 @@ jobs:
           node --check apps/desktop/ui/app.js
           node --check apps/desktop/ui/bridge.js
           node --check apps/desktop/ui/components.js
+          node --check scripts/generate-desktop-assets.cjs
+      - run: pnpm desktop:assets
 
   create-release:
     name: Create draft desktop release
@@ -153,6 +155,7 @@ jobs:
 
       - run: pnpm install
       - run: pnpm build
+      - run: pnpm desktop:assets
 
       - name: Compile matching local engine
         shell: bash
