@@ -1,0 +1,168 @@
+name: Standalone engine alpha release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Engine version to release (must match package.json)"
+        required: true
+        type: string
+      confirm:
+        description: "Type ALPHA to confirm a draft pre-release"
+        required: true
+        type: string
+
+concurrency:
+  group: ship-check-engine-alpha-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Alpha release preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Require main, explicit confirmation and matching version
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+          RELEASE_CONFIRMATION: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::Alpha releases must be dispatched from main."
+            exit 1
+          fi
+          if [[ "$RELEASE_CONFIRMATION" != "ALPHA" ]]; then
+            echo "::error::Type ALPHA in the confirmation input."
+            exit 1
+          fi
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const manifest = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          if (manifest.version !== process.env.EXPECTED_VERSION) {
+            console.error(`package.json is ${manifest.version}, expected ${process.env.EXPECTED_VERSION}`);
+            process.exit(1);
+          }
+          NODE
+
+      - run: pnpm install
+      - run: pnpm check
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm dogfood
+
+  create-release:
+    name: Create draft release
+    needs: preflight
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create draft pre-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          tag="ship-check-engine-v${VERSION}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release $tag already exists."
+            exit 1
+          fi
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --draft \
+            --prerelease \
+            --title "Ship Check ${VERSION} · engine alpha" \
+            --notes "Early standalone Ship Check engine for local alpha testing. These binaries are unsigned and are not a security certification. The engine runs locally and does not require Node, pnpm or Bun on the target machine. Windows may show SmartScreen warnings."
+
+  build:
+    name: ${{ matrix.label }}
+    needs: create-release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            label: Windows x64 engine
+            os_name: windows_x64
+          - platform: ubuntu-latest
+            label: Linux x64 engine
+            os_name: linux_x64
+
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: pnpm install
+      - run: pnpm build
+
+      - name: Compile and smoke standalone engine
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+          OS_NAME: ${{ matrix.os_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist/release
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            engine="dist/ship-check.exe"
+            asset="dist/release/ship-check-engine_${VERSION}_${OS_NAME}.exe"
+          else
+            engine="dist/ship-check"
+            asset="dist/release/ship-check-engine_${VERSION}_${OS_NAME}"
+          fi
+          bun build packages/cli/src/index.ts --compile --outfile "$engine"
+          "$engine" --version
+          "$engine" scan ./test-fixtures/cost-safe --pack cost-aware --fail-on high
+          cp "$engine" "$asset"
+          echo "ASSET=$asset" >> "$GITHUB_ENV"
+
+      - name: Upload to draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          gh release upload "ship-check-engine-v${VERSION}" "$ASSET" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber
