@@ -45,10 +45,13 @@ From the repository root:
 ```bash
 pnpm install
 pnpm build:engine
+pnpm desktop:assets
 cargo install tauri-cli --version "^2.0.0" --locked
 cd apps/desktop
 cargo tauri dev
 ```
+
+`desktop:assets` creates the platform icon files from the small checked-in icon source. The generated PNG/ICO files are build artefacts and stay out of source control.
 
 You can also point the desktop at another locally built engine:
 
@@ -65,4 +68,4 @@ cargo tauri dev
 
 ## Release cost discipline
 
-Normal desktop validation only runs when `apps/desktop/**` changes. Multi-platform Windows/Linux packaging is manual through the Desktop alpha release workflow and requires an explicit `ALPHA` confirmation. This keeps native runner work tied to intentional releases rather than every development commit.
+Normal desktop validation only runs when `apps/desktop/**` or its asset generator changes. Multi-platform Windows/Linux packaging is manual through the Desktop alpha release workflow and requires an explicit `ALPHA` confirmation. This keeps native runner work tied to intentional releases rather than every development commit.
