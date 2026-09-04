@@ -34,7 +34,11 @@ jobs:
           node --check apps/desktop/ui/app.js
           node --check apps/desktop/ui/bridge.js
           node --check apps/desktop/ui/components.js
+          node --check apps/desktop/ui/diagnostics.js
           node --check scripts/generate-desktop-assets.cjs
+
+      - name: Test desktop diagnostics
+        run: node --test apps/desktop/ui/diagnostics.test.mjs
 
       - name: Generate desktop assets
         run: node scripts/generate-desktop-assets.cjs
