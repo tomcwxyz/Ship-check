@@ -23,4 +23,14 @@ export const desktopBridge = {
       },
     });
   },
+
+  scanGithubRepository(repository, gitRef, packs) {
+    return invokeCommand("scan_github_repository", {
+      request: {
+        repository,
+        gitRef: gitRef || null,
+        packs,
+      },
+    });
+  },
 };

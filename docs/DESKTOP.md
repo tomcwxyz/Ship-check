@@ -1,27 +1,37 @@
 # Desktop alpha
 
-The desktop app is a local review surface over the same Ship Check engine used by the CLI and ecosystem adapters. It deliberately does not contain a second implementation of checks.
+The desktop app is a repository review surface over the same Ship Check engine used by the CLI and ecosystem adapters. It deliberately does not contain a second implementation of checks.
 
 ## User flow
 
-1. Choose a project folder with the native folder picker.
-2. Choose one or more bounded check packs.
-3. Run the local engine.
-4. Review severity, evidence, remediation and verification guidance.
-5. Copy a repair prompt if useful, make changes in the tool of your choice, then run Ship Check again.
+1. Choose **Local folder** or **GitHub repo**.
+2. Select a local project, or enter `owner/repository` / a github.com repository URL and optionally a branch or tag.
+3. Choose one or more bounded check packs.
+4. Run the local engine.
+5. Review severity, evidence, remediation and verification guidance.
+6. Copy a repair prompt if useful, make changes in the tool of your choice, then run Ship Check again.
 
 The first alpha keeps the complete findings list visible with severity filters. A focused one-finding-at-a-time mode can be added after we have tested the review flow against larger real repositories.
 
 ## Trust boundary
 
-The native layer invokes a known Ship Check executable directly with `std::process::Command`. It never passes a shell command string.
+The native layer invokes known executables directly with `std::process::Command`. It never passes a shell command string.
 
-Only these values can vary:
+For a normal local scan, only these values can vary:
 
 - the project folder selected by the user;
 - allow-listed pack IDs: `secure-build`, `production-ready`, `cost-aware`.
 
-The desktop fixes the remaining arguments to `scan`, `--format json` and `--fail-on never`. Repository content, TOPO context and RACK shared practice cannot supply commands or replace the executable path.
+For a GitHub scan, Ship Check additionally accepts:
+
+- a repository in `owner/repository`, `https://github.com/owner/repository`, GitHub SSH or `ssh://git@github.com/...` form;
+- an optional branch or tag.
+
+GitHub repository hosts are constrained to `github.com`. HTTPS URLs containing embedded usernames, passwords or tokens are rejected. Refs beginning with `-`, containing line breaks/null bytes, or exceeding the bounded length are rejected before Git is invoked.
+
+The Git process is a direct, shallow, single-branch clone with a two-minute timeout. `GIT_TERMINAL_PROMPT=0` prevents an invisible terminal prompt from hanging the desktop app. Existing credential-manager state or SSH keys may still allow access to private repositories.
+
+The desktop fixes the engine arguments to `scan`, `--format json` and `--fail-on never`. Repository content, TOPO context and RACK shared practice cannot supply commands or replace the executable path.
 
 The engine is resolved in this order:
 
@@ -34,7 +44,11 @@ Release packaging compiles the engine from the same commit on each target runner
 
 ## Data handling
 
-A desktop scan reads the selected project locally. The initial app does not upload source, retain source content, or persist scan history. Evidence excerpts are only rendered in the current review session.
+A local-folder scan reads the selected project in place and does not upload source.
+
+A GitHub scan downloads a shallow checkout into the operating system's temporary directory, runs the same local engine against it, then removes that checkout when the scan returns or errors. Ship Check itself does not send repository content to a hosted Ship Check service.
+
+The initial app does not retain source content or persist scan history. Evidence excerpts are only rendered in the current review session.
 
 Ship Check results are assurance evidence for human review, not a security or compliance certification.
 
@@ -65,6 +79,8 @@ On PowerShell:
 $env:SHIP_CHECK_ENGINE_PATH = "C:\path\to\ship-check-engine.exe"
 cargo tauri dev
 ```
+
+GitHub mode also requires Git to be installed and available to the desktop process.
 
 ## Release cost discipline
 

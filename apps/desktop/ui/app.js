@@ -2,7 +2,10 @@ import { desktopBridge } from "./bridge.js";
 import { renderFindings, renderSummary, setEnginePill } from "./components.js";
 
 const state = {
+  sourceMode: "local",
   projectPath: "",
+  githubRepository: "",
+  githubRef: "",
   engine: null,
   report: null,
   scanning: false,
@@ -12,6 +15,11 @@ const state = {
 const elements = {
   enginePill: document.querySelector("#engine-pill"),
   engineLabel: document.querySelector("#engine-label"),
+  sourceSwitch: document.querySelector("#source-switch"),
+  localSource: document.querySelector("#local-source"),
+  githubSource: document.querySelector("#github-source"),
+  githubRepository: document.querySelector("#github-repository"),
+  githubRef: document.querySelector("#github-ref"),
   chooseProject: document.querySelector("#choose-project"),
   projectPath: document.querySelector("#project-path"),
   projectPathValue: document.querySelector("#project-path-value"),
@@ -44,9 +52,14 @@ function clearError() {
   elements.errorBanner.hidden = true;
 }
 
+function sourceReady() {
+  if (state.sourceMode === "github") return Boolean(state.githubRepository.trim());
+  return Boolean(state.projectPath);
+}
+
 function updateRunAvailability() {
   const ready =
-    Boolean(state.projectPath) &&
+    sourceReady() &&
     Boolean(state.engine?.available) &&
     selectedPacks().length > 0 &&
     !state.scanning;
@@ -56,8 +69,17 @@ function updateRunAvailability() {
 
 function setScanning(scanning) {
   state.scanning = scanning;
-  elements.runScan.textContent = scanning ? "Checking…" : "Run Ship Check";
+  elements.runScan.textContent = scanning
+    ? state.sourceMode === "github"
+      ? "Checking out & scanning…"
+      : "Checking…"
+    : "Check this repo";
   elements.chooseProject.disabled = scanning;
+  elements.githubRepository.disabled = scanning;
+  elements.githubRef.disabled = scanning;
+  for (const button of elements.sourceSwitch.querySelectorAll("[data-source]")) {
+    button.disabled = scanning;
+  }
   for (const checkbox of elements.packGrid.querySelectorAll('input[type="checkbox"]')) {
     checkbox.disabled = scanning;
   }
@@ -70,6 +92,19 @@ function setProjectPath(projectPath) {
   elements.projectPathValue.textContent = state.projectPath || "No folder chosen yet";
   elements.projectPathValue.title = state.projectPath;
   updateRunAvailability();
+}
+
+function setSourceMode(mode) {
+  if (mode !== "local" && mode !== "github") return;
+  state.sourceMode = mode;
+  elements.localSource.hidden = mode !== "local";
+  elements.githubSource.hidden = mode !== "github";
+  for (const button of elements.sourceSwitch.querySelectorAll("[data-source]")) {
+    button.classList.toggle("is-active", button.dataset.source === mode);
+  }
+  clearError();
+  updateRunAvailability();
+  if (mode === "github") elements.githubRepository.focus();
 }
 
 function assertScanReport(report) {
@@ -95,7 +130,8 @@ function renderReport(report) {
   const when = Number.isNaN(generated.getTime())
     ? "just now"
     : generated.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-  elements.scanMeta.textContent = `${report.project.fileCount.toLocaleString("en-GB")} files · ${report.checks.length} checks · ${when}`;
+  const source = state.sourceMode === "github" ? "GitHub repo" : "local repo";
+  elements.scanMeta.textContent = `${source} · ${report.project.fileCount.toLocaleString("en-GB")} files · ${report.checks.length} checks · ${when}`;
 
   elements.emptyCopy.textContent = report.findings.length === 0
     ? "The selected checks did not surface any findings. This is not a security or compliance certification."
@@ -132,7 +168,7 @@ async function chooseProject() {
 }
 
 async function runScan() {
-  if (!state.projectPath || !state.engine?.available || state.scanning) return;
+  if (!sourceReady() || !state.engine?.available || state.scanning) return;
   const packs = selectedPacks();
   if (packs.length === 0) {
     showError("Choose at least one check pack.");
@@ -142,7 +178,14 @@ async function runScan() {
   clearError();
   setScanning(true);
   try {
-    const report = assertScanReport(await desktopBridge.scanProject(state.projectPath, packs));
+    const rawReport = state.sourceMode === "github"
+      ? await desktopBridge.scanGithubRepository(
+          state.githubRepository.trim(),
+          state.githubRef.trim(),
+          packs,
+        )
+      : await desktopBridge.scanProject(state.projectPath, packs);
+    const report = assertScanReport(rawReport);
     state.severityFilter = "all";
     for (const button of elements.severityFilters.querySelectorAll("[data-severity]")) {
       button.classList.toggle("is-active", button.dataset.severity === "all");
@@ -155,6 +198,29 @@ async function runScan() {
     setScanning(false);
   }
 }
+
+elements.sourceSwitch.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-source]");
+  if (!button || state.scanning) return;
+  setSourceMode(button.dataset.source);
+});
+
+elements.githubRepository.addEventListener("input", (event) => {
+  state.githubRepository = event.target.value;
+  updateRunAvailability();
+});
+
+elements.githubRef.addEventListener("input", (event) => {
+  state.githubRef = event.target.value;
+});
+
+elements.githubRepository.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !elements.runScan.disabled) runScan();
+});
+
+elements.githubRef.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !elements.runScan.disabled) runScan();
+});
 
 elements.chooseProject.addEventListener("click", chooseProject);
 elements.runScan.addEventListener("click", runScan);
@@ -177,4 +243,5 @@ elements.severityFilters.addEventListener("click", (event) => {
 });
 
 setProjectPath("");
+setSourceMode("local");
 refreshEngineStatus();

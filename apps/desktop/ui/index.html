@@ -6,6 +6,7 @@
     <meta name="color-scheme" content="light" />
     <title>Ship Check</title>
     <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./repo-mode.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -14,7 +15,7 @@
           <div class="brand-mark" aria-hidden="true">✓</div>
           <div>
             <p class="brand-name">Ship Check</p>
-            <p class="brand-kicker">Local software assurance</p>
+            <p class="brand-kicker">Repository assurance</p>
           </div>
         </div>
         <div class="engine-pill" id="engine-pill" data-state="checking">
@@ -26,28 +27,51 @@
       <main>
         <section class="hero" aria-labelledby="hero-title">
           <p class="eyebrow">Before it ships</p>
-          <h1 id="hero-title">See the risky bits. Keep the evidence.</h1>
+          <h1 id="hero-title">Check the repo. Find the risky bits.</h1>
           <p class="hero-copy">
-            Ship Check reads a project on this machine, runs deterministic checks and gives you evidence you can review before deciding what to fix.
+            Point Ship Check at a local project or GitHub repository. It runs deterministic checks, shows the evidence and gives you repair guidance you can hand back to your coding agent.
           </p>
           <div class="privacy-note">
             <span aria-hidden="true">●</span>
-            Source stays local. No repository content is uploaded by this desktop scan.
+            Local scans never upload source. GitHub scans use a temporary local checkout and remove it afterwards.
           </div>
         </section>
 
         <section class="scan-card" aria-labelledby="scan-title">
           <div class="scan-heading">
             <div>
-              <p class="section-kicker">1 · Project</p>
+              <p class="section-kicker">1 · Repository</p>
               <h2 id="scan-title">Choose what to check</h2>
             </div>
-            <button class="button button-secondary" id="choose-project" type="button">Choose project</button>
           </div>
 
-          <div class="project-path" id="project-path" data-empty="true">
-            <span class="project-path-label">Project</span>
-            <span class="project-path-value" id="project-path-value">No folder chosen yet</span>
+          <div class="source-switch" id="source-switch" aria-label="Repository source">
+            <button class="source-option is-active" type="button" data-source="local">Local folder</button>
+            <button class="source-option" type="button" data-source="github">GitHub repo</button>
+          </div>
+
+          <div id="local-source" class="source-panel">
+            <div class="project-path" id="project-path" data-empty="true">
+              <span class="project-path-label">Project</span>
+              <span class="project-path-value" id="project-path-value">No folder chosen yet</span>
+              <button class="button button-secondary" id="choose-project" type="button">Choose project</button>
+            </div>
+          </div>
+
+          <div id="github-source" class="source-panel github-source" hidden>
+            <div class="field-grid">
+              <label class="repo-field repo-field-wide">
+                <span>GitHub repository</span>
+                <input id="github-repository" type="text" autocomplete="off" spellcheck="false" placeholder="owner/repository or https://github.com/owner/repository" />
+              </label>
+              <label class="repo-field">
+                <span>Branch or tag <small>optional</small></span>
+                <input id="github-ref" type="text" autocomplete="off" spellcheck="false" placeholder="main" />
+              </label>
+            </div>
+            <p class="source-help">
+              Ship Check asks your installed Git client to make a shallow temporary checkout. Existing Git credentials or SSH keys can be used for private repositories; tokens in repository URLs are rejected.
+            </p>
           </div>
 
           <fieldset class="pack-grid" id="pack-grid">
@@ -77,11 +101,11 @@
 
           <div class="scan-actions">
             <div class="scan-explainer">
-              <strong>Nothing changes in your project.</strong>
+              <strong>Nothing changes in the repository.</strong>
               <span>The engine only reads repository evidence for this scan.</span>
             </div>
             <button class="button button-primary" id="run-scan" type="button" disabled>
-              Run Ship Check
+              Check this repo
             </button>
           </div>
 
@@ -123,7 +147,7 @@
 
       <footer class="footer">
         <span>Ship Check alpha</span>
-        <span>Evidence, not certification.</span>
+        <span>Repository evidence, not certification.</span>
       </footer>
     </div>
 
