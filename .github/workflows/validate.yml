@@ -11,6 +11,7 @@ on:
       - "tsconfig.base.json"
       - "turbo.json"
       - ".github/workflows/validate.yml"
+      - ".github/workflows/engine-alpha-release.yml"
   push:
     branches: [main]
     paths:
@@ -22,6 +23,7 @@ on:
       - "tsconfig.base.json"
       - "turbo.json"
       - ".github/workflows/validate.yml"
+      - ".github/workflows/engine-alpha-release.yml"
 
 concurrency:
   group: ship-check-validate-${{ github.ref }}
