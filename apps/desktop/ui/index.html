@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light" />
+    <title>Ship Check</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-lockup" aria-label="Ship Check">
+          <div class="brand-mark" aria-hidden="true">✓</div>
+          <div>
+            <p class="brand-name">Ship Check</p>
+            <p class="brand-kicker">Local software assurance</p>
+          </div>
+        </div>
+        <div class="engine-pill" id="engine-pill" data-state="checking">
+          <span class="engine-dot" aria-hidden="true"></span>
+          <span id="engine-label">Checking local engine…</span>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="hero-title">
+          <p class="eyebrow">Before it ships</p>
+          <h1 id="hero-title">See the risky bits. Keep the evidence.</h1>
+          <p class="hero-copy">
+            Ship Check reads a project on this machine, runs deterministic checks and gives you evidence you can review before deciding what to fix.
+          </p>
+          <div class="privacy-note">
+            <span aria-hidden="true">●</span>
+            Source stays local. No repository content is uploaded by this desktop scan.
+          </div>
+        </section>
+
+        <section class="scan-card" aria-labelledby="scan-title">
+          <div class="scan-heading">
+            <div>
+              <p class="section-kicker">1 · Project</p>
+              <h2 id="scan-title">Choose what to check</h2>
+            </div>
+            <button class="button button-secondary" id="choose-project" type="button">Choose project</button>
+          </div>
+
+          <div class="project-path" id="project-path" data-empty="true">
+            <span class="project-path-label">Project</span>
+            <span class="project-path-value" id="project-path-value">No folder chosen yet</span>
+          </div>
+
+          <fieldset class="pack-grid" id="pack-grid">
+            <legend>Check packs</legend>
+            <label class="pack-card">
+              <input type="checkbox" value="secure-build" checked />
+              <span>
+                <strong>Secure Build</strong>
+                <small>Secrets, risky configuration and obvious security footguns.</small>
+              </span>
+            </label>
+            <label class="pack-card">
+              <input type="checkbox" value="production-ready" checked />
+              <span>
+                <strong>Production Ready</strong>
+                <small>Operational safeguards and release-readiness evidence.</small>
+              </span>
+            </label>
+            <label class="pack-card">
+              <input type="checkbox" value="cost-aware" checked />
+              <span>
+                <strong>Cost Aware</strong>
+                <small>Known patterns that can create avoidable compute and polling spend.</small>
+              </span>
+            </label>
+          </fieldset>
+
+          <div class="scan-actions">
+            <div class="scan-explainer">
+              <strong>Nothing changes in your project.</strong>
+              <span>The engine only reads repository evidence for this scan.</span>
+            </div>
+            <button class="button button-primary" id="run-scan" type="button" disabled>
+              Run Ship Check
+            </button>
+          </div>
+
+          <div class="error-banner" id="error-banner" role="alert" hidden></div>
+        </section>
+
+        <section class="results" id="results" aria-labelledby="results-title" hidden>
+          <div class="results-heading">
+            <div>
+              <p class="section-kicker">2 · Review</p>
+              <h2 id="results-title">What needs attention</h2>
+            </div>
+            <p class="scan-meta" id="scan-meta"></p>
+          </div>
+
+          <div class="summary-grid" id="summary-grid" aria-label="Scan summary"></div>
+
+          <div class="results-toolbar">
+            <div class="filter-group" id="severity-filters" aria-label="Filter findings by severity">
+              <button class="filter-chip is-active" type="button" data-severity="all">All</button>
+              <button class="filter-chip" type="button" data-severity="critical">Critical</button>
+              <button class="filter-chip" type="button" data-severity="high">High</button>
+              <button class="filter-chip" type="button" data-severity="medium">Medium</button>
+              <button class="filter-chip" type="button" data-severity="low">Low</button>
+              <button class="filter-chip" type="button" data-severity="info">Info</button>
+            </div>
+            <button class="button button-quiet" id="rerun-scan" type="button">Run again</button>
+          </div>
+
+          <div class="empty-state" id="empty-state" hidden>
+            <p class="empty-symbol" aria-hidden="true">✓</p>
+            <h3>No findings in this view</h3>
+            <p id="empty-copy">The selected checks did not surface anything here.</p>
+          </div>
+
+          <div class="findings-list" id="findings-list"></div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>Ship Check alpha</span>
+        <span>Evidence, not certification.</span>
+      </footer>
+    </div>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Ship Check",
+  "version": "0.0.0-alpha.1",
+  "identifier": "uk.co.good-ship.ship-check",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "title": "Ship Check",
+        "width": 1180,
+        "height": 780,
+        "minWidth": 860,
+        "minHeight": 620,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:; connect-src ipc: http://ipc.localhost"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "category": "DeveloperTool",
+    "shortDescription": "Local-first software assurance checks.",
+    "longDescription": "Review deterministic Ship Check findings, evidence and repair guidance against a project on your own machine.",
+    "resources": ["resources/*"]
+  }
+}
