@@ -9,8 +9,10 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@ship-check/adapters": "workspace:*",
     "@ship-check/checks": "workspace:*",
     "@ship-check/core": "workspace:*",
+    "@ship-check/cost-checks": "workspace:*",
     "@ship-check/schemas": "workspace:*"
   }
 }
