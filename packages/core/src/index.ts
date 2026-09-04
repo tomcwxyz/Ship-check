@@ -41,10 +41,6 @@ async function gitTrackedFiles(root: string): Promise<string[] | null> {
     );
     if (insideWorkTree.trim() !== "true") return null;
 
-    // Ask Git for paths relative to the exact directory being scanned. The
-    // previous implementation compared Git's top-level path with Node's
-    // resolved path and could filter every tracked file on Windows when slash
-    // styles differed (C:/... vs C:\\...).
     const { stdout } = await execFileAsync(
       "git",
       ["-C", root, "ls-files", "-z", "--", "."],
@@ -135,7 +131,7 @@ function summarise(findings: Finding[]): ScanReport["summary"] {
   return summary;
 }
 
-export async function scanProject(projectPath: string, checks: CheckDefinition[], version = "0.0.0-alpha.2"): Promise<ScanReport> {
+export async function scanProject(projectPath: string, checks: CheckDefinition[], version = "0.0.0-alpha.4"): Promise<ScanReport> {
   const context = await createProjectContext(projectPath);
   const findings: Finding[] = [];
   const results: CheckResult[] = [];
@@ -167,7 +163,12 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
   const report = {
     schemaVersion: "0.1" as const,
     tool: { name: "ship-check" as const, version },
-    project: { path: context.root, gitRepository: context.gitRepository, fileCount: context.files.length },
+    project: {
+      path: context.root,
+      gitRepository: context.gitRepository,
+      inventorySource: context.inventorySource,
+      fileCount: context.files.length
+    },
     packs: [...new Set(checks.map((check) => check.pack))],
     checks: results,
     findings: findings.sort((a, b) => `${a.severity}:${a.id}`.localeCompare(`${b.severity}:${b.id}`)),
