@@ -1,0 +1,205 @@
+name: Desktop alpha release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Desktop version to release (must match package.json and tauri.conf.json)"
+        required: true
+        type: string
+      confirm:
+        description: "Type ALPHA to confirm an unsigned draft pre-release"
+        required: true
+        type: string
+
+concurrency:
+  group: ship-check-desktop-alpha-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Desktop alpha preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Require main, explicit confirmation and matching versions
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+          RELEASE_CONFIRMATION: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::Desktop alpha releases must be dispatched from main."
+            exit 1
+          fi
+          if [[ "$RELEASE_CONFIRMATION" != "ALPHA" ]]; then
+            echo "::error::Type ALPHA in the confirmation input."
+            exit 1
+          fi
+          node - <<'NODE'
+          const fs = require('node:fs');
+          const root = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const tauri = JSON.parse(fs.readFileSync('apps/desktop/src-tauri/tauri.conf.json', 'utf8'));
+          const expected = process.env.EXPECTED_VERSION;
+          if (root.version !== expected || tauri.version !== expected) {
+            console.error(`Version mismatch: root=${root.version}, desktop=${tauri.version}, expected=${expected}`);
+            process.exit(1);
+          }
+          NODE
+
+      - run: pnpm install
+      - run: pnpm check
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm dogfood
+      - run: |
+          node --check apps/desktop/ui/app.js
+          node --check apps/desktop/ui/bridge.js
+          node --check apps/desktop/ui/components.js
+
+  create-release:
+    name: Create draft desktop release
+    needs: preflight
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create draft pre-release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          tag="ship-check-desktop-v${VERSION}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release $tag already exists."
+            exit 1
+          fi
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --draft \
+            --prerelease \
+            --title "Ship Check ${VERSION} · desktop alpha" \
+            --notes "Early local-first Ship Check desktop alpha. The matching deterministic engine is bundled with the app and repository source remains local during desktop scans. These installers are unsigned; Windows may show SmartScreen warnings. Ship Check findings are evidence for human review, not a security or compliance certification."
+
+  build:
+    name: ${{ matrix.label }}
+    needs: create-release
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            label: Windows x64 desktop
+            bundle: nsis
+          - platform: ubuntu-latest
+            label: Linux x64 desktop
+            bundle: deb
+
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux desktop dependencies
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            file \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            wget
+
+      - run: pnpm install
+      - run: pnpm build
+
+      - name: Compile matching local engine
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p apps/desktop/src-tauri/resources
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            engine="apps/desktop/src-tauri/resources/ship-check-engine.exe"
+          else
+            engine="apps/desktop/src-tauri/resources/ship-check-engine"
+          fi
+          bun build packages/cli/src/index.ts --compile --outfile "$engine"
+          if [[ "$RUNNER_OS" != "Windows" ]]; then chmod +x "$engine"; fi
+          "$engine" --version
+          "$engine" scan ./test-fixtures/cost-safe --pack cost-aware --fail-on high
+
+      - name: Install Tauri CLI
+        shell: bash
+        run: cargo install tauri-cli --version "^2.0.0" --locked
+
+      - name: Build desktop bundle
+        working-directory: apps/desktop
+        shell: bash
+        env:
+          BUNDLE: ${{ matrix.bundle }}
+        run: cargo tauri build --bundles "$BUNDLE"
+
+      - name: Upload installers to draft release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            pattern="apps/desktop/src-tauri/target/release/bundle/nsis/*.exe"
+          else
+            pattern="apps/desktop/src-tauri/target/release/bundle/deb/*.deb"
+          fi
+          shopt -s nullglob
+          files=( $pattern )
+          if [[ ${#files[@]} -eq 0 ]]; then
+            echo "::error::No desktop installer was produced for $RUNNER_OS."
+            exit 1
+          fi
+          for asset in "${files[@]}"; do
+            gh release upload "ship-check-desktop-v${VERSION}" "$asset" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber
+          done
