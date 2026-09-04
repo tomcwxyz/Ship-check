@@ -1,0 +1,25 @@
+{
+  "name": "ship-check",
+  "version": "0.0.0-alpha.1",
+  "private": true,
+  "type": "module",
+  "description": "Local-first software assurance checks with portable findings and repair guidance.",
+  "license": "Apache-2.0",
+  "packageManager": "pnpm@10.15.0",
+  "engines": { "node": ">=22.12.0" },
+  "scripts": {
+    "build": "turbo run build",
+    "check": "turbo run check",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "ship-check": "pnpm --filter @ship-check/cli build && node packages/cli/dist/index.js",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "prettier": "^3.6.2",
+    "turbo": "^2.10.7",
+    "typescript": "^5.9.2",
+    "vitest": "^4.0.0"
+  }
+}
