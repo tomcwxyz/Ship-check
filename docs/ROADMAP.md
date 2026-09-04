@@ -10,18 +10,22 @@
 - [x] Optional severity exit gate for CI/RACK use.
 - [x] Risky/safe regression fixtures.
 - [x] Self-contained native engine compilation and dogfood gate.
+- [x] Standalone CLI repository source accepts either a local folder or a transient GitHub checkout.
 - [ ] Run the checks across a representative Good Ship app corpus and record false positives/false negatives.
 - [ ] Add check metadata/versioning and suppression with explicit rationale.
 
-## Alpha 1 — useful review surface
+## Alpha 1 — useful standalone repository review
 
 - [x] Dependency-light Tauri desktop shell following the RACK/TOPO local-first boundary without duplicating checker logic.
 - [x] Native folder selection, local-engine status, scan progress and summary.
+- [x] GitHub repository mode with shallow temporary checkout, optional branch/tag and cleanup after the scan.
 - [x] Finding review with severity/pack context, evidence, why it matters, fix, verification guidance, copy repair prompt and re-check.
+- [ ] Corpus-led tuning of the three current packs before broadening the rule catalogue.
 - [ ] Optional focused one-finding-at-a-time review mode for larger scans.
 - [ ] Local scan history with no source-content retention by default.
-- [ ] Windows test installer automatically built from coherent changes on `main`.
-- [ ] Manual unsigned Windows/Linux desktop alpha pre-release with explicit confirmation and the matching engine bundled as a local resource.
+- [ ] Compare against the last clean check so regressions and newly introduced findings are obvious.
+- [x] Manual unsigned Windows/Linux desktop alpha pre-release workflow with explicit confirmation and matching bundled engine.
+- [ ] Automatic Windows test installer from coherent `main` changes once the standalone repo flow has been dogfooded enough to justify routine installer output.
 
 ## Alpha 2 — stronger deterministic packs
 
