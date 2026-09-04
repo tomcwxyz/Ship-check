@@ -2,9 +2,9 @@
 
 **Know what is actually wrong before you ship.**
 
-Ship Check is a local-first assurance tool for software built quickly with AI-assisted development tools. It inspects a project using repeatable deterministic checks, explains findings in plain language, and produces evidence-rich repair instructions that can be handed back to an agent or developer.
+Ship Check is a repository checker for software built quickly with AI-assisted development tools. Point it at a local project or GitHub repository and it runs repeatable deterministic checks, explains the evidence in plain language, and produces repair instructions that can be handed back to an agent or developer.
 
-The project is being built as a standalone Good Ship tool with deliberate interoperability boundaries for [RACK](https://github.com/tomcwxyz/rack), [TOPO](https://github.com/tomcwxyz/TOPO) and the wider Organisational OS work.
+The standalone repository check is the primary product surface. The same checking engine can also be invoked by [RACK](https://github.com/tomcwxyz/rack), informed by purpose-bound [TOPO](https://github.com/tomcwxyz/TOPO) context, and later contribute metadata-only assurance signals to wider Organisational OS work.
 
 ## Alpha direction
 
@@ -13,7 +13,7 @@ The alpha is deliberately narrower than a penetration test or general-purpose AI
 1. deterministic evidence before model judgement;
 2. structured, portable findings rather than prose-only reports;
 3. explicit repair guidance and verification steps;
-4. local-first operation with no account or hosted service required.
+4. local-first operation with no account or hosted Ship Check service required.
 
 The current deterministic packs are:
 
@@ -23,34 +23,26 @@ The current deterministic packs are:
 
 Cost Aware exists because a product can be technically functional while quietly consuming compute or paid APIs all day. It should remain evidence-led rather than becoming a generic optimisation linter.
 
-## Repository shape
+## Check a repository
 
-Ship Check follows the same broad separation used by RACK and TOPO:
-
-- `packages/schemas` — portable finding, evidence, check-pack, report and assurance-gate contracts;
-- `packages/core` — repository inventory, check orchestration, severity/confidence policy and report assembly;
-- `packages/checks` — Secure Build and Production Ready deterministic checks;
-- `packages/cost-checks` — Cost Aware deterministic checks kept separately so the pack can evolve without turning security checks into cost heuristics;
-- `packages/adapters` — process/JSON bridge helpers for RACK, TOPO context requests and metadata-only Organisational OS assurance summaries;
-- `packages/cli` — thin local CLI over the same engine and adapters;
-- `apps/desktop` — Tauri + React review surface (alpha shell follows once the engine contract is stable);
-- `test-fixtures` — deliberately vulnerable/safe fixtures used as regression evidence;
-- `docs` — architecture, roadmap, interoperability and release notes.
-
-The core package remains UI-agnostic. RACK consumes a bounded verification result rather than importing desktop code. TOPO context is purpose-bound and optional, and must stay visually and semantically separate from deterministic repository evidence.
-
-## Alpha command
-
-Once dependencies are installed:
+Local folder:
 
 ```bash
-pnpm install
-pnpm check
-pnpm test
-pnpm ship-check -- scan ./test-fixtures/risky-next --format pretty
+pnpm ship-check -- scan ./my-project
 ```
 
-Run only the Cost Aware pack:
+GitHub repository:
+
+```bash
+pnpm ship-check -- scan tomcwxyz/Ship-check
+pnpm ship-check -- scan https://github.com/tomcwxyz/Ship-check --ref main
+```
+
+For a GitHub source, Ship Check asks the installed Git client to make a shallow temporary checkout, scans it with the same local engine, then removes the checkout. Existing Git credentials or SSH keys can be used for private repositories; credentials embedded in repository URLs are rejected.
+
+The desktop alpha exposes the same two entry points: **Local folder** and **GitHub repo**. GitHub mode is a transport into the standalone checker, not a hosted scanning service.
+
+Run one pack:
 
 ```bash
 pnpm ship-check -- scan ./my-project --pack cost-aware
@@ -61,6 +53,8 @@ JSON remains the complete portable report:
 ```bash
 pnpm ship-check -- scan ./my-project --format json > ship-check-report.json
 ```
+
+## Ecosystem use
 
 RACK-compatible gate output is deliberately smaller and has the same `pass | fail | uncertain | incomplete` outcome vocabulary as RACK verification:
 
@@ -76,6 +70,31 @@ A metadata-only Organisational OS summary can be emitted without handing source 
 
 ```bash
 pnpm ship-check -- scan ./my-project --format oos --gate ship-check
+```
+
+## Repository shape
+
+Ship Check follows the same broad separation used by RACK and TOPO:
+
+- `packages/schemas` — portable finding, evidence, check-pack, report and assurance-gate contracts;
+- `packages/core` — repository inventory, check orchestration, severity/confidence policy and report assembly;
+- `packages/checks` — Secure Build and Production Ready deterministic checks;
+- `packages/cost-checks` — Cost Aware deterministic checks;
+- `packages/adapters` — RACK, TOPO and organisational assurance bridges;
+- `packages/cli` — standalone CLI, including local and transient GitHub repository sources;
+- `apps/desktop` — Tauri desktop review surface over the same canonical engine;
+- `test-fixtures` — deliberately vulnerable/safe fixtures used as regression evidence;
+- `docs` — architecture, roadmap, interoperability and release notes.
+
+The core package remains UI-agnostic. RACK consumes a bounded verification result rather than importing desktop code. TOPO context is purpose-bound and optional, and must stay visually and semantically separate from deterministic repository evidence.
+
+## Development
+
+```bash
+pnpm install
+pnpm check
+pnpm test
+pnpm ship-check -- scan ./test-fixtures/risky-next --format pretty
 ```
 
 ## Product boundary
