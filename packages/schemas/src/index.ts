@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const CheckPackSchema = z.enum(["secure-build", "production-ready"]);
+export const CheckPackSchema = z.enum(["secure-build", "production-ready", "cost-aware"]);
 export type CheckPack = z.infer<typeof CheckPackSchema>;
 
 export const SeveritySchema = z.enum(["critical", "high", "medium", "low", "info"]);
@@ -67,3 +67,50 @@ export const ScanReportSchema = z.object({
   generatedAt: z.string().datetime()
 });
 export type ScanReport = z.infer<typeof ScanReportSchema>;
+
+export const AssuranceOutcomeSchema = z.enum(["pass", "fail", "uncertain", "incomplete"]);
+export type AssuranceOutcome = z.infer<typeof AssuranceOutcomeSchema>;
+
+export const AssuranceGateIdSchema = z.enum([
+  "ship-check",
+  "ship-check-secure-build",
+  "ship-check-production-ready",
+  "ship-check-cost-aware"
+]);
+export type AssuranceGateId = z.infer<typeof AssuranceGateIdSchema>;
+
+export const AssuranceGateResultSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  provider: z.literal("ship-check"),
+  gateId: AssuranceGateIdSchema,
+  outcome: AssuranceOutcomeSchema,
+  threshold: SeveritySchema,
+  reportSchemaVersion: z.literal("0.1"),
+  generatedAt: z.string().datetime(),
+  project: z.object({
+    path: z.string(),
+    gitRepository: z.boolean()
+  }),
+  findings: z.array(z.object({
+    id: z.string().min(1),
+    checkId: z.string().min(1),
+    pack: CheckPackSchema,
+    severity: SeveritySchema,
+    title: z.string().min(1)
+  })),
+  checkErrors: z.array(z.object({
+    checkId: z.string().min(1),
+    message: z.string().min(1)
+  })),
+  warnings: z.array(z.string())
+});
+export type AssuranceGateResult = z.infer<typeof AssuranceGateResultSchema>;
+
+export const RackStepResultSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  stepId: z.string().min(1),
+  check: AssuranceGateIdSchema,
+  outcome: AssuranceOutcomeSchema,
+  providerResult: AssuranceGateResultSchema
+});
+export type RackStepResult = z.infer<typeof RackStepResultSchema>;
