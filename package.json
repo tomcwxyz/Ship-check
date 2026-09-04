@@ -9,7 +9,9 @@
   "engines": { "node": ">=22.12.0" },
   "scripts": {
     "build": "turbo run build",
+    "build:engine": "pnpm build && bun build packages/cli/src/index.ts --compile --outfile dist/ship-check",
     "check": "turbo run check",
+    "dogfood": "pnpm ship-check -- scan . --fail-on high",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "ship-check": "pnpm --filter @ship-check/cli build && node packages/cli/dist/index.js",
