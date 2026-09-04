@@ -146,6 +146,7 @@ function ensureDiagnosticsPanel() {
 
   const panel = document.createElement("details");
   panel.className = "diagnostics-card";
+  panel.hidden = true;
 
   const summary = document.createElement("summary");
   summary.textContent = "Scan receipt & diagnostics";
@@ -175,7 +176,7 @@ function ensureDiagnosticsPanel() {
 
   actions.append(copyButton, clearButton);
   panel.append(actions);
-  elements.summaryGrid.insertAdjacentElement("afterend", panel);
+  elements.errorBanner.insertAdjacentElement("afterend", panel);
 
   elements.diagnosticsPanel = panel;
   elements.diagnosticsSummary = summary;
@@ -204,6 +205,7 @@ function ensureDiagnosticsPanel() {
 
 function renderDiagnostics(entry, count) {
   ensureDiagnosticsPanel();
+  elements.diagnosticsPanel.hidden = count === 0 && !entry;
   elements.diagnosticsSummary.textContent = `Scan receipt & diagnostics · ${count} stored`;
   elements.scanReceipt.textContent = formatReceipt(entry);
 }
