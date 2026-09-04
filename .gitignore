@@ -1,5 +1,6 @@
 node_modules/
 dist/
+target/
 .turbo/
 coverage/
 .DS_Store
@@ -8,3 +9,5 @@ coverage/
 .env.*
 !.env.example
 !.env.sample
+apps/desktop/src-tauri/resources/ship-check-engine
+apps/desktop/src-tauri/resources/ship-check-engine.exe
