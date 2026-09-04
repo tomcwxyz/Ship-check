@@ -1,14 +1,26 @@
 #!/usr/bin/env node
 import { parseArgs } from "node:util";
+import {
+  evaluateAssuranceGate,
+  toOrganisationalAssuranceSummary,
+  toRackStepResult
+} from "@ship-check/adapters";
 import { checksForPacks } from "@ship-check/checks";
-import { scanProject } from "@ship-check/core";
-import type { CheckPack, Severity } from "@ship-check/schemas";
+import { scanProject, type CheckDefinition } from "@ship-check/core";
+import { costAwareChecks } from "@ship-check/cost-checks";
+import {
+  AssuranceGateIdSchema,
+  CheckPackSchema,
+  type AssuranceGateId,
+  type CheckPack,
+  type Severity
+} from "@ship-check/schemas";
 
 const version = "0.0.0-alpha.1";
 const severityRank: Record<Severity, number> = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 
 function usage(): string {
-  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project] [--pack secure-build] [--pack production-ready] [--format pretty|json] [--fail-on critical|high|medium|low|never]\n\nExamples:\n  ship-check scan .\n  ship-check scan . --pack secure-build --format json\n  ship-check scan . --fail-on high\n`;
+  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--format pretty|json|rack|oos] [--fail-on critical|high|medium|low|never]\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan . --pack secure-build --format json\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n`;
 }
 
 function printPretty(report: Awaited<ReturnType<typeof scanProject>>): void {
@@ -30,6 +42,16 @@ function printPretty(report: Awaited<ReturnType<typeof scanProject>>): void {
   }
 }
 
+function checksForRequestedPacks(packs: CheckPack[]): CheckDefinition[] {
+  const standard = packs.filter(
+    (pack): pack is "secure-build" | "production-ready" => pack !== "cost-aware"
+  );
+  return [
+    ...checksForPacks(standard),
+    ...(packs.includes("cost-aware") ? costAwareChecks : [])
+  ];
+}
+
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
@@ -37,6 +59,8 @@ async function main(): Promise<void> {
       format: { type: "string", default: "pretty" },
       pack: { type: "string", multiple: true },
       "fail-on": { type: "string", default: "never" },
+      gate: { type: "string", default: "ship-check" },
+      "step-id": { type: "string" },
       help: { type: "boolean", short: "h" },
       version: { type: "boolean", short: "v" }
     }
@@ -52,20 +76,47 @@ async function main(): Promise<void> {
     return;
   }
 
-  const requestedPacks = values.pack?.length ? values.pack : ["secure-build", "production-ready"];
-  const allowedPacks = new Set(["secure-build", "production-ready"]);
-  if (requestedPacks.some((pack) => !allowedPacks.has(pack))) throw new Error(`Unknown check pack: ${requestedPacks.find((pack) => !allowedPacks.has(pack))}`);
-  if (!new Set(["pretty", "json"]).has(values.format)) throw new Error(`Unknown format: ${values.format}`);
+  const requestedPacksRaw = values.pack?.length
+    ? values.pack
+    : ["secure-build", "production-ready", "cost-aware"];
+  const requestedPacks = requestedPacksRaw.map((pack) => CheckPackSchema.parse(pack));
+  if (!new Set(["pretty", "json", "rack", "oos"]).has(values.format)) {
+    throw new Error(`Unknown format: ${values.format}`);
+  }
 
-  const report = await scanProject(positionals[1] ?? ".", checksForPacks(requestedPacks as CheckPack[]), version);
-  if (values.format === "json") console.log(JSON.stringify(report, null, 2));
-  else printPretty(report);
-
+  const gateId = AssuranceGateIdSchema.parse(values.gate) as AssuranceGateId;
   const failOn = values["fail-on"];
-  if (failOn !== "never") {
-    if (!new Set(["critical", "high", "medium", "low", "info"]).has(failOn)) throw new Error(`Unknown --fail-on severity: ${failOn}`);
+  if (failOn !== "never" && !new Set(["critical", "high", "medium", "low", "info"]).has(failOn)) {
+    throw new Error(`Unknown --fail-on severity: ${failOn}`);
+  }
+  const gateThreshold = (failOn === "never" ? "high" : failOn) as Severity;
+
+  const report = await scanProject(
+    positionals[1] ?? ".",
+    checksForRequestedPacks(requestedPacks),
+    version
+  );
+
+  if (values.format === "json") {
+    console.log(JSON.stringify(report, null, 2));
+  } else if (values.format === "rack") {
+    if (!values["step-id"]) throw new Error("--format rack requires --step-id.");
+    const gate = evaluateAssuranceGate(report, { gateId, threshold: gateThreshold });
+    console.log(JSON.stringify(toRackStepResult(values["step-id"], gate), null, 2));
+    if (gate.outcome === "fail") process.exitCode = 2;
+    else if (gate.outcome === "incomplete") process.exitCode = 3;
+  } else if (values.format === "oos") {
+    const gate = evaluateAssuranceGate(report, { gateId, threshold: gateThreshold });
+    console.log(JSON.stringify(toOrganisationalAssuranceSummary(report, gate), null, 2));
+  } else {
+    printPretty(report);
+  }
+
+  if (values.format !== "rack" && failOn !== "never") {
     const threshold = severityRank[failOn as Severity];
-    if (report.findings.some((finding) => severityRank[finding.severity] >= threshold)) process.exitCode = 2;
+    if (report.findings.some((finding) => severityRank[finding.severity] >= threshold)) {
+      process.exitCode = 2;
+    }
   }
 }
 
