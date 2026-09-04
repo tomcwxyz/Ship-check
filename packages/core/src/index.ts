@@ -79,9 +79,16 @@ export async function createProjectContext(projectPath: string): Promise<Project
   if (!stat.isDirectory()) throw new Error(`Ship Check needs a project directory: ${root}`);
 
   const tracked = await gitTrackedFiles(root);
-  const trackedSet = tracked === null ? null : new Set(tracked);
-  const inventorySource: ProjectInventorySource = tracked && tracked.length > 0 ? "git-tracked" : "filesystem";
-  let files = inventorySource === "git-tracked" ? tracked : await walkFiles(root);
+  const gitRepository = tracked !== null;
+
+  if (gitRepository && tracked.length === 0) {
+    throw new Error(
+      `Ship Check found a Git repository in ${root}, but Git reported no tracked files. The scan was stopped rather than falling back to local-only files and reporting false repository findings.`,
+    );
+  }
+
+  const inventorySource: ProjectInventorySource = gitRepository ? "git-tracked" : "filesystem";
+  const files = gitRepository ? tracked : await walkFiles(root);
 
   if (files.length === 0) {
     throw new Error(
@@ -90,11 +97,12 @@ export async function createProjectContext(projectPath: string): Promise<Project
   }
 
   const fileSet = new Set(files);
+  const trackedSet = gitRepository ? new Set(tracked) : null;
 
   return {
     root,
     files,
-    gitRepository: tracked !== null,
+    gitRepository,
     inventorySource,
     hasFile(relativePath) {
       return fileSet.has(normalise(relativePath));
