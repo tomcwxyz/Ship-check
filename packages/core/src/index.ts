@@ -8,11 +8,15 @@ const execFileAsync = promisify(execFile);
 const MAX_TEXT_BYTES = 512 * 1024;
 const ignoredDirectories = new Set([".git", ".next", ".turbo", "build", "coverage", "dist", "node_modules", "target"]);
 
+export type ProjectInventorySource = "git-tracked" | "filesystem";
+
 export type ProjectContext = {
   root: string;
   files: string[];
   gitRepository: boolean;
+  inventorySource: ProjectInventorySource;
   hasFile(relativePath: string): boolean;
+  isTracked(relativePath: string): boolean | null;
   readText(relativePath: string): Promise<string | null>;
 };
 
@@ -30,16 +34,26 @@ function normalise(relativePath: string): string {
 
 async function gitTrackedFiles(root: string): Promise<string[] | null> {
   try {
-    const { stdout: repoRootOutput } = await execFileAsync("git", ["-C", root, "rev-parse", "--show-toplevel"], { encoding: "utf8" });
-    const repoRoot = repoRootOutput.trim();
-    const { stdout } = await execFileAsync("git", ["-C", repoRoot, "ls-files", "-z"], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 });
-    const prefix = normalise(path.relative(repoRoot, root));
-    const prefixWithSlash = prefix ? `${prefix}/` : "";
+    const { stdout: insideWorkTree } = await execFileAsync(
+      "git",
+      ["-C", root, "rev-parse", "--is-inside-work-tree"],
+      { encoding: "utf8" },
+    );
+    if (insideWorkTree.trim() !== "true") return null;
+
+    // Ask Git for paths relative to the exact directory being scanned. The
+    // previous implementation compared Git's top-level path with Node's
+    // resolved path and could filter every tracked file on Windows when slash
+    // styles differed (C:/... vs C:\\...).
+    const { stdout } = await execFileAsync(
+      "git",
+      ["-C", root, "ls-files", "-z", "--", "."],
+      { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 },
+    );
     return stdout
       .split("\0")
       .filter(Boolean)
-      .filter((entry) => !prefixWithSlash || entry.startsWith(prefixWithSlash))
-      .map((entry) => (prefixWithSlash ? entry.slice(prefixWithSlash.length) : entry))
+      .map(normalise)
       .filter(Boolean)
       .sort();
   } catch {
@@ -65,16 +79,9 @@ export async function createProjectContext(projectPath: string): Promise<Project
   if (!stat.isDirectory()) throw new Error(`Ship Check needs a project directory: ${root}`);
 
   const tracked = await gitTrackedFiles(root);
-  let files = tracked;
-
-  // A Git repository with an unexpectedly empty tracked-file result must not be
-  // treated as a successful zero-file scan. This can happen when the runtime
-  // cannot enumerate the index correctly, and it also covers newly-initialised
-  // repositories whose useful files have not been added yet. Fall back to the
-  // bounded filesystem inventory before deciding there is nothing to inspect.
-  if (!files || files.length === 0) {
-    files = await walkFiles(root);
-  }
+  const trackedSet = tracked === null ? null : new Set(tracked);
+  const inventorySource: ProjectInventorySource = tracked && tracked.length > 0 ? "git-tracked" : "filesystem";
+  let files = inventorySource === "git-tracked" ? tracked : await walkFiles(root);
 
   if (files.length === 0) {
     throw new Error(
@@ -88,8 +95,13 @@ export async function createProjectContext(projectPath: string): Promise<Project
     root,
     files,
     gitRepository: tracked !== null,
+    inventorySource,
     hasFile(relativePath) {
       return fileSet.has(normalise(relativePath));
+    },
+    isTracked(relativePath) {
+      if (trackedSet === null) return null;
+      return trackedSet.has(normalise(relativePath));
     },
     async readText(relativePath) {
       const safeRelative = normalise(relativePath);
@@ -115,7 +127,7 @@ function summarise(findings: Finding[]): ScanReport["summary"] {
   return summary;
 }
 
-export async function scanProject(projectPath: string, checks: CheckDefinition[], version = "0.0.0-alpha.1"): Promise<ScanReport> {
+export async function scanProject(projectPath: string, checks: CheckDefinition[], version = "0.0.0-alpha.2"): Promise<ScanReport> {
   const context = await createProjectContext(projectPath);
   const findings: Finding[] = [];
   const results: CheckResult[] = [];
