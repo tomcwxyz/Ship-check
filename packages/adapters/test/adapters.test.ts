@@ -10,8 +10,8 @@ import {
 function report(overrides: Partial<ScanReport> = {}): ScanReport {
   return {
     schemaVersion: "0.1",
-    tool: { name: "ship-check", version: "0.0.0-alpha.1" },
-    project: { path: "/tmp/example", gitRepository: true, fileCount: 12 },
+    tool: { name: "ship-check", version: "0.0.0-alpha.4" },
+    project: { path: "/tmp/example", gitRepository: true, inventorySource: "git-tracked", fileCount: 12 },
     packs: ["secure-build", "production-ready", "cost-aware"],
     checks: [],
     findings: [],
@@ -56,6 +56,42 @@ describe("RACK assurance adapter", () => {
       gateId: "ship-check-cost-aware"
     });
     expect(gate.outcome).toBe("incomplete");
+  });
+
+  it("marks check execution errors as incomplete", () => {
+    const gate = evaluateAssuranceGate(
+      report({
+        checks: [{
+          checkId: "secure.broken",
+          pack: "secure-build",
+          status: "error",
+          findingCount: 0,
+          durationMs: 3,
+          error: "could not inspect fixture"
+        }]
+      }),
+      { gateId: "ship-check-secure-build" },
+    );
+
+    expect(gate.outcome).toBe("incomplete");
+    expect(gate.checkErrors).toEqual([{ checkId: "secure.broken", message: "could not inspect fixture" }]);
+  });
+
+  it("passes when the requested pack ran without findings or check errors", () => {
+    const gate = evaluateAssuranceGate(
+      report({
+        checks: [{
+          checkId: "secure.clean",
+          pack: "secure-build",
+          status: "passed",
+          findingCount: 0,
+          durationMs: 1,
+        }]
+      }),
+      { gateId: "ship-check-secure-build", threshold: "high" },
+    );
+
+    expect(gate.outcome).toBe("pass");
   });
 });
 

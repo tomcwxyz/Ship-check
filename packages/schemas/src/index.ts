@@ -49,10 +49,18 @@ export const CheckResultSchema = z.object({
 });
 export type CheckResult = z.infer<typeof CheckResultSchema>;
 
+export const InventorySourceSchema = z.enum(["git-tracked", "filesystem"]);
+export type InventorySource = z.infer<typeof InventorySourceSchema>;
+
 export const ScanReportSchema = z.object({
   schemaVersion: z.literal("0.1"),
   tool: z.object({ name: z.literal("ship-check"), version: z.string() }),
-  project: z.object({ path: z.string(), gitRepository: z.boolean(), fileCount: z.number().int().nonnegative() }),
+  project: z.object({
+    path: z.string(),
+    gitRepository: z.boolean(),
+    inventorySource: InventorySourceSchema,
+    fileCount: z.number().int().nonnegative()
+  }),
   packs: z.array(CheckPackSchema),
   checks: z.array(CheckResultSchema),
   findings: z.array(FindingSchema),

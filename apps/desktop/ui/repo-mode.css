@@ -98,6 +98,42 @@
   line-height: 1.5;
 }
 
+.diagnostics-card {
+  margin: 18px 0 22px;
+  padding: 16px 18px;
+  border: 1px solid var(--soft-line);
+  border-radius: 14px;
+  background: #f8f5ed;
+}
+
+.diagnostics-card summary {
+  cursor: pointer;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.scan-receipt {
+  margin: 14px 0 0;
+  padding: 14px;
+  overflow-x: auto;
+  border: 1px solid var(--soft-line);
+  border-radius: 10px;
+  background: var(--paper-strong);
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.diagnostics-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
 @media (max-width: 760px) {
   .source-panel .project-path {
     grid-template-columns: 1fr;

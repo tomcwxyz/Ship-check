@@ -67,10 +67,13 @@ jobs:
       - run: pnpm test
       - run: pnpm build
       - run: pnpm dogfood
-      - run: |
+      - name: Validate desktop JavaScript and diagnostics
+        run: |
           node --check apps/desktop/ui/app.js
           node --check apps/desktop/ui/bridge.js
           node --check apps/desktop/ui/components.js
+          node --check apps/desktop/ui/diagnostics.js
+          node --test apps/desktop/ui/diagnostics.test.mjs
           node --check scripts/generate-desktop-assets.cjs
       - run: pnpm desktop:assets
 
@@ -171,6 +174,15 @@ jobs:
           if [[ "$RUNNER_OS" != "Windows" ]]; then chmod +x "$engine"; fi
           "$engine" --version
           "$engine" scan ./test-fixtures/cost-safe --pack cost-aware --fail-on high
+
+          set +e
+          "$engine" scan ./test-fixtures/risky-next --pack secure-build --fail-on high
+          risky_exit=$?
+          set -e
+          if [[ "$risky_exit" -ne 2 ]]; then
+            echo "::error::Risky fixture should fail the high-severity gate with exit 2; got $risky_exit."
+            exit 1
+          fi
 
       - name: Install Tauri CLI
         shell: bash

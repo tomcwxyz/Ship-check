@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
-import { createProjectContext, scanProject } from "./index.js";
+import { createProjectContext, scanProject, type CheckDefinition } from "./index.js";
 
 const execFileAsync = promisify(execFile);
 const temporaryRoots: string[] = [];
@@ -43,6 +43,20 @@ describe("project inventory", () => {
     expect(context.isTracked(".env.local")).toBe(false);
   });
 
+  it("uses a filesystem inventory for a non-Git project", async () => {
+    const root = await temporaryDirectory();
+    await fs.writeFile(path.join(root, "package.json"), '{"name":"fixture"}\n');
+    await fs.writeFile(path.join(root, ".env.local"), "LOCAL_ONLY=yes\n");
+
+    const context = await createProjectContext(root);
+
+    expect(context.gitRepository).toBe(false);
+    expect(context.inventorySource).toBe("filesystem");
+    expect(context.files).toContain("package.json");
+    expect(context.files).toContain(".env.local");
+    expect(context.isTracked(".env.local")).toBeNull();
+  });
+
   it("stops rather than treating untracked local files as repository evidence", async () => {
     const root = await temporaryDirectory();
     await initGit(root);
@@ -55,5 +69,72 @@ describe("project inventory", () => {
     const root = await temporaryDirectory();
 
     await expect(scanProject(root, [])).rejects.toThrow("found no inspectable files");
+  });
+
+  it("does not read binary files as source text", async () => {
+    const root = await temporaryDirectory();
+    await fs.writeFile(path.join(root, "binary.dat"), Buffer.from([65, 0, 66, 67]));
+
+    const context = await createProjectContext(root);
+
+    expect(await context.readText("binary.dat")).toBeNull();
+  });
+
+  it("does not allow reads outside the scanned inventory", async () => {
+    const root = await temporaryDirectory();
+    await fs.writeFile(path.join(root, "inside.txt"), "inside\n");
+
+    const context = await createProjectContext(root);
+
+    expect(await context.readText("../outside.txt")).toBeNull();
+    expect(await context.readText("inside.txt")).toBe("inside\n");
+  });
+});
+
+describe("scan execution", () => {
+  it("records inventory provenance in the report", async () => {
+    const root = await temporaryDirectory();
+    await fs.writeFile(path.join(root, "package.json"), '{"name":"fixture"}\n');
+
+    const report = await scanProject(root, []);
+
+    expect(report.project.inventorySource).toBe("filesystem");
+    expect(report.project.fileCount).toBe(1);
+  });
+
+  it("captures a check error and continues running later checks", async () => {
+    const root = await temporaryDirectory();
+    await fs.writeFile(path.join(root, "package.json"), '{"name":"fixture"}\n');
+
+    const exploding: CheckDefinition = {
+      id: "test.explodes",
+      pack: "secure-build",
+      title: "Explodes",
+      description: "Test check",
+      async run() {
+        throw new Error("deliberate test failure");
+      },
+    };
+    const healthy: CheckDefinition = {
+      id: "test.healthy",
+      pack: "secure-build",
+      title: "Healthy",
+      description: "Test check",
+      async run() {
+        return [];
+      },
+    };
+
+    const report = await scanProject(root, [exploding, healthy]);
+
+    expect(report.checks).toHaveLength(2);
+    expect(report.checks[0]).toMatchObject({
+      checkId: "test.explodes",
+      status: "error",
+      findingCount: 0,
+      error: "deliberate test failure",
+    });
+    expect(report.checks[1]).toMatchObject({ checkId: "test.healthy", status: "passed" });
+    expect(report.summary.total).toBe(0);
   });
 });
