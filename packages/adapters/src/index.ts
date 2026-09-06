@@ -4,6 +4,9 @@ import {
   type AssuranceGateId,
   type AssuranceGateResult,
   type CheckPack,
+  type CheckResult,
+  type Finding,
+  type PracticeEvidence,
   type RackStepResult,
   type ScanReport,
   type Severity
@@ -28,6 +31,59 @@ export type EvaluateAssuranceGateOptions = {
   gateId: AssuranceGateId;
   threshold?: Severity;
 };
+
+function buildPracticeEvidence(
+  checks: CheckResult[],
+  findings: Finding[],
+  threshold: Severity
+): PracticeEvidence[] {
+  const principleIds = new Set(checks.flatMap((check) => check.principles));
+  const evidence: PracticeEvidence[] = [];
+
+  for (const principleId of [...principleIds].sort()) {
+    const principleChecks = checks.filter((check) => check.principles.includes(principleId));
+    const checkIds = principleChecks.map((check) => check.checkId);
+    const relevantFindings = findings.filter((finding) => checkIds.includes(finding.checkId));
+    const errors = principleChecks.filter((check) => check.status === "error");
+    const gateFailures = relevantFindings.filter(
+      (finding) => severityRank[finding.severity] >= severityRank[threshold]
+    );
+
+    if (errors.length > 0) {
+      evidence.push({
+        principleId,
+        outcome: "incomplete",
+        findingIds: relevantFindings.map((finding) => finding.id),
+        checkIds,
+        summary: `${errors.length} practice-linked check${errors.length === 1 ? " did" : "s did"} not complete, so Ship Check cannot interpret this principle reliably.`
+      });
+      continue;
+    }
+
+    if (gateFailures.length > 0) {
+      evidence.push({
+        principleId,
+        outcome: "fail",
+        findingIds: gateFailures.map((finding) => finding.id),
+        checkIds,
+        summary: `${gateFailures.length} finding${gateFailures.length === 1 ? "" : "s"} at or above the ${threshold} threshold provide evidence against this practice principle.`
+      });
+      continue;
+    }
+
+    if (relevantFindings.length > 0) {
+      evidence.push({
+        principleId,
+        outcome: "uncertain",
+        findingIds: relevantFindings.map((finding) => finding.id),
+        checkIds,
+        summary: `${relevantFindings.length} lower-severity finding${relevantFindings.length === 1 ? "" : "s"} relate to this practice principle, but do not fail the ${threshold} gate.`
+      });
+    }
+  }
+
+  return evidence;
+}
 
 export function evaluateAssuranceGate(
   report: ScanReport,
@@ -68,6 +124,8 @@ export function evaluateAssuranceGate(
     outcome = "incomplete";
   }
 
+  const principlesByCheck = new Map(checks.map((check) => [check.checkId, check.principles]));
+
   return AssuranceGateResultSchema.parse({
     schemaVersion: "0.1",
     provider: "ship-check",
@@ -85,8 +143,10 @@ export function evaluateAssuranceGate(
       checkId: finding.checkId,
       pack: finding.pack,
       severity: finding.severity,
-      title: finding.title
+      title: finding.title,
+      principles: principlesByCheck.get(finding.checkId) ?? []
     })),
+    practiceEvidence: buildPracticeEvidence(checks, findings, threshold),
     checkErrors,
     warnings
   });
