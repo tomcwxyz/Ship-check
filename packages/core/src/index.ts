@@ -2,7 +2,14 @@ import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
-import { ScanReportSchema, type CheckPack, type CheckResult, type Finding, type ScanReport } from "@ship-check/schemas";
+import {
+  ScanReportSchema,
+  type CheckPack,
+  type CheckResult,
+  type Finding,
+  type PracticePrincipleId,
+  type ScanReport
+} from "@ship-check/schemas";
 
 const execFileAsync = promisify(execFile);
 const MAX_TEXT_BYTES = 512 * 1024;
@@ -25,6 +32,7 @@ export type CheckDefinition = {
   pack: CheckPack;
   title: string;
   description: string;
+  principles?: PracticePrincipleId[];
   run(context: ProjectContext): Promise<Finding[]>;
 };
 
@@ -138,12 +146,14 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
 
   for (const check of checks) {
     const started = performance.now();
+    const principles = check.principles ?? [];
     try {
       const checkFindings = await check.run(context);
       findings.push(...checkFindings);
       results.push({
         checkId: check.id,
         pack: check.pack,
+        principles,
         status: checkFindings.length > 0 ? "findings" : "passed",
         findingCount: checkFindings.length,
         durationMs: Math.max(0, Math.round(performance.now() - started))
@@ -152,6 +162,7 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
       results.push({
         checkId: check.id,
         pack: check.pack,
+        principles,
         status: "error",
         findingCount: 0,
         durationMs: Math.max(0, Math.round(performance.now() - started)),
