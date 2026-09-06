@@ -7,6 +7,7 @@ import {
   type CheckResult,
   type Finding,
   type PracticeEvidence,
+  type PracticePrincipleId,
   type RackStepResult,
   type ScanReport,
   type Severity
@@ -32,16 +33,20 @@ export type EvaluateAssuranceGateOptions = {
   threshold?: Severity;
 };
 
+function principlesForCheck(check: CheckResult): PracticePrincipleId[] {
+  return check.principles ?? [];
+}
+
 function buildPracticeEvidence(
   checks: CheckResult[],
   findings: Finding[],
   threshold: Severity
 ): PracticeEvidence[] {
-  const principleIds = new Set(checks.flatMap((check) => check.principles));
+  const principleIds = new Set(checks.flatMap(principlesForCheck));
   const evidence: PracticeEvidence[] = [];
 
   for (const principleId of [...principleIds].sort()) {
-    const principleChecks = checks.filter((check) => check.principles.includes(principleId));
+    const principleChecks = checks.filter((check) => principlesForCheck(check).includes(principleId));
     const checkIds = principleChecks.map((check) => check.checkId);
     const relevantFindings = findings.filter((finding) => checkIds.includes(finding.checkId));
     const errors = principleChecks.filter((check) => check.status === "error");
@@ -66,7 +71,7 @@ function buildPracticeEvidence(
         outcome: "fail",
         findingIds: gateFailures.map((finding) => finding.id),
         checkIds,
-        summary: `${gateFailures.length} finding${gateFailures.length === 1 ? "" : "s"} at or above the ${threshold} threshold provide evidence against this practice principle.`
+        summary: `${gateFailures.length} finding${gateFailures.length === 1 ? "" : "s"} at or above the ${threshold} threshold ${gateFailures.length === 1 ? "provides" : "provide"} evidence against this practice principle.`
       });
       continue;
     }
@@ -77,7 +82,7 @@ function buildPracticeEvidence(
         outcome: "uncertain",
         findingIds: relevantFindings.map((finding) => finding.id),
         checkIds,
-        summary: `${relevantFindings.length} lower-severity finding${relevantFindings.length === 1 ? "" : "s"} relate to this practice principle, but do not fail the ${threshold} gate.`
+        summary: `${relevantFindings.length} lower-severity finding${relevantFindings.length === 1 ? "" : "s"} ${relevantFindings.length === 1 ? "relates" : "relate"} to this practice principle, but ${relevantFindings.length === 1 ? "does" : "do"} not fail the ${threshold} gate.`
       });
     }
   }
@@ -124,7 +129,7 @@ export function evaluateAssuranceGate(
     outcome = "incomplete";
   }
 
-  const principlesByCheck = new Map(checks.map((check) => [check.checkId, check.principles]));
+  const principlesByCheck = new Map(checks.map((check) => [check.checkId, principlesForCheck(check)]));
 
   return AssuranceGateResultSchema.parse({
     schemaVersion: "0.1",
