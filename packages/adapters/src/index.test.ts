@@ -65,7 +65,7 @@ describe("practice evidence hand-off", () => {
         outcome: "fail",
         findingIds: ["secure.secret-pattern:example"],
         checkIds: ["secure.secret-pattern"],
-        summary: "1 finding at or above the high threshold provide evidence against this practice principle."
+        summary: "1 finding at or above the high threshold provides evidence against this practice principle."
       }
     ]);
     expect(step.providerResult.practiceEvidence.some((item) => item.principleId === "practice.dependency-restraint")).toBe(false);
