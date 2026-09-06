@@ -15,6 +15,18 @@ const execFileAsync = promisify(execFile);
 const MAX_TEXT_BYTES = 512 * 1024;
 const ignoredDirectories = new Set([".git", ".next", ".turbo", "build", "coverage", "dist", "node_modules", "target"]);
 
+export const BUILT_IN_PRACTICE_PRINCIPLES: Record<string, PracticePrincipleId[]> = {
+  "secure.tracked-env-file": ["practice.preserve-safety"],
+  "secure.secret-pattern": ["practice.preserve-safety"],
+  "secure.paid-endpoint-abuse-control": ["practice.preserve-safety", "practice.cost-discipline"],
+  "secure.wildcard-cors": ["practice.preserve-safety"],
+  "secure.public-secret-env-name": ["practice.preserve-safety"],
+  "production.package-lock-discipline": ["practice.dependency-restraint"],
+  "production.next-security-headers": ["practice.preserve-safety"],
+  "cost.vercel-cron-frequency": ["practice.cost-discipline"],
+  "cost.frequent-network-polling": ["practice.cost-discipline"]
+};
+
 export type ProjectInventorySource = "git-tracked" | "filesystem";
 
 export type ProjectContext = {
@@ -146,7 +158,7 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
 
   for (const check of checks) {
     const started = performance.now();
-    const principles = check.principles ?? [];
+    const principles = check.principles ?? BUILT_IN_PRACTICE_PRINCIPLES[check.id] ?? [];
     try {
       const checkFindings = await check.run(context);
       findings.push(...checkFindings);
