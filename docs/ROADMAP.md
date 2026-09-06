@@ -27,6 +27,22 @@
 - [x] Manual unsigned Windows/Linux desktop alpha pre-release workflow with explicit confirmation and matching bundled engine.
 - [ ] Automatic Windows test installer from coherent `main` changes once the standalone repo flow has been dogfooded enough to justify routine installer output.
 
+### Alpha 1.6 — first practice-evidence loop
+
+Goal: prove that declared working practice and repository evidence can meet on the same stable principle identifiers without making Ship Check dependent on RACK, Honey or TOPO.
+
+- [x] Introduce portable `practice.*` principle identifiers.
+- [x] Map the current deterministic safety, dependency and cost checks onto bounded principle metadata.
+- [x] Carry principle metadata through canonical check results.
+- [x] Add `practiceEvidence` to the existing RACK gate result without inventing a new runtime dependency.
+- [x] Do not infer a principle-level pass merely because a narrow Ship Check rule produced no finding.
+- [x] Add a contract test proving a deterministic Ship Check concern can return the same `practice.preserve-safety` identifier used by RACK's Honey practice mapping.
+- [ ] Run the first cross-repository test with RACK's Honey coding set-up and Ship Check's RACK output against a deliberately risky fixture and one real Good Ship repository.
+- [ ] Record what was useful, noisy or missing before broadening the principle catalogue.
+- [ ] Add diff-aware **Lean Change** checks for minimum useful change, dependency additions, duplicate repair surface and behavioural changes without matching verification.
+
+The first shared principle vocabulary is deliberately small and neutral: Honey is provenance/inspiration for several principles, not a required runtime component. TOPO may later provide purpose-bound context that helps interpret evidence, but it must not alter or suppress deterministic findings.
+
 ## Alpha 2 — stronger deterministic packs
 
 - [ ] Semgrep adapter with pinned rulesets and provenance.

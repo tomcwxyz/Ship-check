@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+export const PracticePrincipleIdSchema = z.string().regex(
+  /^practice\.[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)*$/,
+  "Expected a stable practice principle ID such as practice.preserve-safety."
+);
+export type PracticePrincipleId = z.infer<typeof PracticePrincipleIdSchema>;
+
 export const CheckPackSchema = z.enum(["secure-build", "production-ready", "cost-aware"]);
 export type CheckPack = z.infer<typeof CheckPackSchema>;
 
@@ -42,6 +48,7 @@ export type Finding = z.infer<typeof FindingSchema>;
 export const CheckResultSchema = z.object({
   checkId: z.string(),
   pack: CheckPackSchema,
+  principles: z.array(PracticePrincipleIdSchema).default([]),
   status: z.enum(["passed", "findings", "error"]),
   findingCount: z.number().int().nonnegative(),
   durationMs: z.number().nonnegative(),
@@ -87,6 +94,15 @@ export const AssuranceGateIdSchema = z.enum([
 ]);
 export type AssuranceGateId = z.infer<typeof AssuranceGateIdSchema>;
 
+export const PracticeEvidenceSchema = z.object({
+  principleId: PracticePrincipleIdSchema,
+  outcome: z.enum(["fail", "uncertain", "incomplete"]),
+  findingIds: z.array(z.string().min(1)).default([]),
+  checkIds: z.array(z.string().min(1)).min(1),
+  summary: z.string().min(1)
+});
+export type PracticeEvidence = z.infer<typeof PracticeEvidenceSchema>;
+
 export const AssuranceGateResultSchema = z.object({
   schemaVersion: z.literal("0.1"),
   provider: z.literal("ship-check"),
@@ -104,8 +120,10 @@ export const AssuranceGateResultSchema = z.object({
     checkId: z.string().min(1),
     pack: CheckPackSchema,
     severity: SeveritySchema,
-    title: z.string().min(1)
+    title: z.string().min(1),
+    principles: z.array(PracticePrincipleIdSchema).default([])
   })),
+  practiceEvidence: z.array(PracticeEvidenceSchema).default([]),
   checkErrors: z.array(z.object({
     checkId: z.string().min(1),
     message: z.string().min(1)

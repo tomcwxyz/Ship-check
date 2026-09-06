@@ -2,11 +2,30 @@ import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
-import { ScanReportSchema, type CheckPack, type CheckResult, type Finding, type ScanReport } from "@ship-check/schemas";
+import {
+  ScanReportSchema,
+  type CheckPack,
+  type CheckResult,
+  type Finding,
+  type PracticePrincipleId,
+  type ScanReport
+} from "@ship-check/schemas";
 
 const execFileAsync = promisify(execFile);
 const MAX_TEXT_BYTES = 512 * 1024;
 const ignoredDirectories = new Set([".git", ".next", ".turbo", "build", "coverage", "dist", "node_modules", "target"]);
+
+export const BUILT_IN_PRACTICE_PRINCIPLES: Record<string, PracticePrincipleId[]> = {
+  "secure.tracked-env-file": ["practice.preserve-safety"],
+  "secure.secret-pattern": ["practice.preserve-safety"],
+  "secure.paid-endpoint-abuse-control": ["practice.preserve-safety", "practice.cost-discipline"],
+  "secure.wildcard-cors": ["practice.preserve-safety"],
+  "secure.public-secret-env-name": ["practice.preserve-safety"],
+  "production.package-lock-discipline": ["practice.dependency-restraint"],
+  "production.next-security-headers": ["practice.preserve-safety"],
+  "cost.vercel-cron-frequency": ["practice.cost-discipline"],
+  "cost.frequent-network-polling": ["practice.cost-discipline"]
+};
 
 export type ProjectInventorySource = "git-tracked" | "filesystem";
 
@@ -25,6 +44,7 @@ export type CheckDefinition = {
   pack: CheckPack;
   title: string;
   description: string;
+  principles?: PracticePrincipleId[];
   run(context: ProjectContext): Promise<Finding[]>;
 };
 
@@ -138,12 +158,14 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
 
   for (const check of checks) {
     const started = performance.now();
+    const principles = check.principles ?? BUILT_IN_PRACTICE_PRINCIPLES[check.id] ?? [];
     try {
       const checkFindings = await check.run(context);
       findings.push(...checkFindings);
       results.push({
         checkId: check.id,
         pack: check.pack,
+        principles,
         status: checkFindings.length > 0 ? "findings" : "passed",
         findingCount: checkFindings.length,
         durationMs: Math.max(0, Math.round(performance.now() - started))
@@ -152,6 +174,7 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
       results.push({
         checkId: check.id,
         pack: check.pack,
+        principles,
         status: "error",
         findingCount: 0,
         durationMs: Math.max(0, Math.round(performance.now() - started)),
