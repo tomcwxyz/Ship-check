@@ -1,3 +1,5 @@
+import { createFindingFingerprintSummary } from "./regression.js";
+
 const STORAGE_KEY = "ship-check.diagnostics.v1";
 const MAX_ENTRIES = 100;
 const MAX_ERROR_LENGTH = 500;
@@ -51,7 +53,7 @@ function safeCheck(check) {
 
 export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRef, packs, elapsedMs }) {
   return {
-    schemaVersion: "1",
+    schemaVersion: "2",
     event: "scan-completed",
     timestamp: report.generatedAt || new Date().toISOString(),
     toolVersion: report.tool?.version ?? "unknown",
@@ -67,12 +69,13 @@ export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRe
     elapsedMs: Math.max(0, Math.round(elapsedMs)),
     summary: { ...report.summary },
     checks: report.checks.map(safeCheck),
+    findingFingerprints: createFindingFingerprintSummary(report),
   };
 }
 
 export function createFailureDiagnostic({ sourceMode, sourceValue, gitRef, packs, elapsedMs, engineVersion, error }) {
   return {
-    schemaVersion: "1",
+    schemaVersion: "2",
     event: "scan-failed",
     timestamp: new Date().toISOString(),
     toolVersion: engineVersion || "unknown",
@@ -116,6 +119,11 @@ export function clearDiagnostics(storage) {
   }
 }
 
+function regressionLine(regression) {
+  if (!regression || regression.status === "no-baseline") return null;
+  return `delta     ${regression.newCount} new · ${regression.resolvedCount} resolved · ${regression.unchangedCount} unchanged`;
+}
+
 export function formatReceipt(entry) {
   if (!entry) return "No scan receipt yet.";
   if (entry.event === "scan-failed") {
@@ -130,11 +138,13 @@ export function formatReceipt(entry) {
   const passed = entry.checks.filter((check) => check.status === "passed").length;
   const findings = entry.checks.filter((check) => check.status === "findings").length;
   const errors = entry.checks.filter((check) => check.status === "error").length;
+  const delta = regressionLine(entry.regression);
   const lines = [
     "Scan completed",
     `${entry.source.kind} · ${entry.source.label}${entry.source.ref ? ` · ${entry.source.ref}` : ""}`,
     `${entry.fileCount} files · ${entry.checks.length} checks · ${entry.inventorySource}`,
     `${passed} passed · ${findings} with findings · ${errors} errors · ${entry.elapsedMs} ms`,
+    ...(delta ? [delta] : []),
     `engine ${entry.toolVersion}`,
     "",
     ...entry.checks.map(
@@ -147,9 +157,9 @@ export function formatReceipt(entry) {
 export function formatDiagnostics(entries) {
   return JSON.stringify(
     {
-      schemaVersion: "1",
+      schemaVersion: "2",
       exportedAt: new Date().toISOString(),
-      note: "Ship Check diagnostics contain scan metadata only: no source contents, evidence excerpts or matched secret values.",
+      note: "Ship Check diagnostics contain scan metadata and opaque local regression fingerprints only: no source contents, evidence excerpts or matched secret values.",
       entries,
     },
     null,
