@@ -11,31 +11,61 @@
 - [x] Risky/safe regression fixtures.
 - [x] Self-contained native engine compilation and dogfood gate.
 - [x] Standalone CLI repository source accepts either a local folder or a transient GitHub checkout.
-- [ ] Run the checks across a representative Good Ship app corpus and record false positives/false negatives.
-- [ ] Add check metadata/versioning and suppression with explicit rationale.
 
-## Alpha 1 — useful standalone repository review
+## Alpha 1.5 — evidence quality and dogfood
 
-- [x] Dependency-light Tauri desktop shell following the RACK/TOPO local-first boundary without duplicating checker logic.
-- [x] Native folder selection, local-engine status, scan progress and summary.
-- [x] GitHub repository mode with shallow temporary checkout, optional branch/tag and cleanup after the scan.
-- [x] Finding review with severity/pack context, evidence, why it matters, fix, verification guidance, copy repair prompt and re-check.
-- [ ] Corpus-led tuning of the three current packs before broadening the rule catalogue.
-- [ ] Optional focused one-finding-at-a-time review mode for larger scans.
-- [ ] Local scan history with no source-content retention by default.
-- [ ] Compare against the last clean check so regressions and newly introduced findings are obvious.
-- [x] Manual unsigned Windows/Linux desktop alpha pre-release workflow with explicit confirmation and matching bundled engine.
-- [ ] Automatic Windows test installer from coherent `main` changes once the standalone repo flow has been dogfooded enough to justify routine installer output.
+Alpha 1.5 is the current testing line. Keep finding behaviour stable while the Good Ship corpus is reviewed so changes are driven by evidence rather than by a larger speculative rule catalogue.
 
-## Alpha 2 — stronger deterministic packs
+- [ ] Run the checks across the representative Good Ship app corpus in `docs/DOGFOOD.md` and record false positives/false negatives.
+- [ ] Classify surfaced findings as `useful`, `true-but-low-value`, `false-positive` or `uncertain`.
+- [ ] Record important manually discovered issues that Ship Check missed.
+- [ ] Tune severity, confidence and remediation only where corpus evidence supports the change.
+- [ ] Test repair prompts and re-check behaviour on useful findings where practical.
+- [x] Privacy-minimised local diagnostics with source label, inventory provenance, timings and check outcomes.
+- [x] Windows Git inventory fixes and fail-closed behaviour for invalid/empty repository inventories.
+
+## Alpha 1.6 — regression-aware review
+
+Alpha 1.6 should make repeated Ship Checks more useful without broadening the deterministic rule catalogue during 1.5 testing.
+
+- [x] Prepare a privacy-preserving finding fingerprint/delta contract on an isolated development branch.
+- [x] Prepare comparable-scan selection so local history can distinguish new, resolved and unchanged findings without retaining evidence or source contents.
+- [ ] Surface **new since previous comparable check**, **resolved**, and **unchanged** counts in the desktop review flow.
+- [ ] Track the most recent clean comparable scan and make regressions since that clean baseline explicit.
+- [ ] Add focused one-finding-at-a-time review mode for larger scans.
+- [ ] Add check metadata/versioning so a rule change can be distinguished from a product regression.
+- [ ] Add finding suppression with an explicit rationale, scope and expiry/review boundary; never silently ignore a finding.
+- [ ] Keep local history bounded and source-content-free by default.
+- [ ] Decide, from 1.5 dogfood evidence, whether automatic Windows test installers should be produced from coherent `main` changes.
+
+See `docs/ALPHA_1_6.md` for the working contract and merge boundary while 1.5 testing continues.
+
+## Alpha 2 — stronger deterministic assurance
+
+### Database Ready — Postgres first
+
+Database checks become the first major Alpha 2 expansion because they extend Ship Check from repository evidence towards the deployed system boundary while remaining deterministic and inspectable.
+
+- [ ] Add `Database Ready` as a first-class pack with **Postgres Core** rules and provider enrichments rather than separate duplicated Supabase/Neon implementations.
+- [ ] Add repository-only Postgres checks for migrations, schema/configuration evidence, unsafe grants, risky `SECURITY DEFINER` patterns, destructive migrations, missing migration discipline and obvious connection/runtime hazards.
+- [ ] Add Supabase enrichment for exposed schemas, RLS/policy evidence, `anon`/`authenticated` grants, service-role usage and database-function exposure.
+- [ ] Add Neon enrichment for pooled-vs-direct runtime connection evidence, migration/runtime URL separation and production/preview branch configuration where repository-visible.
+- [ ] Add a separate optional read-only database inspector with strict statement/query timeouts, metadata/catalogue queries only, no DDL, no table-content export and no retained credentials.
+- [ ] Use connected Postgres inspection to check actual RLS state, roles/grants, `SECURITY DEFINER`, indexes, primary/foreign keys and operational catalogue evidence where defensible.
+- [ ] Keep repository-only Database Ready fully usable without a network connection or provider account.
+- [ ] Add deliberately risky/safe Postgres, Supabase and Neon fixtures before enabling database findings by default.
+
+See `docs/DATABASE_READY.md` for the proposed architecture and evidence boundary.
+
+### Existing deterministic expansion
 
 - [ ] Semgrep adapter with pinned rulesets and provenance.
 - [ ] Gitleaks adapter for mature secret scanning.
-- [ ] dependency audit adapters (OSV/npm/pnpm) with explicit network boundary.
-- [ ] framework/database checks for Next.js, Vercel, Neon and Supabase patterns.
+- [ ] Dependency audit adapters (OSV/npm/pnpm) with explicit network boundary.
+- [ ] Framework checks for Next.js and Vercel patterns supported by corpus evidence.
 - [x] First Cost Aware checks for high-frequency Vercel cron jobs and frequent network polling.
 - [ ] Broaden abuse-cost checks for AI/email/scraping endpoints only after corpus evaluation.
-- [ ] safe dynamic smoke tests against a local target.
+- [ ] Safe dynamic smoke tests against a local target.
 
 ## Alpha 3 — ecosystem bridges
 
