@@ -5,6 +5,7 @@ on:
     paths:
       - "apps/desktop/**"
       - "scripts/generate-desktop-assets.cjs"
+      - "scripts/install-deep-scanners.cjs"
       - "package.json"
       - ".github/workflows/desktop-validate.yml"
   push:
@@ -12,6 +13,7 @@ on:
     paths:
       - "apps/desktop/**"
       - "scripts/generate-desktop-assets.cjs"
+      - "scripts/install-deep-scanners.cjs"
       - "package.json"
       - ".github/workflows/desktop-validate.yml"
 
@@ -36,6 +38,7 @@ jobs:
           node --check apps/desktop/ui/components.js
           node --check apps/desktop/ui/diagnostics.js
           node --check scripts/generate-desktop-assets.cjs
+          node --check scripts/install-deep-scanners.cjs
 
       - name: Test desktop diagnostics
         run: node --test apps/desktop/ui/diagnostics.test.mjs
