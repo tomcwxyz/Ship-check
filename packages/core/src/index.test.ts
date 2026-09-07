@@ -100,7 +100,7 @@ describe("scan execution", () => {
 
     expect(report.project.inventorySource).toBe("filesystem");
     expect(report.project.fileCount).toBe(1);
-    expect(report.tool.version).toBe("0.0.0-alpha.5");
+    expect(report.tool.version).toBe("0.0.0-alpha.6");
   });
 
   it("captures a check error and continues running later checks", async () => {
