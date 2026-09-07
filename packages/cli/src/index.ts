@@ -8,6 +8,7 @@ import {
 import { checksForPacks } from "@ship-check/checks";
 import { scanProject, type CheckDefinition } from "@ship-check/core";
 import { costAwareChecks } from "@ship-check/cost-checks";
+import { deepChecksForPacks } from "@ship-check/deep-checks";
 import {
   AssuranceGateIdSchema,
   CheckPackSchema,
@@ -33,7 +34,7 @@ const areaNames: Record<AssessmentArea, string> = {
 };
 
 function usage(): string {
-  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-or-github-repo] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--format pretty|json|rack|oos] [--fail-on critical|high|medium|low|never]\n\nRepository sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n`;
+  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-or-github-repo] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--networked-dependency-scan] [--format pretty|json|rack|oos] [--fail-on critical|high|medium|low|never]\n\nRepository sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  --networked-dependency-scan opts into OSV-Scanner. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan . --networked-dependency-scan\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n`;
 }
 
 function printPretty(report: ScanReport): void {
@@ -77,13 +78,18 @@ function printPretty(report: ScanReport): void {
   console.log("\nShip Check reports repository evidence, not security or compliance certification.");
 }
 
-function checksForRequestedPacks(packs: CheckPack[]): CheckDefinition[] {
+function checksForRequestedPacks(
+  packs: CheckPack[],
+  options: { networkedDependencyScan: boolean }
+): CheckDefinition[] {
   const standard = packs.filter(
     (pack): pack is "secure-build" | "production-ready" => pack !== "cost-aware"
   );
+  const nativeChecks = checksForPacks(standard).filter((check) => check.id !== "secure.secret-pattern");
   return [
-    ...checksForPacks(standard),
-    ...(packs.includes("cost-aware") ? costAwareChecks : [])
+    ...nativeChecks,
+    ...(packs.includes("cost-aware") ? costAwareChecks : []),
+    ...deepChecksForPacks(packs, options)
   ];
 }
 
@@ -97,6 +103,7 @@ async function main(): Promise<void> {
       gate: { type: "string", default: "ship-check" },
       "step-id": { type: "string" },
       ref: { type: "string" },
+      "networked-dependency-scan": { type: "boolean", default: false },
       help: { type: "boolean", short: "h" },
       version: { type: "boolean", short: "v" }
     }
@@ -126,12 +133,13 @@ async function main(): Promise<void> {
     throw new Error(`Unknown --fail-on severity: ${failOn}`);
   }
   const gateThreshold = (failOn === "never" ? "high" : failOn) as Severity;
+  const networkedDependencyScan = Boolean(values["networked-dependency-scan"]);
 
   const source = await prepareRepositorySource(positionals[1] ?? ".", { ref: values.ref });
   try {
     const scanned = await scanProject(
       source.projectPath,
-      checksForRequestedPacks(requestedPacks),
+      checksForRequestedPacks(requestedPacks, { networkedDependencyScan }),
       version
     );
     const report: ScanReport = source.kind === "github"
