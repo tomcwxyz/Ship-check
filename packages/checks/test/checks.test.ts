@@ -19,6 +19,12 @@ async function temporaryDirectory(): Promise<string> {
   return root;
 }
 
+async function writeFile(root: string, relativePath: string, content: string): Promise<void> {
+  const destination = path.join(root, relativePath);
+  await fs.mkdir(path.dirname(destination), { recursive: true });
+  await fs.writeFile(destination, content);
+}
+
 async function initGit(root: string): Promise<void> {
   await execFileAsync("git", ["init", root]);
   await execFileAsync("git", ["-C", root, "config", "user.email", "ship-check@example.invalid"]);
@@ -110,6 +116,75 @@ describe("built-in secure-build checks", () => {
     expect(findings[0]?.summary).toContain("NEXT_PUBLIC_DATABASE_URL");
     expect(JSON.stringify(findings)).not.toContain("NEXT_PUBLIC_REGION uses");
   });
+
+  it("finds explicitly unsafe SQL in a request handler", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(root, "package.json", '{"name":"fixture","dependencies":{"next":"15.5.0"}}\n');
+    await writeFile(
+      root,
+      "src/app/api/search/route.ts",
+      "export async function GET(request: Request) {\n  const query = new URL(request.url).searchParams.get('q');\n  return prisma.$queryRawUnsafe(query);\n}\n",
+    );
+
+    const report = await scanProject(root, checksForPacks(["secure-build"]));
+    const risk = report.findings.find((finding) => finding.checkId === "secure.dangerous-server-execution");
+
+    expect(risk).toMatchObject({ severity: "high", confidence: "high" });
+    expect(risk?.summary).toContain("explicitly unsafe raw SQL");
+    expect(report.coverage.find((entry) => entry.area === "code-security")?.status).toBe("partial");
+  });
+
+  it("records an unverified webhook boundary instead of declaring it vulnerable", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(root, "package.json", '{"name":"fixture","dependencies":{"next":"15.5.0"}}\n');
+    await writeFile(
+      root,
+      "src/app/api/webhook/route.ts",
+      "export async function POST(request: Request) {\n  const event = await request.json();\n  await applyEvent(event);\n  return new Response('ok');\n}\n",
+    );
+
+    const report = await scanProject(root, checksForPacks(["secure-build"]));
+    const webhookGap = report.gaps.find((candidate) => candidate.checkId === "secure.webhook-signature-verification");
+
+    expect(webhookGap).toMatchObject({ area: "access-control", title: "Webhook verification could not be established" });
+    expect(report.findings.some((candidate) => candidate.checkId === "secure.webhook-signature-verification")).toBe(false);
+    expect(report.checks.find((check) => check.checkId === "secure.webhook-signature-verification")?.status).toBe("unverified");
+  });
+
+  it("recognises repository-visible webhook signature verification", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(root, "package.json", '{"name":"fixture","dependencies":{"next":"15.5.0"}}\n');
+    await writeFile(
+      root,
+      "src/app/api/webhook/route.ts",
+      "export async function POST(request: Request) {\n  const body = await request.text();\n  const event = stripe.webhooks.constructEvent(body, request.headers.get('stripe-signature'), secret);\n  return Response.json(event);\n}\n",
+    );
+
+    const report = await scanProject(root, checksForPacks(["secure-build"]));
+    expect(report.gaps.some((candidate) => candidate.checkId === "secure.webhook-signature-verification")).toBe(false);
+  });
+
+  it("records unverified auth for a repository-declared cron route and recognises a visible secret check", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(root, "package.json", '{"name":"fixture","dependencies":{"next":"15.5.0"}}\n');
+    await writeFile(root, "vercel.json", '{"crons":[{"path":"/api/cron","schedule":"0 * * * *"}]}\n');
+    await writeFile(
+      root,
+      "src/app/api/cron/route.ts",
+      "export async function GET() { await refresh(); return new Response('ok'); }\n",
+    );
+
+    const unguarded = await scanProject(root, checksForPacks(["secure-build"]));
+    expect(unguarded.gaps.some((candidate) => candidate.checkId === "secure.vercel-cron-auth")).toBe(true);
+
+    await writeFile(
+      root,
+      "src/app/api/cron/route.ts",
+      "export async function GET(request: Request) {\n  if (request.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) return new Response('no', { status: 401 });\n  await refresh();\n  return new Response('ok');\n}\n",
+    );
+    const guarded = await scanProject(root, checksForPacks(["secure-build"]));
+    expect(guarded.gaps.some((candidate) => candidate.checkId === "secure.vercel-cron-auth")).toBe(false);
+  });
 });
 
 describe("production-ready checks", () => {
@@ -132,11 +207,15 @@ describe("production-ready checks", () => {
     expect(finding).toMatchObject({ severity: "low", title: "Multiple dependency lock files found" });
   });
 
-  it("keeps missing Next.js security headers as low-confidence evidence rather than a security claim", async () => {
+  it("records missing Next.js security-header evidence as unverified rather than a finding", async () => {
     const report = await scanProject(risky, checksForPacks(["production-ready"]));
     const finding = report.findings.find((candidate) => candidate.checkId === "production.next-security-headers");
+    const headerGap = report.gaps.find((candidate) => candidate.checkId === "production.next-security-headers");
+    const result = report.checks.find((candidate) => candidate.checkId === "production.next-security-headers");
 
-    expect(finding).toMatchObject({ severity: "low", confidence: "low" });
-    expect(finding?.summary).toContain("does not show a recognised security-header configuration");
+    expect(finding).toBeUndefined();
+    expect(headerGap).toMatchObject({ area: "configuration", title: "Security headers are not verified from repository evidence" });
+    expect(result).toMatchObject({ status: "unverified", findingCount: 0, gapCount: 1 });
+    expect(report.coverage.find((entry) => entry.area === "configuration")?.status).toBe("partial");
   });
 });
