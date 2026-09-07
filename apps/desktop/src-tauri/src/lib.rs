@@ -13,6 +13,8 @@ struct GithubScanRequest {
     git_ref: Option<String>,
     #[serde(default)]
     packs: Vec<String>,
+    #[serde(default)]
+    networked_dependency_scan: bool,
 }
 
 #[tauri::command]
@@ -56,6 +58,7 @@ async fn scan_github_repository(
             ScanRequest {
                 project_path: checkout.project_path.to_string_lossy().to_string(),
                 packs: request.packs,
+                networked_dependency_scan: request.networked_dependency_scan,
             },
         )?;
 
