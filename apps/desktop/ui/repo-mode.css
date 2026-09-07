@@ -98,6 +98,73 @@
   line-height: 1.5;
 }
 
+.network-check-card {
+  margin-top: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 15px 17px;
+  border: 1px dashed #c5a86e;
+  border-radius: 14px;
+  background: #fff9eb;
+  cursor: pointer;
+}
+
+.network-check-card:has(input:checked) {
+  border-style: solid;
+  border-color: #9b7b65;
+  background: #fbf2e8;
+}
+
+.network-check-card input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.network-check-card input:disabled {
+  opacity: 0.55;
+}
+
+.network-check-copy {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.network-check-heading {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.network-check-heading strong {
+  font-size: 13px;
+}
+
+.network-check-copy small {
+  max-width: 900px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.network-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 23px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: var(--yellow-soft);
+  color: #725617;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
 .diagnostics-card {
   margin: 18px 0 22px;
   padding: 16px 18px;
