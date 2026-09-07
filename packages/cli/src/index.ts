@@ -11,6 +11,7 @@ import { costAwareChecks } from "@ship-check/cost-checks";
 import {
   AssuranceGateIdSchema,
   CheckPackSchema,
+  type AssessmentArea,
   type AssuranceGateId,
   type CheckPack,
   type ScanReport,
@@ -18,30 +19,62 @@ import {
 } from "@ship-check/schemas";
 import { prepareRepositorySource } from "./repositorySource.js";
 
-const version = "0.0.0-alpha.4";
+const version = "0.0.0-alpha.6";
 const severityRank: Record<Severity, number> = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
+const areaNames: Record<AssessmentArea, string> = {
+  secrets: "Secrets",
+  "access-control": "Access control",
+  configuration: "Configuration",
+  "supply-chain": "Supply chain",
+  cost: "Cost",
+  "code-security": "Code security",
+  database: "Database",
+  runtime: "Runtime"
+};
 
 function usage(): string {
   return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-or-github-repo] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--format pretty|json|rack|oos] [--fail-on critical|high|medium|low|never]\n\nRepository sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n`;
 }
 
 function printPretty(report: ScanReport): void {
+  const gaps = report.gaps ?? [];
   console.log(`Ship Check · ${report.project.path}`);
-  console.log(`${report.checks.length} checks · ${report.summary.total} findings · ${report.summary.critical} critical · ${report.summary.high} high · ${report.summary.medium} medium`);
+  console.log(`${report.checks.length} checks · ${report.summary.total} findings · ${gaps.length} unverified · ${report.summary.critical} critical · ${report.summary.high} high · ${report.summary.medium} medium`);
+
   if (report.findings.length === 0) {
-    console.log("\nNo findings from the selected checks. This is not a security or compliance certification.");
-    return;
+    console.log("\nNo findings in assessed areas. This does not mean the repository has been fully assessed.");
+  } else {
+    for (const finding of report.findings) {
+      console.log(`\n[${finding.severity.toUpperCase()}] ${finding.title}`);
+      console.log(finding.summary);
+      const evidence = finding.evidence[0];
+      if (evidence.path) console.log(`Evidence: ${evidence.path}${evidence.line ? `:${evidence.line}` : ""} — ${evidence.detail}`);
+      else console.log(`Evidence: ${evidence.detail}`);
+      console.log(`Fix: ${finding.remediation.fix}`);
+      console.log(`Verify: ${finding.remediation.verify}`);
+      console.log(`Agent prompt: ${finding.remediation.agentPrompt}`);
+    }
   }
-  for (const finding of report.findings) {
-    console.log(`\n[${finding.severity.toUpperCase()}] ${finding.title}`);
-    console.log(finding.summary);
-    const evidence = finding.evidence[0];
-    if (evidence.path) console.log(`Evidence: ${evidence.path}${evidence.line ? `:${evidence.line}` : ""} — ${evidence.detail}`);
-    else console.log(`Evidence: ${evidence.detail}`);
-    console.log(`Fix: ${finding.remediation.fix}`);
-    console.log(`Verify: ${finding.remediation.verify}`);
-    console.log(`Agent prompt: ${finding.remediation.agentPrompt}`);
+
+  if (gaps.length > 0) {
+    console.log("\nUnverified controls");
+    for (const assessmentGap of gaps) {
+      const evidence = assessmentGap.evidence[0];
+      console.log(`- ${assessmentGap.title} [${areaNames[assessmentGap.area]}]`);
+      console.log(`  ${assessmentGap.summary}`);
+      if (evidence.path) console.log(`  Evidence: ${evidence.path}${evidence.line ? `:${evidence.line}` : ""} — ${evidence.detail}`);
+      console.log(`  Verify: ${assessmentGap.verify}`);
+    }
   }
+
+  if (report.coverage?.length) {
+    console.log("\nAssessment coverage");
+    for (const coverage of report.coverage) {
+      console.log(`- ${areaNames[coverage.area]}: ${coverage.status}`);
+    }
+  }
+
+  console.log("\nShip Check reports repository evidence, not security or compliance certification.");
 }
 
 function checksForRequestedPacks(packs: CheckPack[]): CheckDefinition[] {

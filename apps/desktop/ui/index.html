@@ -29,7 +29,7 @@
           <p class="eyebrow">Before it ships</p>
           <h1 id="hero-title">Check the repo. Find the risky bits.</h1>
           <p class="hero-copy">
-            Point Ship Check at a local project or GitHub repository. It runs deterministic checks, shows the evidence and gives you repair guidance you can hand back to your coding agent.
+            Point Ship Check at a local project or GitHub repository. It runs deterministic checks, shows the evidence and makes clear what it did not establish.
           </p>
           <div class="privacy-note">
             <span aria-hidden="true">●</span>
@@ -80,7 +80,7 @@
               <input type="checkbox" value="secure-build" checked />
               <span>
                 <strong>Secure Build</strong>
-                <small>Secrets, risky configuration and obvious security footguns.</small>
+                <small>Secrets, server boundaries, webhook/cron controls and high-risk execution primitives.</small>
               </span>
             </label>
             <label class="pack-card">
@@ -122,6 +122,28 @@
           </div>
 
           <div class="summary-grid" id="summary-grid" aria-label="Scan summary"></div>
+
+          <section class="coverage-panel" aria-labelledby="coverage-title">
+            <div class="coverage-heading">
+              <div>
+                <p class="section-kicker">Coverage</p>
+                <h3 id="coverage-title">What this scan actually assessed</h3>
+              </div>
+              <p>Partial means Ship Check ran useful narrow checks here, not that the whole area is verified.</p>
+            </div>
+            <div class="coverage-grid" id="coverage-grid"></div>
+          </section>
+
+          <section class="unverified-panel" id="unverified-panel" aria-labelledby="unverified-title" hidden>
+            <div class="coverage-heading">
+              <div>
+                <p class="section-kicker">Unverified</p>
+                <h3 id="unverified-title">Controls Ship Check could not establish</h3>
+              </div>
+              <p>These are evidence gaps, not confirmed defects. Verify them before treating the area as clean.</p>
+            </div>
+            <div class="unverified-list" id="unverified-list"></div>
+          </section>
 
           <div class="results-toolbar">
             <div class="filter-group" id="severity-filters" aria-label="Filter findings by severity">

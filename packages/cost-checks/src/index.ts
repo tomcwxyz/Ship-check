@@ -116,7 +116,10 @@ const vercelCronFrequencyCheck: CheckDefinition = {
         })
       );
     }
-    return findings;
+    return {
+      findings,
+      coverage: [{ area: "cost", status: "partial" }]
+    };
   }
 };
 
@@ -183,12 +186,16 @@ const frequentPollingCheck: CheckDefinition = {
     const files = context.files.filter(
       (file) => /\.(?:js|jsx|ts|tsx)$/i.test(file) && !/(?:^|\/).*(?:test|spec)\.(?:js|jsx|ts|tsx)$/i.test(file)
     );
+    if (files.length === 0) return [];
     for (const file of files) {
       const text = await context.readText(file);
       if (!text) continue;
       findings.push(...intervalFindings(context, file, text, this.id));
     }
-    return findings;
+    return {
+      findings,
+      coverage: [{ area: "cost", status: "partial" }]
+    };
   }
 };
 

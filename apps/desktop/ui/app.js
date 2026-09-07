@@ -1,5 +1,11 @@
 import { desktopBridge } from "./bridge.js";
-import { renderFindings, renderSummary, setEnginePill } from "./components.js";
+import {
+  renderCoverage,
+  renderFindings,
+  renderGaps,
+  renderSummary,
+  setEnginePill,
+} from "./components.js";
 import {
   appendDiagnostic,
   clearDiagnostics,
@@ -38,6 +44,9 @@ const elements = {
   errorBanner: document.querySelector("#error-banner"),
   results: document.querySelector("#results"),
   summaryGrid: document.querySelector("#summary-grid"),
+  coverageGrid: document.querySelector("#coverage-grid"),
+  unverifiedPanel: document.querySelector("#unverified-panel"),
+  unverifiedList: document.querySelector("#unverified-list"),
   scanMeta: document.querySelector("#scan-meta"),
   severityFilters: document.querySelector("#severity-filters"),
   findingsList: document.querySelector("#findings-list"),
@@ -134,6 +143,8 @@ function assertScanReport(report) {
     ["git-tracked", "filesystem"].includes(report.project.inventorySource) &&
     Array.isArray(report.checks) &&
     Array.isArray(report.findings) &&
+    Array.isArray(report.gaps) &&
+    Array.isArray(report.coverage) &&
     report.summary;
   if (!valid) {
     throw new Error("The local engine returned an unexpected report. Update the desktop app and engine together.");
@@ -154,7 +165,7 @@ function ensureDiagnosticsPanel() {
 
   const copy = document.createElement("p");
   copy.className = "source-help";
-  copy.textContent = "Stored locally for alpha testing. Includes repo label, engine version, inventory source, timings and check outcomes — never source contents, evidence excerpts or matched secret values.";
+  copy.textContent = "Stored locally for alpha testing. Includes repo label, engine version, inventory source, coverage status, timings and check outcomes — never source contents, evidence excerpts or matched secret values.";
   panel.append(copy);
 
   const receipt = document.createElement("pre");
@@ -246,6 +257,8 @@ function recordFailure(error, packs, startedAt) {
 function renderReport(report) {
   state.report = report;
   renderSummary(elements.summaryGrid, report);
+  renderCoverage(elements.coverageGrid, report.coverage);
+  renderGaps(elements.unverifiedPanel, elements.unverifiedList, report.gaps);
 
   const generated = new Date(report.generatedAt);
   const when = Number.isNaN(generated.getTime())
@@ -253,10 +266,12 @@ function renderReport(report) {
     : generated.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   const source = state.sourceMode === "github" ? "GitHub repo" : "local repo";
   const inventory = report.project.inventorySource === "git-tracked" ? "Git tracked" : "filesystem";
-  elements.scanMeta.textContent = `${source} · ${report.project.fileCount.toLocaleString("en-GB")} files · ${report.checks.length} checks · ${inventory} · ${when}`;
+  elements.scanMeta.textContent = `${source} · ${report.project.fileCount.toLocaleString("en-GB")} files · ${report.checks.length} checks · ${report.gaps.length} unverified · ${inventory} · ${when}`;
 
   elements.emptyCopy.textContent = report.findings.length === 0
-    ? "The selected checks did not surface any findings. This is not a security or compliance certification."
+    ? report.gaps.length > 0
+      ? `No confirmed findings in assessed areas. ${report.gaps.length} control${report.gaps.length === 1 ? " still needs" : "s still need"} verification; see coverage above.`
+      : "No confirmed findings in assessed areas. Check the coverage above before treating the repository as clean."
     : "No findings match this severity filter.";
 
   renderFindings(elements.findingsList, elements.emptyState, report.findings, state.severityFilter);

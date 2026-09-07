@@ -1,6 +1,7 @@
 import {
   AssuranceGateResultSchema,
   RackStepResultSchema,
+  type AssessmentGap,
   type AssuranceGateId,
   type AssuranceGateResult,
   type CheckPack,
@@ -40,6 +41,7 @@ function principlesForCheck(check: CheckResult): PracticePrincipleId[] {
 function buildPracticeEvidence(
   checks: CheckResult[],
   findings: Finding[],
+  gaps: AssessmentGap[],
   threshold: Severity
 ): PracticeEvidence[] {
   const principleIds = new Set(checks.flatMap(principlesForCheck));
@@ -49,6 +51,7 @@ function buildPracticeEvidence(
     const principleChecks = checks.filter((check) => principlesForCheck(check).includes(principleId));
     const checkIds = principleChecks.map((check) => check.checkId);
     const relevantFindings = findings.filter((finding) => checkIds.includes(finding.checkId));
+    const relevantGaps = gaps.filter((gap) => checkIds.includes(gap.checkId));
     const errors = principleChecks.filter((check) => check.status === "error");
     const gateFailures = relevantFindings.filter(
       (finding) => severityRank[finding.severity] >= severityRank[threshold]
@@ -84,6 +87,17 @@ function buildPracticeEvidence(
         checkIds,
         summary: `${relevantFindings.length} lower-severity finding${relevantFindings.length === 1 ? "" : "s"} ${relevantFindings.length === 1 ? "relates" : "relate"} to this practice principle, but ${relevantFindings.length === 1 ? "does" : "do"} not fail the ${threshold} gate.`
       });
+      continue;
+    }
+
+    if (relevantGaps.length > 0) {
+      evidence.push({
+        principleId,
+        outcome: "uncertain",
+        findingIds: [],
+        checkIds,
+        summary: `${relevantGaps.length} repository-visible control${relevantGaps.length === 1 ? " could" : "s could"} not be verified, so Ship Check does not infer a pass for this practice principle.`
+      });
     }
   }
 
@@ -97,6 +111,7 @@ export function evaluateAssuranceGate(
   const threshold = options.threshold ?? "high";
   const selectedPack = gatePack[options.gateId];
   const findings = report.findings.filter((finding) => !selectedPack || finding.pack === selectedPack);
+  const gaps = (report.gaps ?? []).filter((gap) => !selectedPack || gap.pack === selectedPack);
   const checks = report.checks.filter((check) => !selectedPack || check.pack === selectedPack);
   const checkErrors = checks
     .filter((check) => check.status === "error")
@@ -118,6 +133,11 @@ export function evaluateAssuranceGate(
       `${belowThreshold.length} finding${belowThreshold.length === 1 ? " is" : "s are"} below the ${threshold} gate threshold.`
     );
   }
+  if (gaps.length > 0) {
+    warnings.push(
+      `${gaps.length} control${gaps.length === 1 ? " was" : "s were"} not verified from repository evidence; Ship Check does not treat this as a clean pass.`
+    );
+  }
 
   const gateFailures = findings.filter(
     (finding) => severityRank[finding.severity] >= severityRank[threshold]
@@ -127,6 +147,8 @@ export function evaluateAssuranceGate(
   if (gateFailures.length > 0) outcome = "fail";
   else if (checkErrors.length > 0 || (selectedPack !== null && !report.packs.includes(selectedPack))) {
     outcome = "incomplete";
+  } else if (gaps.length > 0) {
+    outcome = "uncertain";
   }
 
   const principlesByCheck = new Map(checks.map((check) => [check.checkId, principlesForCheck(check)]));
@@ -151,7 +173,7 @@ export function evaluateAssuranceGate(
       title: finding.title,
       principles: principlesByCheck.get(finding.checkId) ?? []
     })),
-    practiceEvidence: buildPracticeEvidence(checks, findings, threshold),
+    practiceEvidence: buildPracticeEvidence(checks, findings, gaps, threshold),
     checkErrors,
     warnings
   });
@@ -225,6 +247,7 @@ export type OrganisationalAssuranceSummary = {
     medium: number;
     low: number;
     info: number;
+    unverified: number;
     checkErrors: number;
   };
 };
@@ -235,6 +258,7 @@ export function toOrganisationalAssuranceSummary(
 ): OrganisationalAssuranceSummary {
   const selectedPack = gatePack[gate.gateId];
   const findings = report.findings.filter((finding) => !selectedPack || finding.pack === selectedPack);
+  const gaps = (report.gaps ?? []).filter((gap) => !selectedPack || gap.pack === selectedPack);
   const count = (severity: Severity) => findings.filter((finding) => finding.severity === severity).length;
 
   return {
@@ -255,6 +279,7 @@ export function toOrganisationalAssuranceSummary(
       medium: count("medium"),
       low: count("low"),
       info: count("info"),
+      unverified: gaps.length,
       checkErrors: gate.checkErrors.length
     }
   };

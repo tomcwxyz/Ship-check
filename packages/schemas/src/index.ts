@@ -15,6 +15,21 @@ export type Severity = z.infer<typeof SeveritySchema>;
 export const ConfidenceSchema = z.enum(["high", "medium", "low"]);
 export type Confidence = z.infer<typeof ConfidenceSchema>;
 
+export const AssessmentAreaSchema = z.enum([
+  "secrets",
+  "access-control",
+  "configuration",
+  "supply-chain",
+  "cost",
+  "code-security",
+  "database",
+  "runtime"
+]);
+export type AssessmentArea = z.infer<typeof AssessmentAreaSchema>;
+
+export const CoverageStatusSchema = z.enum(["assessed", "partial", "not-assessed"]);
+export type CoverageStatus = z.infer<typeof CoverageStatusSchema>;
+
 export const EvidenceSchema = z.object({
   kind: z.enum(["file-match", "file-presence", "configuration", "repository"]),
   path: z.string().optional(),
@@ -45,12 +60,33 @@ export const FindingSchema = z.object({
 });
 export type Finding = z.infer<typeof FindingSchema>;
 
+export const AssessmentGapSchema = z.object({
+  id: z.string().min(1),
+  checkId: z.string().min(1),
+  pack: CheckPackSchema,
+  area: AssessmentAreaSchema,
+  title: z.string().min(1),
+  summary: z.string().min(1),
+  evidence: z.array(EvidenceSchema).min(1),
+  verify: z.string().min(1)
+});
+export type AssessmentGap = z.infer<typeof AssessmentGapSchema>;
+
+export const CoverageEntrySchema = z.object({
+  area: AssessmentAreaSchema,
+  status: CoverageStatusSchema,
+  checkIds: z.array(z.string().min(1)),
+  detail: z.string().min(1)
+});
+export type CoverageEntry = z.infer<typeof CoverageEntrySchema>;
+
 export const CheckResultSchema = z.object({
   checkId: z.string(),
   pack: CheckPackSchema,
   principles: z.array(PracticePrincipleIdSchema).default([]),
-  status: z.enum(["passed", "findings", "error"]),
+  status: z.enum(["passed", "findings", "unverified", "error"]),
   findingCount: z.number().int().nonnegative(),
+  gapCount: z.number().int().nonnegative().default(0),
   durationMs: z.number().nonnegative(),
   error: z.string().optional()
 });
@@ -71,6 +107,8 @@ export const ScanReportSchema = z.object({
   packs: z.array(CheckPackSchema),
   checks: z.array(CheckResultSchema),
   findings: z.array(FindingSchema),
+  gaps: z.array(AssessmentGapSchema).default([]),
+  coverage: z.array(CoverageEntrySchema).default([]),
   summary: z.object({
     total: z.number().int().nonnegative(),
     critical: z.number().int().nonnegative(),
