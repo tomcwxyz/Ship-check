@@ -31,6 +31,7 @@
     "longDescription": "Review deterministic Ship Check findings, evidence and repair guidance against a project on your own machine.",
     "resources": ["resources/*"],
     "macOS": {
+      "minimumSystemVersion": "12.0",
       "signingIdentity": "-"
     }
   }
