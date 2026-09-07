@@ -65,7 +65,7 @@ cd apps/desktop
 cargo tauri dev
 ```
 
-`desktop:assets` creates the platform icon files from the small checked-in icon source. The generated PNG/ICO files are build artefacts and stay out of source control.
+`desktop:assets` creates the shared PNG and Windows ICO assets from the small checked-in icon source. The macOS release runner derives an `.icns` from the PNG with native macOS tooling before Tauri packaging. Generated PNG/ICO/ICNS files are build artefacts and stay out of source control.
 
 You can also point the desktop at another locally built engine:
 
@@ -80,8 +80,18 @@ $env:SHIP_CHECK_ENGINE_PATH = "C:\path\to\ship-check-engine.exe"
 cargo tauri dev
 ```
 
-GitHub mode also requires Git to be installed and available to the desktop process.
+GitHub mode also requires Git to be installed and available to the desktop process. This needs explicit dogfood coverage on macOS because GUI-launched applications can have a different executable search path from an interactive shell.
+
+## Alpha packaging
+
+The manual desktop alpha release builds three native targets from the same commit:
+
+- Windows x64 as an unsigned NSIS `.exe`;
+- Linux x64 as a `.deb`;
+- macOS Apple Silicon as an ad-hoc-signed `.dmg`.
+
+The macOS alpha is not Apple-notarised, so testers may need to approve it in macOS Privacy & Security. Developer ID signing, notarisation and Intel/universal packaging remain later pilot-readiness work.
 
 ## Release cost discipline
 
-Normal desktop validation only runs when `apps/desktop/**` or its asset generator changes. Multi-platform Windows/Linux packaging is manual through the Desktop alpha release workflow and requires an explicit `ALPHA` confirmation. This keeps native runner work tied to intentional releases rather than every development commit.
+Normal desktop validation only runs when `apps/desktop/**` or its asset generator changes. Multi-platform Windows/Linux/macOS packaging is manual through the Desktop alpha release workflow and requires an explicit `ALPHA` confirmation. This keeps native runner work tied to intentional releases rather than every development commit.
