@@ -25,6 +25,7 @@
 - [ ] Local scan history with no source-content retention by default.
 - [ ] Compare against the last clean check so regressions and newly introduced findings are obvious.
 - [x] Manual Windows x64/Linux x64/macOS Apple Silicon desktop alpha pre-release workflow with explicit confirmation and matching bundled engine.
+- [ ] Dogfood the macOS alpha, including local-folder and GitHub/private-repository flows.
 - [ ] Proper Windows signing and macOS Developer ID signing/notarisation for pilot distribution.
 
 ### Alpha 1.6 — first practice-evidence loop
