@@ -4,8 +4,11 @@ import path from "node:path";
 import { promisify } from "node:util";
 import {
   ScanReportSchema,
+  type AssessmentArea,
+  type AssessmentGap,
   type CheckPack,
   type CheckResult,
+  type CoverageEntry,
   type Finding,
   type PracticePrincipleId,
   type ScanReport
@@ -21,10 +24,34 @@ export const BUILT_IN_PRACTICE_PRINCIPLES: Record<string, PracticePrincipleId[]>
   "secure.paid-endpoint-abuse-control": ["practice.preserve-safety", "practice.cost-discipline"],
   "secure.wildcard-cors": ["practice.preserve-safety"],
   "secure.public-secret-env-name": ["practice.preserve-safety"],
+  "secure.webhook-signature-verification": ["practice.preserve-safety"],
+  "secure.vercel-cron-auth": ["practice.preserve-safety", "practice.cost-discipline"],
   "production.package-lock-discipline": ["practice.dependency-restraint"],
   "production.next-security-headers": ["practice.preserve-safety"],
   "cost.vercel-cron-frequency": ["practice.cost-discipline"],
   "cost.frequent-network-polling": ["practice.cost-discipline"]
+};
+
+export const ASSESSMENT_AREAS: AssessmentArea[] = [
+  "secrets",
+  "access-control",
+  "configuration",
+  "supply-chain",
+  "cost",
+  "code-security",
+  "database",
+  "runtime"
+];
+
+const areaLabels: Record<AssessmentArea, string> = {
+  secrets: "Secrets and credential exposure",
+  "access-control": "Access control and exposed server boundaries",
+  configuration: "Application and platform configuration",
+  "supply-chain": "Dependency and supply-chain risk",
+  cost: "Cost and background-work boundaries",
+  "code-security": "Static code security",
+  database: "Database permissions and data boundaries",
+  runtime: "Deployed runtime behaviour"
 };
 
 export type ProjectInventorySource = "git-tracked" | "filesystem";
@@ -39,13 +66,25 @@ export type ProjectContext = {
   readText(relativePath: string): Promise<string | null>;
 };
 
+export type CoverageContribution = {
+  area: AssessmentArea;
+  status: "assessed" | "partial";
+};
+
+export type CheckExecution = {
+  findings?: Finding[];
+  gaps?: AssessmentGap[];
+  coverage?: CoverageContribution[];
+};
+
 export type CheckDefinition = {
   id: string;
   pack: CheckPack;
   title: string;
   description: string;
   principles?: PracticePrincipleId[];
-  run(context: ProjectContext): Promise<Finding[]>;
+  coverage?: CoverageContribution[];
+  run(context: ProjectContext): Promise<Finding[] | CheckExecution>;
 };
 
 function normalise(relativePath: string): string {
@@ -151,23 +190,71 @@ function summarise(findings: Finding[]): ScanReport["summary"] {
   return summary;
 }
 
-export async function scanProject(projectPath: string, checks: CheckDefinition[], version = "0.0.0-alpha.4"): Promise<ScanReport> {
+function normaliseExecution(execution: Finding[] | CheckExecution): Required<CheckExecution> {
+  if (Array.isArray(execution)) {
+    return { findings: execution, gaps: [], coverage: [] };
+  }
+  return {
+    findings: execution.findings ?? [],
+    gaps: execution.gaps ?? [],
+    coverage: execution.coverage ?? []
+  };
+}
+
+function summariseCoverage(
+  contributions: Array<CoverageContribution & { checkId: string }>
+): CoverageEntry[] {
+  return ASSESSMENT_AREAS.map((area) => {
+    const matches = contributions.filter((entry) => entry.area === area);
+    const checkIds = [...new Set(matches.map((entry) => entry.checkId))].sort();
+    if (matches.length === 0) {
+      return {
+        area,
+        status: "not-assessed" as const,
+        checkIds,
+        detail: `${areaLabels[area]} was not assessed by the selected checks.`
+      };
+    }
+    const status = matches.some((entry) => entry.status === "assessed") ? "assessed" as const : "partial" as const;
+    return {
+      area,
+      status,
+      checkIds,
+      detail: status === "assessed"
+        ? `${areaLabels[area]} has deterministic assessment evidence from ${checkIds.length} check${checkIds.length === 1 ? "" : "s"}.`
+        : `${areaLabels[area]} was partially assessed by ${checkIds.length} narrow check${checkIds.length === 1 ? "" : "s"}; this is not full verification.`
+    };
+  });
+}
+
+export async function scanProject(projectPath: string, checks: CheckDefinition[], version = "0.0.0-alpha.5"): Promise<ScanReport> {
   const context = await createProjectContext(projectPath);
   const findings: Finding[] = [];
+  const gaps: AssessmentGap[] = [];
   const results: CheckResult[] = [];
+  const coverageContributions: Array<CoverageContribution & { checkId: string }> = [];
 
   for (const check of checks) {
     const started = performance.now();
     const principles = check.principles ?? BUILT_IN_PRACTICE_PRINCIPLES[check.id] ?? [];
     try {
-      const checkFindings = await check.run(context);
-      findings.push(...checkFindings);
+      const execution = normaliseExecution(await check.run(context));
+      findings.push(...execution.findings);
+      gaps.push(...execution.gaps);
+      for (const contribution of [...(check.coverage ?? []), ...execution.coverage]) {
+        coverageContributions.push({ ...contribution, checkId: check.id });
+      }
       results.push({
         checkId: check.id,
         pack: check.pack,
         principles,
-        status: checkFindings.length > 0 ? "findings" : "passed",
-        findingCount: checkFindings.length,
+        status: execution.findings.length > 0
+          ? "findings"
+          : execution.gaps.length > 0
+            ? "unverified"
+            : "passed",
+        findingCount: execution.findings.length,
+        gapCount: execution.gaps.length,
         durationMs: Math.max(0, Math.round(performance.now() - started))
       });
     } catch (error) {
@@ -177,6 +264,7 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
         principles,
         status: "error",
         findingCount: 0,
+        gapCount: 0,
         durationMs: Math.max(0, Math.round(performance.now() - started)),
         error: error instanceof Error ? error.message : String(error)
       });
@@ -195,6 +283,8 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
     packs: [...new Set(checks.map((check) => check.pack))],
     checks: results,
     findings: findings.sort((a, b) => `${a.severity}:${a.id}`.localeCompare(`${b.severity}:${b.id}`)),
+    gaps: gaps.sort((a, b) => `${a.area}:${a.id}`.localeCompare(`${b.area}:${b.id}`)),
+    coverage: summariseCoverage(coverageContributions),
     summary: summarise(findings),
     generatedAt: new Date().toISOString()
   };
