@@ -24,8 +24,8 @@
 - [ ] Optional focused one-finding-at-a-time review mode for larger scans.
 - [ ] Local scan history with no source-content retention by default.
 - [ ] Compare against the last clean check so regressions and newly introduced findings are obvious.
-- [x] Manual unsigned Windows/Linux desktop alpha pre-release workflow with explicit confirmation and matching bundled engine.
-- [ ] Automatic Windows test installer from coherent `main` changes once the standalone repo flow has been dogfooded enough to justify routine installer output.
+- [x] Manual Windows x64/Linux x64/macOS Apple Silicon desktop alpha pre-release workflow with explicit confirmation and matching bundled engine.
+- [ ] Proper Windows signing and macOS Developer ID signing/notarisation for pilot distribution.
 
 ### Alpha 1.6 — first practice-evidence loop
 
