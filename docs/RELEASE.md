@@ -15,7 +15,7 @@ When `apps/desktop` lands, add two release paths matching the existing family:
 
 The macOS alpha is built natively on an Apple Silicon GitHub runner, targets macOS 12 or later and is packaged as a `.dmg`. It uses ad-hoc code signing rather than an Apple Developer ID and is not notarised, so macOS may require the tester to approve the app in Privacy & Security. Proper Developer ID signing, notarisation and any Intel/universal build are pilot-readiness work rather than alpha blockers.
 
-Server-only or documentation-only changes must not trigger paid desktop runners once path filtering is in place.
+Native packaging remains manual so Windows, Linux and macOS runner work is only incurred for intentional alpha releases rather than normal development commits.
 
 ## Versioning
 
