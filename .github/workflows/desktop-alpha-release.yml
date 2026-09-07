@@ -78,14 +78,14 @@ jobs:
       - run: pnpm desktop:assets
 
   create-release:
-    name: Create draft desktop release
+    name: Create or refresh draft desktop release
     needs: preflight
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - name: Create draft pre-release
+      - name: Create or refresh draft pre-release
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -93,17 +93,31 @@ jobs:
         run: |
           set -euo pipefail
           tag="ship-check-desktop-v${VERSION}"
+          title="Ship Check ${VERSION} · desktop alpha"
+          notes="Early local-first Ship Check desktop alpha for Windows x64, Linux x64 and macOS Apple Silicon. The matching deterministic engine is bundled with the app and repository source remains local during desktop scans. Windows installers are unsigned and the macOS build is ad-hoc signed rather than Apple-notarised, so operating-system warnings may appear. Ship Check findings are evidence for human review, not a security or compliance certification."
+
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "::error::Release $tag already exists."
-            exit 1
+            is_draft="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
+            if [[ "$is_draft" != "true" ]]; then
+              echo "::error::Release $tag already exists and is not a draft; refusing to replace a published release."
+              exit 1
+            fi
+            gh release edit "$tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --draft \
+              --prerelease \
+              --title "$title" \
+              --notes "$notes"
+          else
+            gh release create "$tag" \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --draft \
+              --prerelease \
+              --title "$title" \
+              --notes "$notes"
           fi
-          gh release create "$tag" \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --draft \
-            --prerelease \
-            --title "Ship Check ${VERSION} · desktop alpha" \
-            --notes "Early local-first Ship Check desktop alpha for Windows x64, Linux x64 and macOS Apple Silicon. The matching deterministic engine is bundled with the app and repository source remains local during desktop scans. Windows installers are unsigned and the macOS build is ad-hoc signed rather than Apple-notarised, so operating-system warnings may appear. Ship Check findings are evidence for human review, not a security or compliance certification."
 
   build:
     name: ${{ matrix.label }}
