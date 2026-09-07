@@ -6,6 +6,7 @@ import {
   toRackStepResult
 } from "@ship-check/adapters";
 import { checksForPacks } from "@ship-check/checks";
+import { importAwareSurfaceChecks, replacedSurfaceCheckIds } from "@ship-check/checks/surface";
 import { scanProject, type CheckDefinition } from "@ship-check/core";
 import { costAwareChecks } from "@ship-check/cost-checks";
 import { deepChecksForPacks } from "@ship-check/deep-checks";
@@ -34,7 +35,7 @@ const areaNames: Record<AssessmentArea, string> = {
 };
 
 function usage(): string {
-  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-or-github-repo] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--networked-dependency-scan] [--format pretty|json|rack|oos] [--fail-on critical|high|medium|low|never]\n\nRepository sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan . --networked-dependency-scan\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n`;
+  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-or-github-repo] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--networked-dependency-scan] [--format pretty|json|rack|oos] [--fail-on critical|high|medium|low|never]\n\nRepository sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  Server-boundary checks trace a bounded local import graph so auth, webhook verification and paid work can live in shared helpers.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan . --networked-dependency-scan\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n`;
 }
 
 function printPretty(report: ScanReport): void {
@@ -85,9 +86,12 @@ function checksForRequestedPacks(
   const standard = packs.filter(
     (pack): pack is "secure-build" | "production-ready" => pack !== "cost-aware"
   );
-  const nativeChecks = checksForPacks(standard).filter((check) => check.id !== "secure.secret-pattern");
+  const nativeChecks = checksForPacks(standard).filter(
+    (check) => check.id !== "secure.secret-pattern" && !replacedSurfaceCheckIds.has(check.id)
+  );
   return [
     ...nativeChecks,
+    ...(packs.includes("secure-build") ? importAwareSurfaceChecks : []),
     ...(packs.includes("cost-aware") ? costAwareChecks : []),
     ...deepChecksForPacks(packs, options)
   ];
