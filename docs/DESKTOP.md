@@ -92,6 +92,8 @@ The manual desktop alpha release builds three native targets from the same commi
 
 The macOS alpha is not Apple-notarised, so testers may need to approve it in macOS Privacy & Security. Developer ID signing, notarisation and Intel/universal packaging remain later pilot-readiness work.
 
+The first macOS dogfood pass should explicitly cover app launch/Gatekeeper behaviour, local-folder scanning, a public GitHub repository and a private GitHub repository using the machine's existing Git credentials or SSH keys.
+
 ## Release cost discipline
 
 Normal desktop validation only runs when `apps/desktop/**` or its asset generator changes. Multi-platform Windows/Linux/macOS packaging is manual through the Desktop alpha release workflow and requires an explicit `ALPHA` confirmation. This keeps native runner work tied to intentional releases rather than every development commit.
