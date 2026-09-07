@@ -64,6 +64,7 @@ export function renderSummary(container, report) {
   const items = [
     ["Findings", report.summary.total],
     ["Unverified", report.gaps?.length ?? 0],
+    ["Observed", report.observations?.length ?? 0],
     ["High + critical", report.summary.high + report.summary.critical],
     ["Checks run", report.checks.length],
   ];
@@ -101,6 +102,26 @@ function evidenceItem(evidence) {
     item.append(element("code", "evidence-excerpt", evidence.excerpt));
   }
   return item;
+}
+
+export function renderObservations(panel, container, observations = []) {
+  container.replaceChildren();
+  panel.hidden = observations.length === 0;
+  for (const observation of observations) {
+    const article = element("article", "observation-card");
+    const badges = element("div", "finding-badges");
+    badges.append(element("span", "observation-badge", observation.kind === "verified-control" ? "Verified" : "Observed"));
+    badges.append(element("span", "pack-badge", packNames[observation.pack] || observation.pack));
+    badges.append(element("span", "confidence-badge", areaNames[observation.area] || observation.area));
+    article.append(badges);
+    article.append(element("h4", "gap-title", observation.title));
+    article.append(element("p", "gap-summary", observation.summary));
+
+    const evidenceList = element("ul", "evidence-list observation-evidence");
+    for (const evidence of observation.evidence || []) evidenceList.append(evidenceItem(evidence));
+    article.append(evidenceList);
+    container.append(article);
+  }
 }
 
 export function renderGaps(panel, container, gaps = []) {
