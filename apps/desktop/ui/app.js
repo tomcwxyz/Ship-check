@@ -66,9 +66,14 @@ function selectedPacks() {
   );
 }
 
+function productionReadySelected() {
+  return selectedPacks().includes("production-ready");
+}
+
 function scanOptions() {
   return {
-    networkedDependencyScan: Boolean(elements.networkedDependencyScan?.checked),
+    networkedDependencyScan:
+      productionReadySelected() && Boolean(elements.networkedDependencyScan?.checked),
   };
 }
 
@@ -91,6 +96,13 @@ function currentSourceValue() {
   return state.sourceMode === "github" ? state.githubRepository.trim() : state.projectPath;
 }
 
+function updateDeepScanAvailability() {
+  if (!elements.networkedDependencyScan) return;
+  const enabledByPack = productionReadySelected();
+  if (!enabledByPack) elements.networkedDependencyScan.checked = false;
+  elements.networkedDependencyScan.disabled = state.scanning || !enabledByPack;
+}
+
 function updateRunAvailability() {
   const ready =
     sourceReady() &&
@@ -111,13 +123,13 @@ function setScanning(scanning) {
   elements.chooseProject.disabled = scanning;
   elements.githubRepository.disabled = scanning;
   elements.githubRef.disabled = scanning;
-  if (elements.networkedDependencyScan) elements.networkedDependencyScan.disabled = scanning;
   for (const button of elements.sourceSwitch.querySelectorAll("[data-source]")) {
     button.disabled = scanning;
   }
   for (const checkbox of elements.packGrid.querySelectorAll('input[type="checkbox"]')) {
     checkbox.disabled = scanning;
   }
+  updateDeepScanAvailability();
   updateRunAvailability();
 }
 
@@ -378,7 +390,10 @@ elements.githubRef.addEventListener("keydown", (event) => {
 elements.chooseProject.addEventListener("click", chooseProject);
 elements.runScan.addEventListener("click", runScan);
 elements.rerunScan.addEventListener("click", runScan);
-elements.packGrid.addEventListener("change", updateRunAvailability);
+elements.packGrid.addEventListener("change", () => {
+  updateDeepScanAvailability();
+  updateRunAvailability();
+});
 
 elements.severityFilters.addEventListener("click", (event) => {
   const button = event.target.closest("[data-severity]");
@@ -397,5 +412,6 @@ elements.severityFilters.addEventListener("click", (event) => {
 
 setProjectPath("");
 setSourceMode("local");
+updateDeepScanAvailability();
 restoreDiagnostics();
 refreshEngineStatus();
