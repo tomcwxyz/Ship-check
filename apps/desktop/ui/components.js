@@ -12,6 +12,23 @@ const packNames = {
   "cost-aware": "Cost Aware",
 };
 
+const areaNames = {
+  secrets: "Secrets",
+  "access-control": "Access control",
+  configuration: "Configuration",
+  "supply-chain": "Supply chain",
+  cost: "Cost",
+  "code-security": "Code security",
+  database: "Database",
+  runtime: "Runtime",
+};
+
+const coverageNames = {
+  assessed: "Assessed",
+  partial: "Partial",
+  "not-assessed": "Not assessed",
+};
+
 function element(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -46,8 +63,8 @@ export function renderSummary(container, report) {
   container.replaceChildren();
   const items = [
     ["Findings", report.summary.total],
-    ["Critical", report.summary.critical],
-    ["High", report.summary.high],
+    ["Unverified", report.gaps?.length ?? 0],
+    ["High + critical", report.summary.high + report.summary.critical],
     ["Checks run", report.checks.length],
   ];
 
@@ -55,6 +72,20 @@ export function renderSummary(container, report) {
     const card = element("div", "summary-card");
     card.append(element("span", "summary-number", value));
     card.append(element("span", "summary-label", label));
+    container.append(card);
+  }
+}
+
+export function renderCoverage(container, coverage = []) {
+  container.replaceChildren();
+  for (const entry of coverage) {
+    const card = element("div", "coverage-item");
+    card.dataset.status = entry.status;
+    const heading = element("div", "coverage-item-heading");
+    heading.append(element("strong", "coverage-area", areaNames[entry.area] || entry.area));
+    heading.append(element("span", `coverage-status coverage-${entry.status}`, coverageNames[entry.status] || entry.status));
+    card.append(heading);
+    card.append(element("p", "coverage-detail", entry.detail));
     container.append(card);
   }
 }
@@ -70,6 +101,27 @@ function evidenceItem(evidence) {
     item.append(element("code", "evidence-excerpt", evidence.excerpt));
   }
   return item;
+}
+
+export function renderGaps(panel, container, gaps = []) {
+  container.replaceChildren();
+  panel.hidden = gaps.length === 0;
+  for (const gap of gaps) {
+    const article = element("article", "gap-card");
+    const badges = element("div", "finding-badges");
+    badges.append(element("span", "gap-badge", "Unverified"));
+    badges.append(element("span", "pack-badge", packNames[gap.pack] || gap.pack));
+    badges.append(element("span", "confidence-badge", areaNames[gap.area] || gap.area));
+    article.append(badges);
+    article.append(element("h4", "gap-title", gap.title));
+    article.append(element("p", "gap-summary", gap.summary));
+
+    const evidenceList = element("ul", "evidence-list");
+    for (const evidence of gap.evidence || []) evidenceList.append(evidenceItem(evidence));
+    article.append(evidenceList);
+    article.append(labelledValue("How to verify", gap.verify, "gap-verify"));
+    container.append(article);
+  }
 }
 
 async function copyPrompt(button, text) {
