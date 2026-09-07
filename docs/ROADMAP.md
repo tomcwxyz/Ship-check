@@ -2,13 +2,14 @@
 
 Ship Check is an assurance tool, not a clean-bill-of-health generator. The roadmap therefore prioritises **defensible evidence depth** over simply adding more UI or more regex rules.
 
-A scan should distinguish three things clearly:
+A scan should distinguish four things clearly:
 
 1. **Finding** — repository evidence supports a concrete concern.
-2. **Verified/assessed evidence** — a bounded deterministic check completed without finding that concern.
+2. **Observed** — useful repository-visible architecture/evidence was discovered; this is neither a concern nor proof that the surface is safe.
 3. **Unverified** — Ship Check found a relevant control or boundary but cannot establish it from the evidence available.
+4. **Coverage** — the bounded areas Ship Check did or did not assess.
 
-“No findings” must never imply that unassessed areas are safe.
+“No findings” must never imply that unassessed areas are safe, and “observed” must never be treated as “verified” unless a specific check establishes the control.
 
 ## Alpha 0 — checking contract and CLI
 
@@ -51,12 +52,13 @@ Priorities:
 
 ## Alpha 1.6 — checking depth and honest coverage
 
-Goal: make Ship Check materially more trustworthy before broadening it into database/runtime inspection. A user should be able to see **what was assessed, what produced findings, and what remains unverified or unassessed**.
+Goal: make Ship Check materially more trustworthy before broadening it into database/runtime inspection. A user should be able to see **what was observed, what was assessed, what produced findings, and what remains unverified or unassessed**.
 
 ### Implemented in the Alpha 1.6 line
 
 - [x] Add an explicit assessment coverage model across: Secrets, Access Control, Configuration, Supply Chain, Cost, Code Security, Database and Runtime.
 - [x] Add an `unverified` check state and first-class assessment gaps separate from findings.
+- [x] Add first-class positive `observations` for inventory/verified-control evidence that should not be represented as findings or gaps.
 - [x] Desktop and CLI say “No findings in assessed areas” rather than implying the repository is clean.
 - [x] Desktop shows Partial / Not assessed coverage rather than a fake percentage.
 - [x] Reclassify missing Next.js security-header evidence from a low-severity finding to an unverified configuration control.
@@ -64,21 +66,22 @@ Goal: make Ship Check materially more trustworthy before broadening it into data
 - [x] Identify webhook receivers and record signature-verification evidence gaps without declaring an unverified handler vulnerable.
 - [x] Trace Vercel cron declarations to Next.js handlers and record unverified scheduler-auth boundaries.
 - [x] Carry unverified controls into RACK/assurance output as `uncertain` rather than `pass`.
-- [x] Keep diagnostic history metadata-only while recording coverage/gap counts.
+- [x] Keep diagnostic history metadata-only while recording coverage/gap/observation counts, never observation paths/details or source evidence.
 - [x] Fix engine/CLI provenance so the alpha.5 code reports the matching version rather than the older alpha.4 constant.
 - [x] Replace the narrow default credential-pattern scan with **Gitleaks 8.30.1**, pinned and bundled per desktop platform. Gitleaks scans a temporary mirror of Ship Check's tracked inventory and secret values never enter the canonical report.
 - [x] Add **OSV-Scanner 2.5.1** as an explicitly opt-in networked dependency-vulnerability check. Only recognised dependency manifests/lockfiles are mirrored; the desktop makes the network boundary visible before the scan.
 - [x] Verify third-party release artifacts against pinned SHA-256 digests during desktop packaging rather than downloading mutable `latest` binaries.
 - [x] Trace up to two bounded local import levels for paid-service, webhook-verification and Vercel-cron controls, including common root/`src` `@/` aliases, while retaining the existing stable check IDs.
+- [x] Add a first bounded Next.js/Vercel **server-surface inventory** covering API/request routes, Server Actions, webhook-like routes, Vercel cron declarations, auth/admin routes, paid-service request paths and database request paths. Discovery remains distinct from verification.
 
 ### Next depth work inside 1.6
 
-- [ ] Complete the representative Good Ship corpus pass and use it to tune the new checks for false positives/false negatives.
+- [ ] Complete the representative Good Ship corpus pass and use it to tune the new checks and surface inventory for false positives/false negatives.
 - [ ] Dogfood bundled Gitleaks on Windows and macOS, especially false positives, large repositories and proof that matched values never persist in diagnostics/reports.
 - [ ] Dogfood opt-in OSV across representative package managers and compare Supply Chain coverage with the option off/on.
-- [ ] Add a small **pinned local Semgrep ruleset** with provenance. Do not default to remote/`--config=auto` rules because Ship Check should know exactly which rules ran and whether source/inventory metadata crosses a network boundary.
+- [ ] Add a small **pinned local Semgrep ruleset** with provenance once its desktop packaging/runtime boundary is reproducible. Do not default to remote/`--config=auto` rules.
 - [ ] Add check metadata/versioning and explicit suppression with a required rationale.
-- [ ] Add a richer Next.js/Vercel server-surface inventory: API routes, Server Actions, webhooks, cron handlers, auth callbacks, admin routes, paid-service boundaries and database boundaries.
+- [ ] Extend server-surface inventory to framework-specific auth callbacks and richer Server Action boundaries where corpus evidence supports reliable detection.
 - [ ] Extend imported-helper tracing from the common `@/`/`~/` convention to explicit `tsconfig`/`jsconfig` path aliases where corpus evidence justifies it.
 - [ ] Broaden cost analysis from cadence alone towards **cadence × work** evidence (paid providers, fan-out, database/model work) without inventing precise cost estimates.
 
