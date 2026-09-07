@@ -227,7 +227,7 @@ function summariseCoverage(
   });
 }
 
-export async function scanProject(projectPath: string, checks: CheckDefinition[], version = "0.0.0-alpha.5"): Promise<ScanReport> {
+export async function scanProject(projectPath: string, checks: CheckDefinition[], version = "0.0.0-alpha.6"): Promise<ScanReport> {
   const context = await createProjectContext(projectPath);
   const findings: Finding[] = [];
   const gaps: AssessmentGap[] = [];
