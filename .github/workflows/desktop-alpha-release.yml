@@ -55,9 +55,10 @@ jobs:
           const fs = require('node:fs');
           const root = JSON.parse(fs.readFileSync('package.json', 'utf8'));
           const tauri = JSON.parse(fs.readFileSync('apps/desktop/src-tauri/tauri.conf.json', 'utf8'));
+          const cargo = fs.readFileSync('apps/desktop/src-tauri/Cargo.toml', 'utf8').match(/^version\s*=\s*"([^"]+)"/m)?.[1];
           const expected = process.env.EXPECTED_VERSION;
-          if (root.version !== expected || tauri.version !== expected) {
-            console.error(`Version mismatch: root=${root.version}, desktop=${tauri.version}, expected=${expected}`);
+          if (root.version !== expected || tauri.version !== expected || cargo !== expected) {
+            console.error(`Version mismatch: root=${root.version}, desktop=${tauri.version}, cargo=${cargo}, expected=${expected}`);
             process.exit(1);
           }
           NODE
@@ -75,6 +76,7 @@ jobs:
           node --check apps/desktop/ui/diagnostics.js
           node --test apps/desktop/ui/diagnostics.test.mjs
           node --check scripts/generate-desktop-assets.cjs
+          node --check scripts/install-deep-scanners.cjs
       - run: pnpm desktop:assets
 
   create-release:
@@ -94,7 +96,7 @@ jobs:
           set -euo pipefail
           tag="ship-check-desktop-v${VERSION}"
           title="Ship Check ${VERSION} · desktop alpha"
-          notes="Early local-first Ship Check desktop alpha for Windows x64, Linux x64 and macOS Apple Silicon. The matching deterministic engine is bundled with the app and repository source remains local during desktop scans. Windows installers are unsigned and the macOS build is ad-hoc signed rather than Apple-notarised, so operating-system warnings may appear. Ship Check findings are evidence for human review, not a security or compliance certification."
+          notes="Local-first Ship Check desktop alpha for Windows x64, Linux x64 and macOS Apple Silicon. The matching deterministic engine and pinned Gitleaks 8.30.1 binary are bundled with the app; repository source remains local during normal scans. OSV-Scanner 2.5.1 is also bundled but its dependency-vulnerability lookup is off by default and requires explicit user consent because package identifiers and versions may be queried against OSV. Windows installers are unsigned and the macOS build is ad-hoc signed rather than Apple-notarised, so operating-system warnings may appear. Ship Check findings are evidence for human review, not a security or compliance certification."
 
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             is_draft="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
@@ -139,7 +141,7 @@ jobs:
             bundle: dmg
 
     runs-on: ${{ matrix.platform }}
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -184,23 +186,28 @@ jobs:
       - run: pnpm build
       - run: pnpm desktop:assets
 
-      - name: Generate macOS app icon
+      - name: Install pinned deep scanners
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/install-deep-scanners.cjs
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            "apps/desktop/src-tauri/resources/gitleaks.exe" --version
+            "apps/desktop/src-tauri/resources/osv-scanner.exe" --version
+          else
+            "apps/desktop/src-tauri/resources/gitleaks" --version
+            "apps/desktop/src-tauri/resources/osv-scanner" --version
+          fi
+
+      - name: Ad-hoc sign nested macOS scanners
         if: runner.os == 'macOS'
         shell: bash
         run: |
           set -euo pipefail
-          source="apps/desktop/src-tauri/icons/icon.png"
-          iconset="apps/desktop/src-tauri/icons/icon.iconset"
-          destination="apps/desktop/src-tauri/icons/icon.icns"
-          rm -rf "$iconset" "$destination"
-          mkdir -p "$iconset"
-          for size in 16 32 128 256 512; do
-            double=$((size * 2))
-            sips -z "$size" "$size" "$source" --out "$iconset/icon_${size}x${size}.png" >/dev/null
-            sips -z "$double" "$double" "$source" --out "$iconset/icon_${size}x${size}@2x.png" >/dev/null
-          done
-          iconutil -c icns "$iconset" -o "$destination"
-          test -s "$destination"
+          codesign --force --sign - apps/desktop/src-tauri/resources/gitleaks
+          codesign --force --sign - apps/desktop/src-tauri/resources/osv-scanner
+          codesign --verify --verbose apps/desktop/src-tauri/resources/gitleaks
+          codesign --verify --verbose apps/desktop/src-tauri/resources/osv-scanner
 
       - name: Compile matching local engine
         shell: bash
@@ -225,6 +232,14 @@ jobs:
             echo "::error::Risky fixture should fail the high-severity gate with exit 2; got $risky_exit."
             exit 1
           fi
+
+      - name: Ad-hoc sign matching macOS engine
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          codesign --force --sign - apps/desktop/src-tauri/resources/ship-check-engine
+          codesign --verify --verbose apps/desktop/src-tauri/resources/ship-check-engine
 
       - name: Install Tauri CLI
         shell: bash
