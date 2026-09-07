@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       confirm:
-        description: "Type ALPHA to confirm an unsigned draft pre-release"
+        description: "Type ALPHA to confirm an unsigned/ad-hoc-signed draft pre-release"
         required: true
         type: string
 
@@ -143,6 +143,13 @@ jobs:
           bun-version: latest
 
       - uses: dtolnay/rust-toolchain@stable
+
+      - name: Confirm Apple Silicon runner
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -m)" = "arm64"
 
       - name: Install Linux desktop dependencies
         if: runner.os == 'Linux'
