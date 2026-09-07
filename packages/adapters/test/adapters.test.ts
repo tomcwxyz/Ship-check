@@ -10,11 +10,13 @@ import {
 function report(overrides: Partial<ScanReport> = {}): ScanReport {
   return {
     schemaVersion: "0.1",
-    tool: { name: "ship-check", version: "0.0.0-alpha.4" },
+    tool: { name: "ship-check", version: "0.0.0-alpha.5" },
     project: { path: "/tmp/example", gitRepository: true, inventorySource: "git-tracked", fileCount: 12 },
     packs: ["secure-build", "production-ready", "cost-aware"],
     checks: [],
     findings: [],
+    gaps: [],
+    coverage: [],
     summary: { total: 0, critical: 0, high: 0, medium: 0, low: 0, info: 0 },
     generatedAt: "2026-09-04T10:00:00.000Z",
     ...overrides
@@ -24,7 +26,7 @@ function report(overrides: Partial<ScanReport> = {}): ScanReport {
 describe("RACK assurance adapter", () => {
   it("fails a gate when a finding meets the configured threshold", () => {
     const input = report({
-      checks: [{ checkId: "secure.example", pack: "secure-build", status: "findings", findingCount: 1, durationMs: 1 }],
+      checks: [{ checkId: "secure.example", pack: "secure-build", status: "findings", findingCount: 1, gapCount: 0, durationMs: 1 }],
       findings: [{
         id: "secure.example:one",
         checkId: "secure.example",
@@ -66,6 +68,7 @@ describe("RACK assurance adapter", () => {
           pack: "secure-build",
           status: "error",
           findingCount: 0,
+          gapCount: 0,
           durationMs: 3,
           error: "could not inspect fixture"
         }]
@@ -77,7 +80,40 @@ describe("RACK assurance adapter", () => {
     expect(gate.checkErrors).toEqual([{ checkId: "secure.broken", message: "could not inspect fixture" }]);
   });
 
-  it("passes when the requested pack ran without findings or check errors", () => {
+  it("returns uncertain when a selected control could not be verified", () => {
+    const gate = evaluateAssuranceGate(
+      report({
+        checks: [{
+          checkId: "production.next-security-headers",
+          pack: "production-ready",
+          principles: ["practice.preserve-safety"],
+          status: "unverified",
+          findingCount: 0,
+          gapCount: 1,
+          durationMs: 1,
+        }],
+        gaps: [{
+          id: "production.next-security-headers:next.config.ts",
+          checkId: "production.next-security-headers",
+          pack: "production-ready",
+          area: "configuration",
+          title: "Security headers are not verified",
+          summary: "No local evidence",
+          evidence: [{ kind: "configuration", path: "next.config.ts", detail: "No recognised header markers" }],
+          verify: "Inspect deployed response headers"
+        }]
+      }),
+      { gateId: "ship-check-production-ready", threshold: "high" },
+    );
+
+    expect(gate.outcome).toBe("uncertain");
+    expect(gate.warnings.join(" ")).toContain("not verified");
+    expect(gate.practiceEvidence).toEqual([
+      expect.objectContaining({ principleId: "practice.preserve-safety", outcome: "uncertain" })
+    ]);
+  });
+
+  it("passes when the requested pack ran without findings, gaps or check errors", () => {
     const gate = evaluateAssuranceGate(
       report({
         checks: [{
@@ -85,6 +121,7 @@ describe("RACK assurance adapter", () => {
           pack: "secure-build",
           status: "passed",
           findingCount: 0,
+          gapCount: 0,
           durationMs: 1,
         }]
       }),
@@ -114,7 +151,7 @@ describe("ecosystem context adapters", () => {
       protocol: "oos/0.1-draft",
       type: "technical-assurance",
       provider: "ship-check",
-      counts: { findings: 0, checkErrors: 0 }
+      counts: { findings: 0, unverified: 0, checkErrors: 0 }
     });
   });
 });
