@@ -100,6 +100,7 @@ describe("scan execution", () => {
 
     expect(report.project.inventorySource).toBe("filesystem");
     expect(report.project.fileCount).toBe(1);
+    expect(report.tool.version).toBe("0.0.0-alpha.5");
   });
 
   it("captures a check error and continues running later checks", async () => {
@@ -132,9 +133,45 @@ describe("scan execution", () => {
       checkId: "test.explodes",
       status: "error",
       findingCount: 0,
+      gapCount: 0,
       error: "deliberate test failure",
     });
-    expect(report.checks[1]).toMatchObject({ checkId: "test.healthy", status: "passed" });
+    expect(report.checks[1]).toMatchObject({ checkId: "test.healthy", status: "passed", gapCount: 0 });
     expect(report.summary.total).toBe(0);
+  });
+
+  it("keeps unverified controls separate from findings and reports honest coverage", async () => {
+    const root = await temporaryDirectory();
+    await fs.writeFile(path.join(root, "package.json"), '{"name":"fixture"}\n');
+
+    const controlCheck: CheckDefinition = {
+      id: "test.control-evidence",
+      pack: "production-ready",
+      title: "Control evidence",
+      description: "Test structured execution",
+      coverage: [{ area: "configuration", status: "partial" }],
+      async run() {
+        return {
+          gaps: [{
+            id: "test.control-evidence:missing",
+            checkId: "test.control-evidence",
+            pack: "production-ready",
+            area: "configuration",
+            title: "Control could not be verified",
+            summary: "Repository evidence was insufficient.",
+            evidence: [{ kind: "configuration", path: "package.json", detail: "No evidence marker." }],
+            verify: "Inspect the deployed control."
+          }]
+        };
+      }
+    };
+
+    const report = await scanProject(root, [controlCheck]);
+
+    expect(report.findings).toHaveLength(0);
+    expect(report.gaps).toHaveLength(1);
+    expect(report.checks[0]).toMatchObject({ status: "unverified", findingCount: 0, gapCount: 1 });
+    expect(report.coverage.find((entry) => entry.area === "configuration")).toMatchObject({ status: "partial" });
+    expect(report.coverage.find((entry) => entry.area === "runtime")).toMatchObject({ status: "not-assessed" });
   });
 });
