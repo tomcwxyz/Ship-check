@@ -44,8 +44,17 @@ function safeCheck(check) {
     pack: check.pack,
     status: check.status,
     findingCount: check.findingCount,
+    gapCount: check.gapCount ?? 0,
     durationMs: check.durationMs,
     ...(check.error ? { error: redactSensitiveShapes(check.error) } : {}),
+  };
+}
+
+function safeCoverage(entry) {
+  return {
+    area: entry.area,
+    status: entry.status,
+    checkCount: Array.isArray(entry.checkIds) ? entry.checkIds.length : 0,
   };
 }
 
@@ -66,6 +75,8 @@ export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRe
     packs: [...packs],
     elapsedMs: Math.max(0, Math.round(elapsedMs)),
     summary: { ...report.summary },
+    unverifiedCount: report.gaps?.length ?? 0,
+    coverage: (report.coverage ?? []).map(safeCoverage),
     checks: report.checks.map(safeCheck),
   };
 }
@@ -129,18 +140,22 @@ export function formatReceipt(entry) {
 
   const passed = entry.checks.filter((check) => check.status === "passed").length;
   const findings = entry.checks.filter((check) => check.status === "findings").length;
+  const unverified = entry.checks.filter((check) => check.status === "unverified").length;
   const errors = entry.checks.filter((check) => check.status === "error").length;
   const lines = [
     "Scan completed",
     `${entry.source.kind} · ${entry.source.label}${entry.source.ref ? ` · ${entry.source.ref}` : ""}`,
     `${entry.fileCount} files · ${entry.checks.length} checks · ${entry.inventorySource}`,
-    `${passed} passed · ${findings} with findings · ${errors} errors · ${entry.elapsedMs} ms`,
+    `${passed} passed · ${findings} with findings · ${unverified} unverified · ${errors} errors · ${entry.elapsedMs} ms`,
     `engine ${entry.toolVersion}`,
     "",
     ...entry.checks.map(
-      (check) => `${check.status.padEnd(8)} ${check.checkId} · ${check.findingCount} findings · ${check.durationMs} ms`,
+      (check) => `${check.status.padEnd(10)} ${check.checkId} · ${check.findingCount} findings · ${check.gapCount ?? 0} gaps · ${check.durationMs} ms`,
     ),
   ];
+  if (entry.coverage?.length) {
+    lines.push("", "coverage", ...entry.coverage.map((item) => `${item.status.padEnd(12)} ${item.area} · ${item.checkCount} checks`));
+  }
   return lines.join("\n");
 }
 
