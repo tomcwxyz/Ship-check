@@ -10,6 +10,10 @@
     "./surface": {
       "types": "./dist/surface.d.ts",
       "default": "./dist/surface.js"
+    },
+    "./inventory": {
+      "types": "./dist/inventory.d.ts",
+      "default": "./dist/inventory.js"
     }
   },
   "types": "./dist/index.d.ts",
