@@ -87,7 +87,7 @@
               <input type="checkbox" value="production-ready" checked />
               <span>
                 <strong>Production Ready</strong>
-                <small>Operational safeguards and release-readiness evidence.</small>
+                <small>Operational safeguards, dependency evidence and an inventory of repository-visible server surfaces.</small>
               </span>
             </label>
             <label class="pack-card">
@@ -145,6 +145,17 @@
               <p>Partial means Ship Check ran useful narrow checks here, not that the whole area is verified.</p>
             </div>
             <div class="coverage-grid" id="coverage-grid"></div>
+          </section>
+
+          <section class="observations-panel" id="observations-panel" aria-labelledby="observations-title" hidden>
+            <div class="coverage-heading">
+              <div>
+                <p class="section-kicker">Observed</p>
+                <h3 id="observations-title">Repository surfaces Ship Check discovered</h3>
+              </div>
+              <p>These are useful inventory/evidence, not findings and not proof that every discovered surface is secure.</p>
+            </div>
+            <div class="observations-list" id="observations-list"></div>
           </section>
 
           <section class="unverified-panel" id="unverified-panel" aria-labelledby="unverified-title" hidden>

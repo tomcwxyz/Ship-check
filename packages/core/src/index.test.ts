@@ -101,6 +101,7 @@ describe("scan execution", () => {
     expect(report.project.inventorySource).toBe("filesystem");
     expect(report.project.fileCount).toBe(1);
     expect(report.tool.version).toBe("0.0.0-alpha.6");
+    expect(report.observations).toEqual([]);
   });
 
   it("captures a check error and continues running later checks", async () => {
@@ -134,9 +135,10 @@ describe("scan execution", () => {
       status: "error",
       findingCount: 0,
       gapCount: 0,
+      observationCount: 0,
       error: "deliberate test failure",
     });
-    expect(report.checks[1]).toMatchObject({ checkId: "test.healthy", status: "passed", gapCount: 0 });
+    expect(report.checks[1]).toMatchObject({ checkId: "test.healthy", status: "passed", gapCount: 0, observationCount: 0 });
     expect(report.summary.total).toBe(0);
   });
 
@@ -170,8 +172,51 @@ describe("scan execution", () => {
 
     expect(report.findings).toHaveLength(0);
     expect(report.gaps).toHaveLength(1);
-    expect(report.checks[0]).toMatchObject({ status: "unverified", findingCount: 0, gapCount: 1 });
+    expect(report.observations).toHaveLength(0);
+    expect(report.checks[0]).toMatchObject({ status: "unverified", findingCount: 0, gapCount: 1, observationCount: 0 });
     expect(report.coverage.find((entry) => entry.area === "configuration")).toMatchObject({ status: "partial" });
     expect(report.coverage.find((entry) => entry.area === "runtime")).toMatchObject({ status: "not-assessed" });
+  });
+
+  it("records positive observations without turning them into findings or unverified status", async () => {
+    const root = await temporaryDirectory();
+    await fs.writeFile(path.join(root, "package.json"), '{"name":"fixture"}\n');
+
+    const inventoryCheck: CheckDefinition = {
+      id: "test.inventory",
+      pack: "production-ready",
+      title: "Inventory",
+      description: "Test positive evidence",
+      async run() {
+        return {
+          observations: [{
+            id: "test.inventory:api",
+            checkId: "test.inventory",
+            pack: "production-ready",
+            area: "access-control",
+            kind: "inventory",
+            title: "API surface discovered",
+            summary: "A server route is present.",
+            evidence: [{ kind: "file-presence", path: "package.json", detail: "Fixture evidence." }]
+          }]
+        };
+      }
+    };
+
+    const report = await scanProject(root, [inventoryCheck]);
+
+    expect(report.findings).toHaveLength(0);
+    expect(report.gaps).toHaveLength(0);
+    expect(report.observations).toHaveLength(1);
+    expect(report.checks[0]).toMatchObject({
+      status: "passed",
+      findingCount: 0,
+      gapCount: 0,
+      observationCount: 1
+    });
+    expect(report.observations[0]).toMatchObject({
+      kind: "inventory",
+      title: "API surface discovered"
+    });
   });
 });

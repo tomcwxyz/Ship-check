@@ -42,14 +42,29 @@ const report = {
       verify: "Inspect deployed headers",
     },
   ],
+  observations: [
+    {
+      id: "production.server-surface-inventory:api-routes",
+      checkId: "production.server-surface-inventory",
+      pack: "production-ready",
+      area: "access-control",
+      kind: "inventory",
+      title: "Server request surfaces discovered",
+      summary: "2 API routes found",
+      evidence: [
+        { kind: "file-presence", path: "app/api/private/route.ts", detail: "Repository-visible request surface." },
+      ],
+    },
+  ],
   coverage: [
     { area: "secrets", status: "assessed", checkIds: ["secure.secret-pattern"], detail: "Assessed" },
     { area: "runtime", status: "not-assessed", checkIds: [], detail: "Not assessed" },
   ],
   checks: [
-    { checkId: "secure.secret-pattern", pack: "secure-build", status: "findings", findingCount: 1, gapCount: 0, durationMs: 4 },
-    { checkId: "production.next-security-headers", pack: "production-ready", status: "unverified", findingCount: 0, gapCount: 1, durationMs: 2 },
-    { checkId: "cost.frequent-network-polling", pack: "cost-aware", status: "passed", findingCount: 0, gapCount: 0, durationMs: 1 },
+    { checkId: "secure.secret-pattern", pack: "secure-build", status: "findings", findingCount: 1, gapCount: 0, observationCount: 0, durationMs: 4 },
+    { checkId: "production.next-security-headers", pack: "production-ready", status: "unverified", findingCount: 0, gapCount: 1, observationCount: 0, durationMs: 2 },
+    { checkId: "production.server-surface-inventory", pack: "production-ready", status: "passed", findingCount: 0, gapCount: 0, observationCount: 1, durationMs: 2 },
+    { checkId: "cost.frequent-network-polling", pack: "cost-aware", status: "passed", findingCount: 0, gapCount: 0, observationCount: 0, durationMs: 1 },
   ],
 };
 
@@ -58,7 +73,7 @@ test("local source labels do not retain the full machine path", () => {
   assert.equal(safeSourceLabel("local", "/home/tom/signals"), "signals");
 });
 
-test("successful diagnostics keep scan metadata, network consent and coverage but not findings or evidence", () => {
+test("successful diagnostics keep counts, network consent and coverage but not findings, observations or evidence", () => {
   const entry = createSuccessDiagnostic({
     report,
     sourceMode: "local",
@@ -75,13 +90,18 @@ test("successful diagnostics keep scan metadata, network consent and coverage bu
   assert.equal(entry.elapsedMs, 124);
   assert.equal(entry.options.networkedDependencyScan, true);
   assert.equal(entry.unverifiedCount, 1);
+  assert.equal(entry.observedCount, 1);
   assert.equal(entry.coverage.length, 2);
   assert.equal(entry.checks[1].gapCount, 1);
+  assert.equal(entry.checks[2].observationCount, 1);
   assert.equal("findings" in entry, false);
+  assert.equal("observations" in entry, false);
   assert.equal("evidence" in entry, false);
-  assert.match(formatReceipt(entry), /94 files · 3 checks · git-tracked/);
+  assert.doesNotMatch(JSON.stringify(entry), /app\/api\/private\/route\.ts/);
+  assert.doesNotMatch(JSON.stringify(entry), /Server request surfaces discovered/);
+  assert.match(formatReceipt(entry), /94 files · 4 checks · git-tracked/);
   assert.match(formatReceipt(entry), /dependency network scan: on/);
-  assert.match(formatReceipt(entry), /1 unverified/);
+  assert.match(formatReceipt(entry), /1 unverified · 1 observed/);
   assert.match(formatReceipt(entry), /not-assessed\s+runtime/);
 });
 
@@ -125,5 +145,6 @@ test("diagnostic history is capped to the newest 100 entries", () => {
   assert.equal(entries.length, 100);
   assert.equal(entries[0].timestamp, "5");
   assert.equal(entries.at(-1).timestamp, "104");
-  assert.match(formatDiagnostics(entries), /source contents, evidence excerpts or matched secret values/);
+  assert.match(formatDiagnostics(entries), /observation paths\/details/);
+  assert.match(formatDiagnostics(entries), /source contents/);
 });

@@ -45,6 +45,7 @@ function safeCheck(check) {
     status: check.status,
     findingCount: check.findingCount,
     gapCount: check.gapCount ?? 0,
+    observationCount: check.observationCount ?? 0,
     durationMs: check.durationMs,
     ...(check.error ? { error: redactSensitiveShapes(check.error) } : {}),
   };
@@ -83,6 +84,7 @@ export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRe
     elapsedMs: Math.max(0, Math.round(elapsedMs)),
     summary: { ...report.summary },
     unverifiedCount: report.gaps?.length ?? 0,
+    observedCount: report.observations?.length ?? 0,
     coverage: (report.coverage ?? []).map(safeCoverage),
     checks: report.checks.map(safeCheck),
   };
@@ -156,11 +158,11 @@ export function formatReceipt(entry) {
     `${entry.source.kind} · ${entry.source.label}${entry.source.ref ? ` · ${entry.source.ref}` : ""}`,
     `${entry.fileCount} files · ${entry.checks.length} checks · ${entry.inventorySource}`,
     `dependency network scan: ${entry.options?.networkedDependencyScan ? "on" : "off"}`,
-    `${passed} passed · ${findings} with findings · ${unverified} unverified · ${errors} errors · ${entry.elapsedMs} ms`,
+    `${passed} passed · ${findings} with findings · ${unverified} unverified · ${entry.observedCount ?? 0} observed · ${errors} errors · ${entry.elapsedMs} ms`,
     `engine ${entry.toolVersion}`,
     "",
     ...entry.checks.map(
-      (check) => `${check.status.padEnd(10)} ${check.checkId} · ${check.findingCount} findings · ${check.gapCount ?? 0} gaps · ${check.durationMs} ms`,
+      (check) => `${check.status.padEnd(10)} ${check.checkId} · ${check.findingCount} findings · ${check.gapCount ?? 0} gaps · ${check.observationCount ?? 0} observed · ${check.durationMs} ms`,
     ),
   ];
   if (entry.coverage?.length) {
@@ -174,7 +176,7 @@ export function formatDiagnostics(entries) {
     {
       schemaVersion: "1",
       exportedAt: new Date().toISOString(),
-      note: "Ship Check diagnostics contain scan metadata only: no source contents, evidence excerpts or matched secret values.",
+      note: "Ship Check diagnostics contain scan metadata only: no source contents, observation paths/details, evidence excerpts or matched secret values.",
       entries,
     },
     null,

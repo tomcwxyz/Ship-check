@@ -202,12 +202,17 @@
 }
 
 .coverage-panel,
+.observations-panel,
 .unverified-panel {
   margin-top: 22px;
   padding: 20px;
   border: 1px solid var(--soft-line);
   border-radius: 16px;
   background: #fbf8f0;
+}
+
+.observations-panel {
+  background: #f2f7f0;
 }
 
 .unverified-panel {
@@ -267,7 +272,8 @@
 }
 
 .coverage-status,
-.gap-badge {
+.gap-badge,
+.observation-badge {
   display: inline-flex;
   align-items: center;
   min-height: 23px;
@@ -302,17 +308,32 @@
   line-height: 1.45;
 }
 
+.observations-list,
 .unverified-list {
   margin-top: 16px;
   display: grid;
   gap: 10px;
 }
 
+.observation-card,
 .gap-card {
   padding: 17px;
-  border: 1px solid #e2cf9f;
   border-radius: 13px;
+}
+
+.observation-card {
+  border: 1px solid #bfd0b9;
+  background: #fbfdf9;
+}
+
+.gap-card {
+  border: 1px solid #e2cf9f;
   background: #fffdf7;
+}
+
+.observation-badge {
+  background: var(--green-soft);
+  color: #315944;
 }
 
 .gap-badge {
@@ -332,6 +353,11 @@
   color: #555c54;
   font-size: 13px;
   line-height: 1.5;
+}
+
+.observation-evidence {
+  max-height: 240px;
+  overflow: auto;
 }
 
 .gap-verify {

@@ -10,6 +10,7 @@ import {
   type CheckResult,
   type CoverageEntry,
   type Finding,
+  type Observation,
   type PracticePrincipleId,
   type ScanReport
 } from "@ship-check/schemas";
@@ -74,6 +75,7 @@ export type CoverageContribution = {
 export type CheckExecution = {
   findings?: Finding[];
   gaps?: AssessmentGap[];
+  observations?: Observation[];
   coverage?: CoverageContribution[];
 };
 
@@ -192,11 +194,12 @@ function summarise(findings: Finding[]): ScanReport["summary"] {
 
 function normaliseExecution(execution: Finding[] | CheckExecution): Required<CheckExecution> {
   if (Array.isArray(execution)) {
-    return { findings: execution, gaps: [], coverage: [] };
+    return { findings: execution, gaps: [], observations: [], coverage: [] };
   }
   return {
     findings: execution.findings ?? [],
     gaps: execution.gaps ?? [],
+    observations: execution.observations ?? [],
     coverage: execution.coverage ?? []
   };
 }
@@ -231,6 +234,7 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
   const context = await createProjectContext(projectPath);
   const findings: Finding[] = [];
   const gaps: AssessmentGap[] = [];
+  const observations: Observation[] = [];
   const results: CheckResult[] = [];
   const coverageContributions: Array<CoverageContribution & { checkId: string }> = [];
 
@@ -241,6 +245,7 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
       const execution = normaliseExecution(await check.run(context));
       findings.push(...execution.findings);
       gaps.push(...execution.gaps);
+      observations.push(...execution.observations);
       for (const contribution of [...(check.coverage ?? []), ...execution.coverage]) {
         coverageContributions.push({ ...contribution, checkId: check.id });
       }
@@ -255,6 +260,7 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
             : "passed",
         findingCount: execution.findings.length,
         gapCount: execution.gaps.length,
+        observationCount: execution.observations.length,
         durationMs: Math.max(0, Math.round(performance.now() - started))
       });
     } catch (error) {
@@ -265,6 +271,7 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
         status: "error",
         findingCount: 0,
         gapCount: 0,
+        observationCount: 0,
         durationMs: Math.max(0, Math.round(performance.now() - started)),
         error: error instanceof Error ? error.message : String(error)
       });
@@ -284,6 +291,7 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
     checks: results,
     findings: findings.sort((a, b) => `${a.severity}:${a.id}`.localeCompare(`${b.severity}:${b.id}`)),
     gaps: gaps.sort((a, b) => `${a.area}:${a.id}`.localeCompare(`${b.area}:${b.id}`)),
+    observations: observations.sort((a, b) => `${a.area}:${a.id}`.localeCompare(`${b.area}:${b.id}`)),
     coverage: summariseCoverage(coverageContributions),
     summary: summarise(findings),
     generatedAt: new Date().toISOString()
