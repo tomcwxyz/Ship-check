@@ -69,6 +69,7 @@ Goal: make Ship Check materially more trustworthy before broadening it into data
 - [x] Replace the narrow default credential-pattern scan with **Gitleaks 8.30.1**, pinned and bundled per desktop platform. Gitleaks scans a temporary mirror of Ship Check's tracked inventory and secret values never enter the canonical report.
 - [x] Add **OSV-Scanner 2.5.1** as an explicitly opt-in networked dependency-vulnerability check. Only recognised dependency manifests/lockfiles are mirrored; the desktop makes the network boundary visible before the scan.
 - [x] Verify third-party release artifacts against pinned SHA-256 digests during desktop packaging rather than downloading mutable `latest` binaries.
+- [x] Trace up to two bounded local import levels for paid-service, webhook-verification and Vercel-cron controls, including common root/`src` `@/` aliases, while retaining the existing stable check IDs.
 
 ### Next depth work inside 1.6
 
@@ -78,7 +79,7 @@ Goal: make Ship Check materially more trustworthy before broadening it into data
 - [ ] Add a small **pinned local Semgrep ruleset** with provenance. Do not default to remote/`--config=auto` rules because Ship Check should know exactly which rules ran and whether source/inventory metadata crosses a network boundary.
 - [ ] Add check metadata/versioning and explicit suppression with a required rationale.
 - [ ] Add a richer Next.js/Vercel server-surface inventory: API routes, Server Actions, webhooks, cron handlers, auth callbacks, admin routes, paid-service boundaries and database boundaries.
-- [ ] Add imported-helper tracing for common auth, webhook and abuse-control patterns so evidence does not have to live in one file.
+- [ ] Extend imported-helper tracing from the common `@/`/`~/` convention to explicit `tsconfig`/`jsconfig` path aliases where corpus evidence justifies it.
 - [ ] Broaden cost analysis from cadence alone towards **cadence × work** evidence (paid providers, fan-out, database/model work) without inventing precise cost estimates.
 
 ### Cross-product practice evidence already landed
