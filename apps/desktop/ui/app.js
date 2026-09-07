@@ -3,6 +3,7 @@ import {
   renderCoverage,
   renderFindings,
   renderGaps,
+  renderObservations,
   renderSummary,
   setEnginePill,
 } from "./components.js";
@@ -46,6 +47,8 @@ const elements = {
   results: document.querySelector("#results"),
   summaryGrid: document.querySelector("#summary-grid"),
   coverageGrid: document.querySelector("#coverage-grid"),
+  observationsPanel: document.querySelector("#observations-panel"),
+  observationsList: document.querySelector("#observations-list"),
   unverifiedPanel: document.querySelector("#unverified-panel"),
   unverifiedList: document.querySelector("#unverified-list"),
   scanMeta: document.querySelector("#scan-meta"),
@@ -164,6 +167,7 @@ function assertScanReport(report) {
     Array.isArray(report.checks) &&
     Array.isArray(report.findings) &&
     Array.isArray(report.gaps) &&
+    Array.isArray(report.observations) &&
     Array.isArray(report.coverage) &&
     report.summary;
   if (!valid) {
@@ -185,7 +189,7 @@ function ensureDiagnosticsPanel() {
 
   const copy = document.createElement("p");
   copy.className = "source-help";
-  copy.textContent = "Stored locally for alpha testing. Includes repo label, engine version, selected network option, inventory source, coverage status, timings and check outcomes — never source contents, evidence excerpts or matched secret values.";
+  copy.textContent = "Stored locally for alpha testing. Includes repo label, engine version, selected network option, inventory source, coverage status, observation counts, timings and check outcomes — never source contents, observation paths/details, evidence excerpts or matched secret values.";
   panel.append(copy);
 
   const receipt = document.createElement("pre");
@@ -280,6 +284,7 @@ function renderReport(report, options) {
   state.report = report;
   renderSummary(elements.summaryGrid, report);
   renderCoverage(elements.coverageGrid, report.coverage);
+  renderObservations(elements.observationsPanel, elements.observationsList, report.observations);
   renderGaps(elements.unverifiedPanel, elements.unverifiedList, report.gaps);
 
   const generated = new Date(report.generatedAt);
@@ -289,12 +294,14 @@ function renderReport(report, options) {
   const source = state.sourceMode === "github" ? "GitHub repo" : "local repo";
   const inventory = report.project.inventorySource === "git-tracked" ? "Git tracked" : "filesystem";
   const dependencyMode = options.networkedDependencyScan ? "OSV network check" : "OSV off";
-  elements.scanMeta.textContent = `${source} · ${report.project.fileCount.toLocaleString("en-GB")} files · ${report.checks.length} checks · ${report.gaps.length} unverified · ${dependencyMode} · ${inventory} · ${when}`;
+  elements.scanMeta.textContent = `${source} · ${report.project.fileCount.toLocaleString("en-GB")} files · ${report.checks.length} checks · ${report.observations.length} observed · ${report.gaps.length} unverified · ${dependencyMode} · ${inventory} · ${when}`;
 
   elements.emptyCopy.textContent = report.findings.length === 0
     ? report.gaps.length > 0
-      ? `No confirmed findings in assessed areas. ${report.gaps.length} control${report.gaps.length === 1 ? " still needs" : "s still need"} verification; see coverage above.`
-      : "No confirmed findings in assessed areas. Check the coverage above before treating the repository as clean."
+      ? `No confirmed findings in assessed areas. ${report.gaps.length} control${report.gaps.length === 1 ? " still needs" : "s still need"} verification; ${report.observations.length} repository observation${report.observations.length === 1 ? " was" : "s were"} also recorded.`
+      : report.observations.length > 0
+        ? `No confirmed findings in assessed areas. Ship Check recorded ${report.observations.length} repository observation${report.observations.length === 1 ? "" : "s"}; check those and the coverage before treating the repository as clean.`
+        : "No confirmed findings in assessed areas. Check the coverage above before treating the repository as clean."
     : "No findings match this severity filter.";
 
   renderFindings(elements.findingsList, elements.emptyState, report.findings, state.severityFilter);
