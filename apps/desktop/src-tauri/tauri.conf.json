@@ -29,6 +29,9 @@
     "category": "DeveloperTool",
     "shortDescription": "Local-first software assurance checks.",
     "longDescription": "Review deterministic Ship Check findings, evidence and repair guidance against a project on your own machine.",
-    "resources": ["resources/*"]
+    "resources": ["resources/*"],
+    "macOS": {
+      "signingIdentity": "-"
+    }
   }
 }
