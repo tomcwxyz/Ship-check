@@ -72,6 +72,21 @@ export const AssessmentGapSchema = z.object({
 });
 export type AssessmentGap = z.infer<typeof AssessmentGapSchema>;
 
+export const ObservationKindSchema = z.enum(["inventory", "verified-control"]);
+export type ObservationKind = z.infer<typeof ObservationKindSchema>;
+
+export const ObservationSchema = z.object({
+  id: z.string().min(1),
+  checkId: z.string().min(1),
+  pack: CheckPackSchema,
+  area: AssessmentAreaSchema,
+  kind: ObservationKindSchema,
+  title: z.string().min(1),
+  summary: z.string().min(1),
+  evidence: z.array(EvidenceSchema).min(1)
+});
+export type Observation = z.infer<typeof ObservationSchema>;
+
 export const CoverageEntrySchema = z.object({
   area: AssessmentAreaSchema,
   status: CoverageStatusSchema,
@@ -87,6 +102,7 @@ export const CheckResultSchema = z.object({
   status: z.enum(["passed", "findings", "unverified", "error"]),
   findingCount: z.number().int().nonnegative(),
   gapCount: z.number().int().nonnegative().default(0),
+  observationCount: z.number().int().nonnegative().default(0),
   durationMs: z.number().nonnegative(),
   error: z.string().optional()
 });
@@ -108,6 +124,7 @@ export const ScanReportSchema = z.object({
   checks: z.array(CheckResultSchema),
   findings: z.array(FindingSchema),
   gaps: z.array(AssessmentGapSchema).default([]),
+  observations: z.array(ObservationSchema).default([]),
   coverage: z.array(CoverageEntrySchema).default([]),
   summary: z.object({
     total: z.number().int().nonnegative(),
