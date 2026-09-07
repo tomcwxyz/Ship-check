@@ -258,15 +258,15 @@ export const importedAwareVercelCronAuthCheck: CheckDefinition = {
   principles: ["practice.preserve-safety", "practice.cost-discipline"],
   async run(context): Promise<CheckExecution> {
     const text = await context.readText("vercel.json");
-    if (!text) return [];
+    if (!text) return {};
     let config: unknown;
     try {
       config = JSON.parse(text);
     } catch {
-      return [];
+      return {};
     }
     const crons = config && typeof config === "object" ? (config as { crons?: unknown }).crons : null;
-    if (!Array.isArray(crons) || crons.length === 0) return [];
+    if (!Array.isArray(crons) || crons.length === 0) return {};
 
     const gaps: AssessmentGap[] = [];
     for (const [index, item] of crons.entries()) {
