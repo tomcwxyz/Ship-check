@@ -19,7 +19,7 @@ import {
 } from "@ship-check/schemas";
 import { prepareRepositorySource } from "./repositorySource.js";
 
-const version = "0.0.0-alpha.5";
+const version = "0.0.0-alpha.6";
 const severityRank: Record<Severity, number> = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 const areaNames: Record<AssessmentArea, string> = {
   secrets: "Secrets",
