@@ -99,10 +99,23 @@
             </label>
           </fieldset>
 
+          <label class="network-check-card" for="networked-dependency-scan">
+            <input id="networked-dependency-scan" type="checkbox" />
+            <span class="network-check-copy">
+              <span class="network-check-heading">
+                <strong>Check known dependency vulnerabilities</strong>
+                <span class="network-badge">Network · optional</span>
+              </span>
+              <small>
+                Uses the bundled OSV-Scanner. Ship Check mirrors only dependency manifests and lockfiles; package identifiers and versions may be sent to the OSV service. Application source is not uploaded.
+              </small>
+            </span>
+          </label>
+
           <div class="scan-actions">
             <div class="scan-explainer">
               <strong>Nothing changes in the repository.</strong>
-              <span>The engine only reads repository evidence for this scan.</span>
+              <span>Normal checks and Gitleaks stay local. The OSV dependency check uses the network only when you enable it above.</span>
             </div>
             <button class="button button-primary" id="run-scan" type="button" disabled>
               Check this repo

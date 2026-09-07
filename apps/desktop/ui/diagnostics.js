@@ -58,7 +58,13 @@ function safeCoverage(entry) {
   };
 }
 
-export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRef, packs, elapsedMs }) {
+function safeOptions(options) {
+  return {
+    networkedDependencyScan: Boolean(options?.networkedDependencyScan),
+  };
+}
+
+export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRef, packs, options, elapsedMs }) {
   return {
     schemaVersion: "1",
     event: "scan-completed",
@@ -73,6 +79,7 @@ export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRe
       report.project?.inventorySource ?? (report.project?.gitRepository ? "git-tracked" : "filesystem"),
     fileCount: report.project?.fileCount ?? 0,
     packs: [...packs],
+    options: safeOptions(options),
     elapsedMs: Math.max(0, Math.round(elapsedMs)),
     summary: { ...report.summary },
     unverifiedCount: report.gaps?.length ?? 0,
@@ -81,7 +88,7 @@ export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRe
   };
 }
 
-export function createFailureDiagnostic({ sourceMode, sourceValue, gitRef, packs, elapsedMs, engineVersion, error }) {
+export function createFailureDiagnostic({ sourceMode, sourceValue, gitRef, packs, options, elapsedMs, engineVersion, error }) {
   return {
     schemaVersion: "1",
     event: "scan-failed",
@@ -93,6 +100,7 @@ export function createFailureDiagnostic({ sourceMode, sourceValue, gitRef, packs
       ...(sourceMode === "github" && gitRef ? { ref: truncate(gitRef, 200) } : {}),
     },
     packs: [...packs],
+    options: safeOptions(options),
     elapsedMs: Math.max(0, Math.round(elapsedMs)),
     error: redactSensitiveShapes(error),
   };
@@ -133,6 +141,7 @@ export function formatReceipt(entry) {
     return [
       "Scan failed",
       `${entry.source.kind} · ${entry.source.label}`,
+      `dependency network scan: ${entry.options?.networkedDependencyScan ? "on" : "off"}`,
       `engine ${entry.toolVersion} · ${entry.elapsedMs} ms`,
       `error: ${entry.error}`,
     ].join("\n");
@@ -146,6 +155,7 @@ export function formatReceipt(entry) {
     "Scan completed",
     `${entry.source.kind} · ${entry.source.label}${entry.source.ref ? ` · ${entry.source.ref}` : ""}`,
     `${entry.fileCount} files · ${entry.checks.length} checks · ${entry.inventorySource}`,
+    `dependency network scan: ${entry.options?.networkedDependencyScan ? "on" : "off"}`,
     `${passed} passed · ${findings} with findings · ${unverified} unverified · ${errors} errors · ${entry.elapsedMs} ms`,
     `engine ${entry.toolVersion}`,
     "",

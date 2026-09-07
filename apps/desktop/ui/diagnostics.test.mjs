@@ -27,7 +27,7 @@ function memoryStorage() {
 
 const report = {
   generatedAt: "2026-09-04T19:45:00.000Z",
-  tool: { version: "0.0.0-alpha.5" },
+  tool: { version: "0.0.0-alpha.6" },
   project: { gitRepository: true, inventorySource: "git-tracked", fileCount: 94 },
   summary: { total: 1, critical: 0, high: 1, medium: 0, low: 0, info: 0 },
   gaps: [
@@ -43,11 +43,11 @@ const report = {
     },
   ],
   coverage: [
-    { area: "secrets", status: "partial", checkIds: ["secure.tracked-env-file"], detail: "Partial" },
+    { area: "secrets", status: "assessed", checkIds: ["secure.secret-pattern"], detail: "Assessed" },
     { area: "runtime", status: "not-assessed", checkIds: [], detail: "Not assessed" },
   ],
   checks: [
-    { checkId: "secure.tracked-env-file", pack: "secure-build", status: "findings", findingCount: 1, gapCount: 0, durationMs: 4 },
+    { checkId: "secure.secret-pattern", pack: "secure-build", status: "findings", findingCount: 1, gapCount: 0, durationMs: 4 },
     { checkId: "production.next-security-headers", pack: "production-ready", status: "unverified", findingCount: 0, gapCount: 1, durationMs: 2 },
     { checkId: "cost.frequent-network-polling", pack: "cost-aware", status: "passed", findingCount: 0, gapCount: 0, durationMs: 1 },
   ],
@@ -58,13 +58,14 @@ test("local source labels do not retain the full machine path", () => {
   assert.equal(safeSourceLabel("local", "/home/tom/signals"), "signals");
 });
 
-test("successful diagnostics keep scan metadata and coverage but not findings or evidence", () => {
+test("successful diagnostics keep scan metadata, network consent and coverage but not findings or evidence", () => {
   const entry = createSuccessDiagnostic({
     report,
     sourceMode: "local",
     sourceValue: "C:\\Users\\tom\\signals",
     gitRef: "",
     packs: ["secure-build", "production-ready", "cost-aware"],
+    options: { networkedDependencyScan: true },
     elapsedMs: 123.6,
   });
 
@@ -72,14 +73,29 @@ test("successful diagnostics keep scan metadata and coverage but not findings or
   assert.equal(entry.fileCount, 94);
   assert.equal(entry.inventorySource, "git-tracked");
   assert.equal(entry.elapsedMs, 124);
+  assert.equal(entry.options.networkedDependencyScan, true);
   assert.equal(entry.unverifiedCount, 1);
   assert.equal(entry.coverage.length, 2);
   assert.equal(entry.checks[1].gapCount, 1);
   assert.equal("findings" in entry, false);
   assert.equal("evidence" in entry, false);
   assert.match(formatReceipt(entry), /94 files · 3 checks · git-tracked/);
+  assert.match(formatReceipt(entry), /dependency network scan: on/);
   assert.match(formatReceipt(entry), /1 unverified/);
   assert.match(formatReceipt(entry), /not-assessed\s+runtime/);
+});
+
+test("network consent defaults off in diagnostic metadata", () => {
+  const entry = createSuccessDiagnostic({
+    report,
+    sourceMode: "local",
+    sourceValue: "/home/tom/signals",
+    gitRef: "",
+    packs: ["secure-build"],
+    elapsedMs: 10,
+  });
+  assert.equal(entry.options.networkedDependencyScan, false);
+  assert.match(formatReceipt(entry), /dependency network scan: off/);
 });
 
 test("failure diagnostics redact common secret shapes", () => {
@@ -89,8 +105,9 @@ test("failure diagnostics redact common secret shapes", () => {
     sourceValue: "https://token@github.com/tomcwxyz/private-repo",
     gitRef: "main",
     packs: ["secure-build"],
+    options: { networkedDependencyScan: false },
     elapsedMs: 50,
-    engineVersion: "0.0.0-alpha.5",
+    engineVersion: "0.0.0-alpha.6",
     error: `clone failed with ${secret}`,
   });
 

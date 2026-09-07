@@ -15,21 +15,23 @@ export const desktopBridge = {
     return invokeCommand("engine_status");
   },
 
-  scanProject(projectPath, packs) {
+  scanProject(projectPath, packs, options = {}) {
     return invokeCommand("scan_project", {
       request: {
         projectPath,
         packs,
+        networkedDependencyScan: Boolean(options.networkedDependencyScan),
       },
     });
   },
 
-  scanGithubRepository(repository, gitRef, packs) {
+  scanGithubRepository(repository, gitRef, packs, options = {}) {
     return invokeCommand("scan_github_repository", {
       request: {
         repository,
         gitRef: gitRef || null,
         packs,
+        networkedDependencyScan: Boolean(options.networkedDependencyScan),
       },
     });
   },

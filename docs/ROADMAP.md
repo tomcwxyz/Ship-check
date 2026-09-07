@@ -66,12 +66,15 @@ Goal: make Ship Check materially more trustworthy before broadening it into data
 - [x] Carry unverified controls into RACK/assurance output as `uncertain` rather than `pass`.
 - [x] Keep diagnostic history metadata-only while recording coverage/gap counts.
 - [x] Fix engine/CLI provenance so the alpha.5 code reports the matching version rather than the older alpha.4 constant.
+- [x] Replace the narrow default credential-pattern scan with **Gitleaks 8.30.1**, pinned and bundled per desktop platform. Gitleaks scans a temporary mirror of Ship Check's tracked inventory and secret values never enter the canonical report.
+- [x] Add **OSV-Scanner 2.5.1** as an explicitly opt-in networked dependency-vulnerability check. Only recognised dependency manifests/lockfiles are mirrored; the desktop makes the network boundary visible before the scan.
+- [x] Verify third-party release artifacts against pinned SHA-256 digests during desktop packaging rather than downloading mutable `latest` binaries.
 
 ### Next depth work inside 1.6
 
 - [ ] Complete the representative Good Ship corpus pass and use it to tune the new checks for false positives/false negatives.
-- [ ] Add **Gitleaks** as the mature secret-scanning adapter rather than expanding the home-grown credential regex catalogue indefinitely.
-- [ ] Add **OSV-Scanner** dependency vulnerability evidence with an explicit network/tool boundary and provenance.
+- [ ] Dogfood bundled Gitleaks on Windows and macOS, especially false positives, large repositories and proof that matched values never persist in diagnostics/reports.
+- [ ] Dogfood opt-in OSV across representative package managers and compare Supply Chain coverage with the option off/on.
 - [ ] Add a small **pinned local Semgrep ruleset** with provenance. Do not default to remote/`--config=auto` rules because Ship Check should know exactly which rules ran and whether source/inventory metadata crosses a network boundary.
 - [ ] Add check metadata/versioning and explicit suppression with a required rationale.
 - [ ] Add a richer Next.js/Vercel server-surface inventory: API routes, Server Actions, webhooks, cron handlers, auth callbacks, admin routes, paid-service boundaries and database boundaries.

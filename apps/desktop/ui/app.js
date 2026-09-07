@@ -39,6 +39,7 @@ const elements = {
   projectPath: document.querySelector("#project-path"),
   projectPathValue: document.querySelector("#project-path-value"),
   packGrid: document.querySelector("#pack-grid"),
+  networkedDependencyScan: document.querySelector("#networked-dependency-scan"),
   runScan: document.querySelector("#run-scan"),
   rerunScan: document.querySelector("#rerun-scan"),
   errorBanner: document.querySelector("#error-banner"),
@@ -65,6 +66,17 @@ function selectedPacks() {
   );
 }
 
+function productionReadySelected() {
+  return selectedPacks().includes("production-ready");
+}
+
+function scanOptions() {
+  return {
+    networkedDependencyScan:
+      productionReadySelected() && Boolean(elements.networkedDependencyScan?.checked),
+  };
+}
+
 function showError(message) {
   elements.errorBanner.textContent = message;
   elements.errorBanner.hidden = false;
@@ -82,6 +94,13 @@ function sourceReady() {
 
 function currentSourceValue() {
   return state.sourceMode === "github" ? state.githubRepository.trim() : state.projectPath;
+}
+
+function updateDeepScanAvailability() {
+  if (!elements.networkedDependencyScan) return;
+  const enabledByPack = productionReadySelected();
+  if (!enabledByPack) elements.networkedDependencyScan.checked = false;
+  elements.networkedDependencyScan.disabled = state.scanning || !enabledByPack;
 }
 
 function updateRunAvailability() {
@@ -110,6 +129,7 @@ function setScanning(scanning) {
   for (const checkbox of elements.packGrid.querySelectorAll('input[type="checkbox"]')) {
     checkbox.disabled = scanning;
   }
+  updateDeepScanAvailability();
   updateRunAvailability();
 }
 
@@ -165,7 +185,7 @@ function ensureDiagnosticsPanel() {
 
   const copy = document.createElement("p");
   copy.className = "source-help";
-  copy.textContent = "Stored locally for alpha testing. Includes repo label, engine version, inventory source, coverage status, timings and check outcomes — never source contents, evidence excerpts or matched secret values.";
+  copy.textContent = "Stored locally for alpha testing. Includes repo label, engine version, selected network option, inventory source, coverage status, timings and check outcomes — never source contents, evidence excerpts or matched secret values.";
   panel.append(copy);
 
   const receipt = document.createElement("pre");
@@ -226,26 +246,28 @@ function restoreDiagnostics() {
   renderDiagnostics(entries.at(-1) ?? null, entries.length);
 }
 
-function recordSuccess(report, packs, startedAt) {
+function recordSuccess(report, packs, options, startedAt) {
   const entry = createSuccessDiagnostic({
     report,
     sourceMode: state.sourceMode,
     sourceValue: currentSourceValue(),
     gitRef: state.githubRef.trim(),
     packs,
+    options,
     elapsedMs: performance.now() - startedAt,
   });
   const entries = appendDiagnostic(window.localStorage, entry);
   renderDiagnostics(entry, entries.length);
 }
 
-function recordFailure(error, packs, startedAt) {
+function recordFailure(error, packs, options, startedAt) {
   const message = error instanceof Error ? error.message : String(error);
   const entry = createFailureDiagnostic({
     sourceMode: state.sourceMode,
     sourceValue: currentSourceValue(),
     gitRef: state.githubRef.trim(),
     packs,
+    options,
     elapsedMs: performance.now() - startedAt,
     engineVersion: state.engine?.version,
     error: message,
@@ -254,7 +276,7 @@ function recordFailure(error, packs, startedAt) {
   renderDiagnostics(entry, entries.length);
 }
 
-function renderReport(report) {
+function renderReport(report, options) {
   state.report = report;
   renderSummary(elements.summaryGrid, report);
   renderCoverage(elements.coverageGrid, report.coverage);
@@ -266,7 +288,8 @@ function renderReport(report) {
     : generated.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   const source = state.sourceMode === "github" ? "GitHub repo" : "local repo";
   const inventory = report.project.inventorySource === "git-tracked" ? "Git tracked" : "filesystem";
-  elements.scanMeta.textContent = `${source} · ${report.project.fileCount.toLocaleString("en-GB")} files · ${report.checks.length} checks · ${report.gaps.length} unverified · ${inventory} · ${when}`;
+  const dependencyMode = options.networkedDependencyScan ? "OSV network check" : "OSV off";
+  elements.scanMeta.textContent = `${source} · ${report.project.fileCount.toLocaleString("en-GB")} files · ${report.checks.length} checks · ${report.gaps.length} unverified · ${dependencyMode} · ${inventory} · ${when}`;
 
   elements.emptyCopy.textContent = report.findings.length === 0
     ? report.gaps.length > 0
@@ -312,6 +335,7 @@ async function runScan() {
     return;
   }
 
+  const options = scanOptions();
   const startedAt = performance.now();
   clearError();
   setScanning(true);
@@ -321,18 +345,19 @@ async function runScan() {
           state.githubRepository.trim(),
           state.githubRef.trim(),
           packs,
+          options,
         )
-      : await desktopBridge.scanProject(state.projectPath, packs);
+      : await desktopBridge.scanProject(state.projectPath, packs, options);
     const report = assertScanReport(rawReport);
     state.severityFilter = "all";
     for (const button of elements.severityFilters.querySelectorAll("[data-severity]")) {
       button.classList.toggle("is-active", button.dataset.severity === "all");
     }
-    renderReport(report);
-    recordSuccess(report, packs, startedAt);
+    renderReport(report, options);
+    recordSuccess(report, packs, options, startedAt);
     elements.results.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
-    recordFailure(error, packs, startedAt);
+    recordFailure(error, packs, options, startedAt);
     showError(error instanceof Error ? error.message : String(error));
   } finally {
     setScanning(false);
@@ -365,7 +390,10 @@ elements.githubRef.addEventListener("keydown", (event) => {
 elements.chooseProject.addEventListener("click", chooseProject);
 elements.runScan.addEventListener("click", runScan);
 elements.rerunScan.addEventListener("click", runScan);
-elements.packGrid.addEventListener("change", updateRunAvailability);
+elements.packGrid.addEventListener("change", () => {
+  updateDeepScanAvailability();
+  updateRunAvailability();
+});
 
 elements.severityFilters.addEventListener("click", (event) => {
   const button = event.target.closest("[data-severity]");
@@ -384,5 +412,6 @@ elements.severityFilters.addEventListener("click", (event) => {
 
 setProjectPath("");
 setSourceMode("local");
+updateDeepScanAvailability();
 restoreDiagnostics();
 refreshEngineStatus();

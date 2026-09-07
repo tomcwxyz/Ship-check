@@ -16,6 +16,8 @@ pub struct ScanRequest {
     pub project_path: String,
     #[serde(default)]
     pub packs: Vec<String>,
+    #[serde(default)]
+    pub networked_dependency_scan: bool,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -194,6 +196,9 @@ pub fn scan(app: &AppHandle, request: ScanRequest) -> Result<Value, String> {
 
     for pack in packs {
         command.arg("--pack").arg(pack);
+    }
+    if request.networked_dependency_scan {
+        command.arg("--networked-dependency-scan");
     }
 
     let output = command
