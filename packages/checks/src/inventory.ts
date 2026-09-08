@@ -7,7 +7,7 @@ const API_HANDLER = /(^|\/)(?:app\/api\/.+\/route|pages\/api\/.+|api\/.+)\.(?:js
 const MODULE_SERVER_ACTION_DIRECTIVE = /^(?:(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/))*["']use server["'];?/;
 const INLINE_SERVER_ACTION_FUNCTION = /\basync\s+function\s+([A-Za-z_$][\w$]*)\s*\([^)]*\)\s*\{\s*["']use server["'];?/g;
 const INLINE_SERVER_ACTION_ARROW = /\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*async\s*(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>\s*\{\s*["']use server["'];?/g;
-const EXPORTED_SERVER_ACTION_FUNCTION = /\bexport\s+async\s+function\s+([A-Za-z_$][\w$]*)\b/g;
+const EXPORTED_SERVER_ACTION_FUNCTION = /\bexport\s+(?:default\s+)?async\s+function\s+([A-Za-z_$][\w$]*)\b/g;
 const EXPORTED_SERVER_ACTION_ARROW = /\bexport\s+(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*async\b/g;
 const WEBHOOK_PATTERN = /\b(?:stripe\.webhooks|svix|webhook)\b/i;
 const PAID_PROVIDER_PATTERN = /\b(?:OpenAI|Anthropic|Resend|Firecrawl|Stripe|generateText|generateObject|streamText|chat\.completions|responses\.create|messages\.create|emails\.send)\b/i;
@@ -151,14 +151,14 @@ export const serverSurfaceInventoryCheck: CheckDefinition = {
     }
 
     if (actionSurfaces.length > 0) {
-      const actionNames = [...new Set(actionSurfaces.flatMap((surface) => surface.names))];
+      const actionCount = actionSurfaces.reduce((total, surface) => total + surface.names.length, 0);
       const unenumeratedFiles = actionSurfaces.filter((surface) => surface.names.length === 0).length;
       observations.push(observation({
         id: "server-actions",
         area: "access-control",
         title: "Server Actions discovered",
-        summary: actionNames.length > 0
-          ? `${countSummary(actionNames.length, "named Server Action")} found across ${countSummary(actionSurfaces.length, "source file")}.${unenumeratedFiles > 0 ? ` ${countSummary(unenumeratedFiles, "use-server file")} could not be safely enumerated at function level.` : ""} These are server execution surfaces; authorisation is not inferred from discovery.`
+        summary: actionCount > 0
+          ? `${countSummary(actionCount, "named Server Action")} found across ${countSummary(actionSurfaces.length, "source file")}.${unenumeratedFiles > 0 ? ` ${countSummary(unenumeratedFiles, "use-server file")} could not be safely enumerated at function level.` : ""} These are server execution surfaces; authorisation is not inferred from discovery.`
           : `${countSummary(actionSurfaces.length, "source file with a use-server directive")} found. Ship Check could not safely enumerate named actions in these files, and has not verified authorisation.`,
         evidence: serverActionEvidence(actionSurfaces)
       }));
