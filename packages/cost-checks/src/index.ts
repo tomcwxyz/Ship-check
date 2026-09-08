@@ -161,6 +161,7 @@ function severityForCron(minutes: number, composition: WorkComposition): Severit
 
 const vercelCronFrequencyCheck: CheckDefinition = {
   id: "cost.vercel-cron-frequency",
+  version: "2",
   pack: "cost-aware",
   title: "Frequent Vercel cron work",
   description: "Combine repository-declared Vercel cron cadence with bounded evidence about the work reached by the scheduled route.",

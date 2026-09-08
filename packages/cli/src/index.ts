@@ -36,27 +36,46 @@ const areaNames: Record<AssessmentArea, string> = {
 };
 
 function usage(): string {
-  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-or-github-repo] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--networked-dependency-scan] [--format pretty|json|rack|oos] [--fail-on critical|high|medium|low|never]\n\nRepository sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  Server-boundary checks trace a bounded local import graph so auth, webhook verification and paid work can live in shared helpers.\n  Production Ready records positive server-surface observations separately from findings and unverified controls.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan . --networked-dependency-scan\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n`;
+  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-or-github-repo] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--networked-dependency-scan] [--format pretty|json|rack|oos] [--fail-on critical|high|medium|low|never]\n\nRepository sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  Server-boundary checks trace a bounded local import graph so auth, webhook verification and paid work can live in shared helpers.\n  Production Ready records positive server-surface observations separately from findings and unverified controls.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.\n\nAccepted exceptions:\n  A tracked .ship-check.json may suppress an exact finding ID only when it also names the matching rule version and a substantive rationale. Suppressed findings remain visible in the report and rule-version changes invalidate old suppressions.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan . --networked-dependency-scan\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n`;
+}
+
+function checkVersionFor(report: ScanReport, checkId: string): string {
+  return report.checks.find((check) => check.checkId === checkId)?.checkVersion ?? "1";
 }
 
 function printPretty(report: ScanReport): void {
   const gaps = report.gaps ?? [];
   const observations = report.observations ?? [];
+  const suppressions = report.suppressedFindings ?? [];
   console.log(`Ship Check · ${report.project.path}`);
-  console.log(`${report.checks.length} checks · ${report.summary.total} findings · ${gaps.length} unverified · ${observations.length} observed · ${report.summary.critical} critical · ${report.summary.high} high · ${report.summary.medium} medium`);
+  console.log(`${report.checks.length} checks · ${report.summary.total} findings · ${suppressions.length} suppressed · ${gaps.length} unverified · ${observations.length} observed · ${report.summary.critical} critical · ${report.summary.high} high · ${report.summary.medium} medium`);
 
   if (report.findings.length === 0) {
-    console.log("\nNo findings in assessed areas. This does not mean the repository has been fully assessed.");
+    console.log("\nNo active findings in assessed areas. This does not mean the repository has been fully assessed or has no accepted exceptions.");
   } else {
     for (const finding of report.findings) {
       console.log(`\n[${finding.severity.toUpperCase()}] ${finding.title}`);
       console.log(finding.summary);
+      console.log(`Finding ID: ${finding.id}`);
+      console.log(`Rule: ${finding.checkId}@${checkVersionFor(report, finding.checkId)}`);
       const evidence = finding.evidence[0];
       if (evidence.path) console.log(`Evidence: ${evidence.path}${evidence.line ? `:${evidence.line}` : ""} — ${evidence.detail}`);
       else console.log(`Evidence: ${evidence.detail}`);
       console.log(`Fix: ${finding.remediation.fix}`);
       console.log(`Verify: ${finding.remediation.verify}`);
       console.log(`Agent prompt: ${finding.remediation.agentPrompt}`);
+    }
+  }
+
+  if (suppressions.length > 0) {
+    console.log("\nAccepted exceptions");
+    for (const suppression of suppressions) {
+      const finding = suppression.finding;
+      console.log(`- [${finding.severity.toUpperCase()}] ${finding.title}`);
+      console.log(`  Finding ID: ${finding.id}`);
+      console.log(`  Rule: ${finding.checkId}@${suppression.checkVersion}`);
+      console.log(`  Rationale: ${suppression.rationale}`);
+      console.log(`  Declared in ${suppression.configPath}; a rule-version change invalidates this suppression.`);
     }
   }
 

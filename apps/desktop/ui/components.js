@@ -63,6 +63,7 @@ export function renderSummary(container, report) {
   container.replaceChildren();
   const items = [
     ["Findings", report.summary.total],
+    ["Suppressed", report.summary.suppressed ?? report.suppressedFindings?.length ?? 0],
     ["Unverified", report.gaps?.length ?? 0],
     ["Observed", report.observations?.length ?? 0],
     ["High + critical", report.summary.high + report.summary.critical],
@@ -124,6 +125,28 @@ export function renderObservations(panel, container, observations = []) {
   }
 }
 
+export function renderSuppressions(panel, container, suppressions = []) {
+  container.replaceChildren();
+  panel.hidden = suppressions.length === 0;
+  for (const suppression of suppressions) {
+    const finding = suppression.finding;
+    const article = element("article", "suppression-card");
+    article.dataset.severity = finding.severity;
+    const badges = element("div", "finding-badges");
+    badges.append(element("span", "suppression-badge", "Accepted exception"));
+    badges.append(element("span", `severity-badge severity-${finding.severity}`, finding.severity));
+    badges.append(element("span", "pack-badge", packNames[finding.pack] || finding.pack));
+    article.append(badges);
+    article.append(element("h4", "gap-title", finding.title));
+    article.append(element("p", "gap-summary", finding.summary));
+    article.append(labelledValue("Finding ID", finding.id, "suppression-meta"));
+    article.append(labelledValue("Rule", `${finding.checkId}@${suppression.checkVersion}`, "suppression-meta"));
+    article.append(labelledValue("Accepted-risk rationale", suppression.rationale, "suppression-rationale"));
+    article.append(element("p", "suppression-note", `Declared in ${suppression.configPath}. A rule-version change makes this suppression stop matching.`));
+    container.append(article);
+  }
+}
+
 export function renderGaps(panel, container, gaps = []) {
   container.replaceChildren();
   panel.hidden = gaps.length === 0;
@@ -158,7 +181,7 @@ async function copyPrompt(button, text) {
   }, 1600);
 }
 
-export function createFindingCard(finding) {
+export function createFindingCard(finding, checkVersion = "1") {
   const article = element("article", "finding-card");
   article.dataset.severity = finding.severity;
 
@@ -168,9 +191,11 @@ export function createFindingCard(finding) {
   badges.append(element("span", `severity-badge severity-${finding.severity}`, finding.severity));
   badges.append(element("span", "pack-badge", packNames[finding.pack] || finding.pack));
   badges.append(element("span", "confidence-badge", `${finding.confidence} confidence`));
+  badges.append(element("span", "rule-badge", `${finding.checkId}@${checkVersion}`));
   headingCopy.append(badges);
   headingCopy.append(element("h3", "finding-title", finding.title));
   headingCopy.append(element("p", "finding-summary", finding.summary));
+  headingCopy.append(element("code", "finding-id", finding.id));
   heading.append(headingCopy);
   article.append(heading);
 
@@ -202,8 +227,9 @@ export function createFindingCard(finding) {
   return article;
 }
 
-export function renderFindings(container, emptyState, findings, severityFilter) {
+export function renderFindings(container, emptyState, findings, severityFilter, checks = []) {
   container.replaceChildren();
+  const versions = new Map(checks.map((check) => [check.checkId, check.checkVersion || "1"]));
   const visible = findings
     .filter((finding) => severityFilter === "all" || finding.severity === severityFilter)
     .sort((left, right) => {
@@ -214,6 +240,6 @@ export function renderFindings(container, emptyState, findings, severityFilter) 
 
   emptyState.hidden = visible.length !== 0;
   for (const finding of visible) {
-    container.append(createFindingCard(finding));
+    container.append(createFindingCard(finding, versions.get(finding.checkId) || "1"));
   }
 }

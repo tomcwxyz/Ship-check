@@ -4,19 +4,25 @@ import path from "node:path";
 import { promisify } from "node:util";
 import {
   ScanReportSchema,
+  ShipCheckConfigSchema,
+  type AppliedSuppression,
   type AssessmentArea,
   type AssessmentGap,
   type CheckPack,
   type CheckResult,
+  type CheckVersion,
   type CoverageEntry,
   type Finding,
   type Observation,
   type PracticePrincipleId,
-  type ScanReport
+  type ScanReport,
+  type ShipCheckConfig
 } from "@ship-check/schemas";
 
 const execFileAsync = promisify(execFile);
 const MAX_TEXT_BYTES = 512 * 1024;
+const DEFAULT_CHECK_VERSION: CheckVersion = "1";
+const CONFIG_PATH = ".ship-check.json";
 const ignoredDirectories = new Set([".git", ".next", ".turbo", "build", "coverage", "dist", "node_modules", "target"]);
 
 export const BUILT_IN_PRACTICE_PRINCIPLES: Record<string, PracticePrincipleId[]> = {
@@ -81,6 +87,7 @@ export type CheckExecution = {
 
 export type CheckDefinition = {
   id: string;
+  version?: CheckVersion;
   pack: CheckPack;
   title: string;
   description: string;
@@ -186,8 +193,29 @@ export async function createProjectContext(projectPath: string): Promise<Project
   };
 }
 
-function summarise(findings: Finding[]): ScanReport["summary"] {
-  const summary = { total: findings.length, critical: 0, high: 0, medium: 0, low: 0, info: 0 };
+async function loadConfig(context: ProjectContext): Promise<ShipCheckConfig> {
+  if (!context.hasFile(CONFIG_PATH)) {
+    return { schemaVersion: "0.1", suppressions: [] };
+  }
+  const text = await context.readText(CONFIG_PATH);
+  if (text === null) {
+    throw new Error(`${CONFIG_PATH} is present but could not be read as bounded UTF-8 text.`);
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch (error) {
+    throw new Error(`Invalid ${CONFIG_PATH}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+  try {
+    return ShipCheckConfigSchema.parse(parsed);
+  } catch (error) {
+    throw new Error(`Invalid ${CONFIG_PATH}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+function summarise(findings: Finding[], suppressed: number): ScanReport["summary"] {
+  const summary = { total: findings.length, suppressed, critical: 0, high: 0, medium: 0, low: 0, info: 0 };
   for (const finding of findings) summary[finding.severity] += 1;
   return summary;
 }
@@ -202,6 +230,33 @@ function normaliseExecution(execution: Finding[] | CheckExecution): Required<Che
     observations: execution.observations ?? [],
     coverage: execution.coverage ?? []
   };
+}
+
+function suppressFindings(
+  findings: Finding[],
+  checkVersion: CheckVersion,
+  config: ShipCheckConfig
+): { active: Finding[]; suppressed: AppliedSuppression[] } {
+  const active: Finding[] = [];
+  const suppressed: AppliedSuppression[] = [];
+
+  for (const finding of findings) {
+    const rule = config.suppressions.find(
+      (candidate) => candidate.findingId === finding.id && candidate.checkVersion === checkVersion
+    );
+    if (!rule) {
+      active.push(finding);
+      continue;
+    }
+    suppressed.push({
+      finding,
+      checkVersion,
+      rationale: rule.rationale,
+      configPath: CONFIG_PATH
+    });
+  }
+
+  return { active, suppressed };
 }
 
 function summariseCoverage(
@@ -232,7 +287,9 @@ function summariseCoverage(
 
 export async function scanProject(projectPath: string, checks: CheckDefinition[], version = "0.0.0-alpha.6"): Promise<ScanReport> {
   const context = await createProjectContext(projectPath);
+  const config = await loadConfig(context);
   const findings: Finding[] = [];
+  const suppressedFindings: AppliedSuppression[] = [];
   const gaps: AssessmentGap[] = [];
   const observations: Observation[] = [];
   const results: CheckResult[] = [];
@@ -241,9 +298,12 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
   for (const check of checks) {
     const started = performance.now();
     const principles = check.principles ?? BUILT_IN_PRACTICE_PRINCIPLES[check.id] ?? [];
+    const checkVersion = check.version ?? DEFAULT_CHECK_VERSION;
     try {
       const execution = normaliseExecution(await check.run(context));
-      findings.push(...execution.findings);
+      const suppression = suppressFindings(execution.findings, checkVersion, config);
+      findings.push(...suppression.active);
+      suppressedFindings.push(...suppression.suppressed);
       gaps.push(...execution.gaps);
       observations.push(...execution.observations);
       for (const contribution of [...(check.coverage ?? []), ...execution.coverage]) {
@@ -251,14 +311,18 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
       }
       results.push({
         checkId: check.id,
+        checkVersion,
         pack: check.pack,
         principles,
-        status: execution.findings.length > 0
+        status: suppression.active.length > 0
           ? "findings"
           : execution.gaps.length > 0
             ? "unverified"
-            : "passed",
-        findingCount: execution.findings.length,
+            : suppression.suppressed.length > 0
+              ? "suppressed"
+              : "passed",
+        findingCount: suppression.active.length,
+        suppressedCount: suppression.suppressed.length,
         gapCount: execution.gaps.length,
         observationCount: execution.observations.length,
         durationMs: Math.max(0, Math.round(performance.now() - started))
@@ -266,10 +330,12 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
     } catch (error) {
       results.push({
         checkId: check.id,
+        checkVersion,
         pack: check.pack,
         principles,
         status: "error",
         findingCount: 0,
+        suppressedCount: 0,
         gapCount: 0,
         observationCount: 0,
         durationMs: Math.max(0, Math.round(performance.now() - started)),
@@ -290,10 +356,11 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
     packs: [...new Set(checks.map((check) => check.pack))],
     checks: results,
     findings: findings.sort((a, b) => `${a.severity}:${a.id}`.localeCompare(`${b.severity}:${b.id}`)),
+    suppressedFindings: suppressedFindings.sort((a, b) => a.finding.id.localeCompare(b.finding.id)),
     gaps: gaps.sort((a, b) => `${a.area}:${a.id}`.localeCompare(`${b.area}:${b.id}`)),
     observations: observations.sort((a, b) => `${a.area}:${a.id}`.localeCompare(`${b.area}:${b.id}`)),
     coverage: summariseCoverage(coverageContributions),
-    summary: summarise(findings),
+    summary: summarise(findings, suppressedFindings.length),
     generatedAt: new Date().toISOString()
   };
 

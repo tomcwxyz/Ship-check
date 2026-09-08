@@ -203,6 +203,7 @@
 
 .coverage-panel,
 .observations-panel,
+.suppressions-panel,
 .unverified-panel {
   margin-top: 22px;
   padding: 20px;
@@ -213,6 +214,10 @@
 
 .observations-panel {
   background: #f2f7f0;
+}
+
+.suppressions-panel {
+  background: #f5f1fa;
 }
 
 .unverified-panel {
@@ -273,7 +278,9 @@
 
 .coverage-status,
 .gap-badge,
-.observation-badge {
+.observation-badge,
+.suppression-badge,
+.rule-badge {
   display: inline-flex;
   align-items: center;
   min-height: 23px;
@@ -284,6 +291,14 @@
   letter-spacing: 0.05em;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.rule-badge {
+  background: #ece9e1;
+  color: #5e605a;
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
 .coverage-assessed {
@@ -309,6 +324,7 @@
 }
 
 .observations-list,
+.suppressions-list,
 .unverified-list {
   margin-top: 16px;
   display: grid;
@@ -316,6 +332,7 @@
 }
 
 .observation-card,
+.suppression-card,
 .gap-card {
   padding: 17px;
   border-radius: 13px;
@@ -326,6 +343,11 @@
   background: #fbfdf9;
 }
 
+.suppression-card {
+  border: 1px solid #cfc2df;
+  background: #fdfbff;
+}
+
 .gap-card {
   border: 1px solid #e2cf9f;
   background: #fffdf7;
@@ -334,6 +356,11 @@
 .observation-badge {
   background: var(--green-soft);
   color: #315944;
+}
+
+.suppression-badge {
+  background: #e8ddf4;
+  color: #5d4775;
 }
 
 .gap-badge {
@@ -358,6 +385,28 @@
 .observation-evidence {
   max-height: 240px;
   overflow: auto;
+}
+
+.finding-id {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.suppression-meta,
+.suppression-rationale {
+  margin-top: 10px;
+}
+
+.suppression-note {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 11.5px;
+  line-height: 1.45;
 }
 
 .gap-verify {

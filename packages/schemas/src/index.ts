@@ -15,6 +15,12 @@ export type Severity = z.infer<typeof SeveritySchema>;
 export const ConfidenceSchema = z.enum(["high", "medium", "low"]);
 export type Confidence = z.infer<typeof ConfidenceSchema>;
 
+export const CheckVersionSchema = z.string().regex(
+  /^[1-9]\d*(?:\.\d+){0,2}$/,
+  "Expected a positive rule version such as 1, 2 or 2.1."
+);
+export type CheckVersion = z.infer<typeof CheckVersionSchema>;
+
 export const AssessmentAreaSchema = z.enum([
   "secrets",
   "access-control",
@@ -60,6 +66,27 @@ export const FindingSchema = z.object({
 });
 export type Finding = z.infer<typeof FindingSchema>;
 
+export const FindingSuppressionSchema = z.object({
+  findingId: z.string().min(1),
+  checkVersion: CheckVersionSchema,
+  rationale: z.string().trim().min(10, "Suppression rationale must explain why the finding is accepted.")
+}).strict();
+export type FindingSuppression = z.infer<typeof FindingSuppressionSchema>;
+
+export const ShipCheckConfigSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  suppressions: z.array(FindingSuppressionSchema).default([])
+}).strict();
+export type ShipCheckConfig = z.infer<typeof ShipCheckConfigSchema>;
+
+export const AppliedSuppressionSchema = z.object({
+  finding: FindingSchema,
+  checkVersion: CheckVersionSchema,
+  rationale: z.string().min(10),
+  configPath: z.literal(".ship-check.json")
+});
+export type AppliedSuppression = z.infer<typeof AppliedSuppressionSchema>;
+
 export const AssessmentGapSchema = z.object({
   id: z.string().min(1),
   checkId: z.string().min(1),
@@ -97,10 +124,12 @@ export type CoverageEntry = z.infer<typeof CoverageEntrySchema>;
 
 export const CheckResultSchema = z.object({
   checkId: z.string(),
+  checkVersion: CheckVersionSchema.default("1"),
   pack: CheckPackSchema,
   principles: z.array(PracticePrincipleIdSchema).default([]),
-  status: z.enum(["passed", "findings", "unverified", "error"]),
+  status: z.enum(["passed", "findings", "suppressed", "unverified", "error"]),
   findingCount: z.number().int().nonnegative(),
+  suppressedCount: z.number().int().nonnegative().default(0),
   gapCount: z.number().int().nonnegative().default(0),
   observationCount: z.number().int().nonnegative().default(0),
   durationMs: z.number().nonnegative(),
@@ -123,11 +152,13 @@ export const ScanReportSchema = z.object({
   packs: z.array(CheckPackSchema),
   checks: z.array(CheckResultSchema),
   findings: z.array(FindingSchema),
+  suppressedFindings: z.array(AppliedSuppressionSchema).default([]),
   gaps: z.array(AssessmentGapSchema).default([]),
   observations: z.array(ObservationSchema).default([]),
   coverage: z.array(CoverageEntrySchema).default([]),
   summary: z.object({
     total: z.number().int().nonnegative(),
+    suppressed: z.number().int().nonnegative().default(0),
     critical: z.number().int().nonnegative(),
     high: z.number().int().nonnegative(),
     medium: z.number().int().nonnegative(),
