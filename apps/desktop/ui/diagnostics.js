@@ -41,9 +41,11 @@ export function safeSourceLabel(sourceMode, value) {
 function safeCheck(check) {
   return {
     checkId: check.checkId,
+    checkVersion: check.checkVersion ?? "1",
     pack: check.pack,
     status: check.status,
     findingCount: check.findingCount,
+    suppressedCount: check.suppressedCount ?? 0,
     gapCount: check.gapCount ?? 0,
     observationCount: check.observationCount ?? 0,
     durationMs: check.durationMs,
@@ -83,6 +85,7 @@ export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRe
     options: safeOptions(options),
     elapsedMs: Math.max(0, Math.round(elapsedMs)),
     summary: { ...report.summary },
+    suppressedCount: report.suppressedFindings?.length ?? report.summary?.suppressed ?? 0,
     unverifiedCount: report.gaps?.length ?? 0,
     observedCount: report.observations?.length ?? 0,
     coverage: (report.coverage ?? []).map(safeCoverage),
@@ -151,6 +154,7 @@ export function formatReceipt(entry) {
 
   const passed = entry.checks.filter((check) => check.status === "passed").length;
   const findings = entry.checks.filter((check) => check.status === "findings").length;
+  const suppressedChecks = entry.checks.filter((check) => check.status === "suppressed").length;
   const unverified = entry.checks.filter((check) => check.status === "unverified").length;
   const errors = entry.checks.filter((check) => check.status === "error").length;
   const lines = [
@@ -158,11 +162,11 @@ export function formatReceipt(entry) {
     `${entry.source.kind} · ${entry.source.label}${entry.source.ref ? ` · ${entry.source.ref}` : ""}`,
     `${entry.fileCount} files · ${entry.checks.length} checks · ${entry.inventorySource}`,
     `dependency network scan: ${entry.options?.networkedDependencyScan ? "on" : "off"}`,
-    `${passed} passed · ${findings} with findings · ${unverified} unverified · ${entry.observedCount ?? 0} observed · ${errors} errors · ${entry.elapsedMs} ms`,
+    `${passed} passed · ${findings} with findings · ${suppressedChecks} suppression-only · ${entry.suppressedCount ?? 0} suppressed findings · ${unverified} unverified · ${entry.observedCount ?? 0} observed · ${errors} errors · ${entry.elapsedMs} ms`,
     `engine ${entry.toolVersion}`,
     "",
     ...entry.checks.map(
-      (check) => `${check.status.padEnd(10)} ${check.checkId} · ${check.findingCount} findings · ${check.gapCount ?? 0} gaps · ${check.observationCount ?? 0} observed · ${check.durationMs} ms`,
+      (check) => `${check.status.padEnd(10)} ${check.checkId}@${check.checkVersion ?? "1"} · ${check.findingCount} findings · ${check.suppressedCount ?? 0} suppressed · ${check.gapCount ?? 0} gaps · ${check.observationCount ?? 0} observed · ${check.durationMs} ms`,
     ),
   ];
   if (entry.coverage?.length) {
@@ -176,7 +180,7 @@ export function formatDiagnostics(entries) {
     {
       schemaVersion: "1",
       exportedAt: new Date().toISOString(),
-      note: "Ship Check diagnostics contain scan metadata only: no source contents, observation paths/details, evidence excerpts or matched secret values.",
+      note: "Ship Check diagnostics contain scan metadata only: no source contents, suppression rationales/finding details, observation paths/details, evidence excerpts or matched secret values.",
       entries,
     },
     null,
