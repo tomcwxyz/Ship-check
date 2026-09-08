@@ -53,6 +53,68 @@ describe("bounded local import tracing", () => {
     const sources = await traceLocalImports(context, "src/app/api/demo/route.ts");
     expect(sources.map((item) => item.file)).toContain("src/lib/auth.ts");
   });
+
+  it("resolves wildcard tsconfig paths with baseUrl, comments and trailing commas", async () => {
+    const root = await fixture({
+      "tsconfig.json": `{
+        // Common server-only aliases
+        "compilerOptions": {
+          "baseUrl": ".",
+          "paths": {
+            "@server/*": ["src/server/*"],
+          },
+        },
+      }`,
+      "app/api/demo/route.ts": 'import { requireUser } from "@server/auth"; export async function POST() { return requireUser(); }',
+      "src/server/auth.ts": 'export function requireUser() { return auth(); }'
+    });
+    const context = await createProjectContext(root);
+    const sources = await traceLocalImports(context, "app/api/demo/route.ts");
+    expect(sources.map((item) => item.file)).toContain("src/server/auth.ts");
+  });
+
+  it("resolves exact jsconfig aliases", async () => {
+    const root = await fixture({
+      "jsconfig.json": JSON.stringify({
+        compilerOptions: {
+          baseUrl: ".",
+          paths: { "server-auth": ["lib/auth.ts"] }
+        }
+      }),
+      "app/api/demo/route.ts": 'import { requireUser } from "server-auth"; export async function POST() { return requireUser(); }',
+      "lib/auth.ts": 'export function requireUser() { return auth(); }'
+    });
+    const context = await createProjectContext(root);
+    const sources = await traceLocalImports(context, "app/api/demo/route.ts");
+    expect(sources.map((item) => item.file)).toContain("lib/auth.ts");
+  });
+
+  it("uses the nearest config for a nested app before a root alias with the same pattern", async () => {
+    const root = await fixture({
+      "tsconfig.json": JSON.stringify({ compilerOptions: { paths: { "@/*": ["src/*"] } } }),
+      "src/lib/auth.ts": 'export const rootAuth = () => "root";',
+      "packages/app/tsconfig.json": JSON.stringify({ compilerOptions: { paths: { "@/*": ["src/*"] } } }),
+      "packages/app/app/api/demo/route.ts": 'import { requireUser } from "@/lib/auth"; export async function POST() { return requireUser(); }',
+      "packages/app/src/lib/auth.ts": 'export function requireUser() { return auth(); }'
+    });
+    const context = await createProjectContext(root);
+    const sources = await traceLocalImports(context, "packages/app/app/api/demo/route.ts");
+    const files = sources.map((item) => item.file);
+    expect(files).toContain("packages/app/src/lib/auth.ts");
+    expect(files).not.toContain("src/lib/auth.ts");
+  });
+
+  it("ignores alias targets that would escape the repository", async () => {
+    const root = await fixture({
+      "packages/app/tsconfig.json": JSON.stringify({
+        compilerOptions: { paths: { "@outside/*": ["../../../outside/*"] } }
+      }),
+      "packages/app/app/api/demo/route.ts": 'import { thing } from "@outside/thing"; export async function POST() { return thing(); }'
+    });
+    const context = await createProjectContext(root);
+    const sources = await traceLocalImports(context, "packages/app/app/api/demo/route.ts");
+    expect(sources.map((item) => item.file)).toEqual(["packages/app/app/api/demo/route.ts"]);
+  });
 });
 
 describe("paid endpoint tracing", () => {
@@ -65,6 +127,30 @@ describe("paid endpoint tracing", () => {
       ].join("\n"),
       "lib/auth.ts": 'export async function requireUser() { return auth(); }',
       "lib/ai.ts": 'export async function askModel() { return generateText({ model: "example" }); }'
+    });
+    const report = await scanProject(root, [importedAwarePaidEndpointCheck]);
+    expect(report.findings).toHaveLength(0);
+    expect(report.checks[0]?.status).toBe("passed");
+  });
+
+  it("recognises auth and paid work through configured custom aliases", async () => {
+    const root = await fixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: {
+          baseUrl: ".",
+          paths: {
+            "@guards/*": ["src/guards/*"],
+            "@services/*": ["src/services/*"]
+          }
+        }
+      }),
+      "app/api/ask/route.ts": [
+        'import { requireUser } from "@guards/auth";',
+        'import { askModel } from "@services/ai";',
+        'export async function POST() { await requireUser(); return askModel(); }'
+      ].join("\n"),
+      "src/guards/auth.ts": 'export async function requireUser() { return auth(); }',
+      "src/services/ai.ts": 'export async function askModel() { return generateText({ model: "example" }); }'
     });
     const report = await scanProject(root, [importedAwarePaidEndpointCheck]);
     expect(report.findings).toHaveLength(0);
