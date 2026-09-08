@@ -76,6 +76,7 @@ Goal: make Ship Check materially more trustworthy before broadening it into data
 - [x] Compose Vercel cron **cadence × work** evidence so frequent model/paid-provider/database/fan-out work is prioritised over lightweight cadence alone, without inventing monetary cost estimates.
 - [x] Add explicit per-check rule versions and tracked `.ship-check.json` suppressions bound to an exact finding ID + rule version + substantive rationale. Suppressed findings remain visible as accepted exceptions and old suppressions stop matching after a rule-version change.
 - [x] Resolve repository-local `tsconfig.json` / `jsconfig.json` `baseUrl` + `paths` aliases in bounded import tracing, including exact and single-wildcard mappings, nearest nested-config precedence and repository-boundary protection.
+- [x] Upgrade `production.server-surface-inventory` to v2 with named module/inline Server Action enumeration plus explicit Auth.js/NextAuth, Supabase auth-callback, Clerk and Lucia request-surface detection; Auth.js callback configuration is inventoried separately without inferring authorisation or correctness.
 
 ### Next depth work inside 1.6
 
@@ -83,7 +84,6 @@ Goal: make Ship Check materially more trustworthy before broadening it into data
 - [ ] Dogfood bundled Gitleaks on Windows and macOS, especially false positives, large repositories and proof that matched values never persist in diagnostics/reports.
 - [ ] Dogfood opt-in OSV across representative package managers and compare Supply Chain coverage with the option off/on.
 - [ ] Add a small **pinned local Semgrep ruleset** with provenance once its desktop packaging/runtime boundary is reproducible. Do not default to remote/`--config=auto` rules.
-- [ ] Extend server-surface inventory to framework-specific auth callbacks and richer Server Action boundaries where corpus evidence supports reliable detection.
 
 ### Cross-product practice evidence already landed
 
