@@ -75,6 +75,7 @@ Goal: make Ship Check materially more trustworthy before broadening it into data
 - [x] Add a first bounded Next.js/Vercel **server-surface inventory** covering API/request routes, Server Actions, webhook-like routes, Vercel cron declarations, auth/admin routes, paid-service request paths and database request paths. Discovery remains distinct from verification.
 - [x] Compose Vercel cron **cadence × work** evidence so frequent model/paid-provider/database/fan-out work is prioritised over lightweight cadence alone, without inventing monetary cost estimates.
 - [x] Add explicit per-check rule versions and tracked `.ship-check.json` suppressions bound to an exact finding ID + rule version + substantive rationale. Suppressed findings remain visible as accepted exceptions and old suppressions stop matching after a rule-version change.
+- [x] Resolve repository-local `tsconfig.json` / `jsconfig.json` `baseUrl` + `paths` aliases in bounded import tracing, including exact and single-wildcard mappings, nearest nested-config precedence and repository-boundary protection.
 
 ### Next depth work inside 1.6
 
@@ -83,7 +84,6 @@ Goal: make Ship Check materially more trustworthy before broadening it into data
 - [ ] Dogfood opt-in OSV across representative package managers and compare Supply Chain coverage with the option off/on.
 - [ ] Add a small **pinned local Semgrep ruleset** with provenance once its desktop packaging/runtime boundary is reproducible. Do not default to remote/`--config=auto` rules.
 - [ ] Extend server-surface inventory to framework-specific auth callbacks and richer Server Action boundaries where corpus evidence supports reliable detection.
-- [ ] Extend imported-helper tracing from the common `@/`/`~/` convention to explicit `tsconfig`/`jsconfig` path aliases where corpus evidence justifies it.
 
 ### Cross-product practice evidence already landed
 
