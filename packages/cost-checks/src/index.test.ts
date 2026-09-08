@@ -42,6 +42,28 @@ describe("Vercel cron cadence × work", () => {
     expect(report.findings[0]?.evidence.some((item) => item.path === "lib/brief.ts")).toBe(true);
   });
 
+  it("traces model work through a configured tsconfig path alias", async () => {
+    const root = await fixture({
+      "tsconfig.json": JSON.stringify({
+        compilerOptions: {
+          baseUrl: ".",
+          paths: { "@jobs/*": ["src/jobs/*"] }
+        }
+      }),
+      "vercel.json": JSON.stringify({ crons: [{ path: "/api/cron/brief", schedule: "*/5 * * * *" }] }),
+      "app/api/cron/brief/route.ts": 'import { buildBrief } from "@jobs/brief"; export async function GET() { return buildBrief(); }',
+      "src/jobs/brief.ts": 'export async function buildBrief() { return generateText({ model: "example" }); }'
+    });
+
+    const report = await scanProject(root, [cronCheck]);
+    expect(report.findings[0]).toMatchObject({
+      checkId: "cost.vercel-cron-frequency",
+      severity: "high"
+    });
+    expect(report.findings[0]?.summary).toMatch(/AI\/model work/);
+    expect(report.findings[0]?.evidence.some((item) => item.path === "src/jobs/brief.ts")).toBe(true);
+  });
+
   it("keeps a five-minute lightweight route at medium rather than treating cadence alone as high", async () => {
     const root = await fixture({
       "vercel.json": JSON.stringify({ crons: [{ path: "/api/cron/heartbeat", schedule: "*/5 * * * *" }] }),

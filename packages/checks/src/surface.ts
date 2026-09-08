@@ -78,10 +78,219 @@ function importSpecifiers(text: string): string[] {
   return [...specifiers];
 }
 
-function candidateBases(fromFile: string, specifier: string): string[] {
+type PathAliasRule = {
+  pattern: string;
+  targets: string[];
+};
+
+type PathAliasConfig = {
+  file: string;
+  directory: string;
+  baseDirectory: string;
+  rules: PathAliasRule[];
+};
+
+const pathAliasConfigCache = new WeakMap<ProjectContext, Promise<PathAliasConfig[]>>();
+
+function stripJsonComments(text: string): string {
+  let output = "";
+  let inString = false;
+  let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const current = text[index];
+    const next = text[index + 1];
+
+    if (lineComment) {
+      if (current === "\n" || current === "\r") {
+        lineComment = false;
+        output += current;
+      } else {
+        output += " ";
+      }
+      continue;
+    }
+
+    if (blockComment) {
+      if (current === "*" && next === "/") {
+        output += "  ";
+        blockComment = false;
+        index += 1;
+      } else {
+        output += current === "\n" || current === "\r" ? current : " ";
+      }
+      continue;
+    }
+
+    if (inString) {
+      output += current;
+      if (escaped) escaped = false;
+      else if (current === "\\") escaped = true;
+      else if (current === '"') inString = false;
+      continue;
+    }
+
+    if (current === '"') {
+      inString = true;
+      output += current;
+      continue;
+    }
+    if (current === "/" && next === "/") {
+      lineComment = true;
+      output += "  ";
+      index += 1;
+      continue;
+    }
+    if (current === "/" && next === "*") {
+      blockComment = true;
+      output += "  ";
+      index += 1;
+      continue;
+    }
+    output += current;
+  }
+
+  return output;
+}
+
+function stripTrailingCommas(text: string): string {
+  let output = "";
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const current = text[index];
+    if (inString) {
+      output += current;
+      if (escaped) escaped = false;
+      else if (current === "\\") escaped = true;
+      else if (current === '"') inString = false;
+      continue;
+    }
+    if (current === '"') {
+      inString = true;
+      output += current;
+      continue;
+    }
+    if (current === ",") {
+      let nextIndex = index + 1;
+      while (nextIndex < text.length && /\s/.test(text[nextIndex])) nextIndex += 1;
+      if (text[nextIndex] === "}" || text[nextIndex] === "]") continue;
+    }
+    output += current;
+  }
+
+  return output;
+}
+
+function parseJsonConfig(text: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(stripTrailingCommas(stripJsonComments(text)));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function configDirectory(file: string): string {
+  const directory = path.posix.dirname(file);
+  return directory === "." ? "" : directory;
+}
+
+function repoPath(base: string, target: string): string | null {
+  if (target.startsWith("/")) return null;
+  const resolved = path.posix.normalize(path.posix.join(base, target)).replace(/^\.\//, "");
+  if (resolved === ".." || resolved.startsWith("../")) return null;
+  return resolved;
+}
+
+async function readPathAliasConfigs(context: ProjectContext): Promise<PathAliasConfig[]> {
+  const configs: PathAliasConfig[] = [];
+  const configFiles = context.files.filter((file) => /(^|\/)(?:tsconfig|jsconfig)\.json$/i.test(file));
+
+  for (const file of configFiles) {
+    const text = await context.readText(file);
+    if (!text) continue;
+    const config = parseJsonConfig(text);
+    if (!config) continue;
+    const compilerOptions = config.compilerOptions;
+    if (!compilerOptions || typeof compilerOptions !== "object" || Array.isArray(compilerOptions)) continue;
+    const options = compilerOptions as Record<string, unknown>;
+    const paths = options.paths;
+    if (!paths || typeof paths !== "object" || Array.isArray(paths)) continue;
+
+    const directory = configDirectory(file);
+    const baseUrl = typeof options.baseUrl === "string" ? options.baseUrl : ".";
+    const baseDirectory = repoPath(directory, baseUrl);
+    if (baseDirectory === null) continue;
+
+    const rules: PathAliasRule[] = [];
+    for (const [pattern, rawTargets] of Object.entries(paths as Record<string, unknown>)) {
+      if (!pattern || (pattern.match(/\*/g)?.length ?? 0) > 1 || !Array.isArray(rawTargets)) continue;
+      const targets = rawTargets.filter(
+        (target): target is string => typeof target === "string" && (target.match(/\*/g)?.length ?? 0) <= 1
+      );
+      if (targets.length > 0) rules.push({ pattern, targets });
+    }
+    if (rules.length > 0) configs.push({ file, directory, baseDirectory, rules });
+  }
+
+  return configs.sort((left, right) => right.directory.split("/").filter(Boolean).length - left.directory.split("/").filter(Boolean).length);
+}
+
+function pathAliasConfigs(context: ProjectContext): Promise<PathAliasConfig[]> {
+  const cached = pathAliasConfigCache.get(context);
+  if (cached) return cached;
+  const loading = readPathAliasConfigs(context);
+  pathAliasConfigCache.set(context, loading);
+  return loading;
+}
+
+function configApplies(config: PathAliasConfig, fromFile: string): boolean {
+  return config.directory === "" || fromFile.startsWith(`${config.directory}/`);
+}
+
+function aliasCapture(pattern: string, specifier: string): string | null {
+  const wildcard = pattern.indexOf("*");
+  if (wildcard === -1) return pattern === specifier ? "" : null;
+  const prefix = pattern.slice(0, wildcard);
+  const suffix = pattern.slice(wildcard + 1);
+  if (!specifier.startsWith(prefix) || !specifier.endsWith(suffix)) return null;
+  return specifier.slice(prefix.length, specifier.length - suffix.length);
+}
+
+function configuredAliasBases(configs: PathAliasConfig[], fromFile: string, specifier: string): string[] {
+  const bases: string[] = [];
+  for (const config of configs) {
+    if (!configApplies(config, fromFile)) continue;
+    let matchedConfig = false;
+    for (const rule of config.rules) {
+      const capture = aliasCapture(rule.pattern, specifier);
+      if (capture === null) continue;
+      matchedConfig = true;
+      for (const target of rule.targets) {
+        const mappedTarget = target.includes("*") ? target.replace("*", capture) : target;
+        const candidate = repoPath(config.baseDirectory, mappedTarget);
+        if (candidate !== null) bases.push(candidate);
+      }
+    }
+    if (matchedConfig) break;
+  }
+  return [...new Set(bases)];
+}
+
+function candidateBases(fromFile: string, specifier: string, configs: PathAliasConfig[]): string[] {
   if (specifier.startsWith("./") || specifier.startsWith("../")) {
     return [path.posix.normalize(path.posix.join(path.posix.dirname(fromFile), specifier))];
   }
+
+  const configured = configuredAliasBases(configs, fromFile, specifier);
+  if (configured.length > 0) return configured;
+
   if (specifier.startsWith("@/") || specifier.startsWith("~/")) {
     const aliasPath = path.posix.normalize(specifier.slice(2));
     return [aliasPath, `src/${aliasPath}`];
@@ -98,8 +307,13 @@ function resolutionCandidates(base: string): string[] {
   return candidates;
 }
 
-function resolveLocalImport(context: ProjectContext, fromFile: string, specifier: string): string | null {
-  for (const base of candidateBases(fromFile, specifier)) {
+function resolveLocalImport(
+  context: ProjectContext,
+  fromFile: string,
+  specifier: string,
+  configs: PathAliasConfig[]
+): string | null {
+  for (const base of candidateBases(fromFile, specifier, configs)) {
     if (base === ".." || base.startsWith("../")) continue;
     const resolved = resolutionCandidates(base).find((candidate) => context.hasFile(candidate));
     if (resolved) return resolved;
@@ -115,6 +329,7 @@ export async function traceLocalImports(
   maxDepth = MAX_IMPORT_DEPTH,
   maxFiles = MAX_IMPORTED_FILES
 ): Promise<TracedSource[]> {
+  const configs = await pathAliasConfigs(context);
   const queue: Array<{ file: string; depth: number }> = [{ file: entryFile, depth: 0 }];
   const visited = new Set<string>();
   const output: TracedSource[] = [];
@@ -128,7 +343,7 @@ export async function traceLocalImports(
     output.push({ file: current.file, text, depth: current.depth });
     if (current.depth >= maxDepth) continue;
     for (const specifier of importSpecifiers(text)) {
-      const resolved = resolveLocalImport(context, current.file, specifier);
+      const resolved = resolveLocalImport(context, current.file, specifier, configs);
       if (resolved && !visited.has(resolved)) queue.push({ file: resolved, depth: current.depth + 1 });
     }
   }
