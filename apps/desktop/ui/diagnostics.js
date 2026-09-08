@@ -63,6 +63,7 @@ function safeCoverage(entry) {
 
 function safeOptions(options) {
   return {
+    localSemgrepScan: Boolean(options?.localSemgrepScan),
     networkedDependencyScan: Boolean(options?.networkedDependencyScan),
   };
 }
@@ -146,6 +147,7 @@ export function formatReceipt(entry) {
     return [
       "Scan failed",
       `${entry.source.kind} · ${entry.source.label}`,
+      `local Semgrep scan: ${entry.options?.localSemgrepScan ? "on" : "off"}`,
       `dependency network scan: ${entry.options?.networkedDependencyScan ? "on" : "off"}`,
       `engine ${entry.toolVersion} · ${entry.elapsedMs} ms`,
       `error: ${entry.error}`,
@@ -161,6 +163,7 @@ export function formatReceipt(entry) {
     "Scan completed",
     `${entry.source.kind} · ${entry.source.label}${entry.source.ref ? ` · ${entry.source.ref}` : ""}`,
     `${entry.fileCount} files · ${entry.checks.length} checks · ${entry.inventorySource}`,
+    `local Semgrep scan: ${entry.options?.localSemgrepScan ? "on" : "off"}`,
     `dependency network scan: ${entry.options?.networkedDependencyScan ? "on" : "off"}`,
     `${passed} passed · ${findings} with findings · ${suppressedChecks} suppression-only · ${entry.suppressedCount ?? 0} suppressed findings · ${unverified} unverified · ${entry.observedCount ?? 0} observed · ${errors} errors · ${entry.elapsedMs} ms`,
     `engine ${entry.toolVersion}`,
