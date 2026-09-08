@@ -158,6 +158,17 @@
             <div class="observations-list" id="observations-list"></div>
           </section>
 
+          <section class="suppressions-panel" id="suppressions-panel" aria-labelledby="suppressions-title" hidden>
+            <div class="coverage-heading">
+              <div>
+                <p class="section-kicker">Accepted exceptions</p>
+                <h3 id="suppressions-title">Findings explicitly suppressed in this repo</h3>
+              </div>
+              <p>These findings still exist. A tracked <code>.ship-check.json</code> records the exact finding, rule version and rationale for accepting it.</p>
+            </div>
+            <div class="suppressions-list" id="suppressions-list"></div>
+          </section>
+
           <section class="unverified-panel" id="unverified-panel" aria-labelledby="unverified-title" hidden>
             <div class="coverage-heading">
               <div>
