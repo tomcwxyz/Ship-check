@@ -111,6 +111,9 @@ export function evaluateAssuranceGate(
   const threshold = options.threshold ?? "high";
   const selectedPack = gatePack[options.gateId];
   const findings = report.findings.filter((finding) => !selectedPack || finding.pack === selectedPack);
+  const suppressions = (report.suppressedFindings ?? []).filter(
+    (entry) => !selectedPack || entry.finding.pack === selectedPack
+  );
   const gaps = (report.gaps ?? []).filter((gap) => !selectedPack || gap.pack === selectedPack);
   const checks = report.checks.filter((check) => !selectedPack || check.pack === selectedPack);
   const checkErrors = checks
@@ -131,6 +134,11 @@ export function evaluateAssuranceGate(
   if (belowThreshold.length > 0) {
     warnings.push(
       `${belowThreshold.length} finding${belowThreshold.length === 1 ? " is" : "s are"} below the ${threshold} gate threshold.`
+    );
+  }
+  if (suppressions.length > 0) {
+    warnings.push(
+      `${suppressions.length} finding${suppressions.length === 1 ? " is" : "s are"} explicitly suppressed by .ship-check.json; review the accepted-risk rationale and rule version before relying on this gate.`
     );
   }
   if (gaps.length > 0) {
@@ -242,6 +250,7 @@ export type OrganisationalAssuranceSummary = {
   };
   counts: {
     findings: number;
+    suppressed: number;
     critical: number;
     high: number;
     medium: number;
@@ -258,6 +267,9 @@ export function toOrganisationalAssuranceSummary(
 ): OrganisationalAssuranceSummary {
   const selectedPack = gatePack[gate.gateId];
   const findings = report.findings.filter((finding) => !selectedPack || finding.pack === selectedPack);
+  const suppressions = (report.suppressedFindings ?? []).filter(
+    (entry) => !selectedPack || entry.finding.pack === selectedPack
+  );
   const gaps = (report.gaps ?? []).filter((gap) => !selectedPack || gap.pack === selectedPack);
   const count = (severity: Severity) => findings.filter((finding) => finding.severity === severity).length;
 
@@ -274,6 +286,7 @@ export function toOrganisationalAssuranceSummary(
     },
     counts: {
       findings: findings.length,
+      suppressed: suppressions.length,
       critical: count("critical"),
       high: count("high"),
       medium: count("medium"),
