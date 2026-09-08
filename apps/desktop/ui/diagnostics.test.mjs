@@ -80,7 +80,7 @@ const report = {
   checks: [
     { checkId: "secure.secret-pattern", checkVersion: "1", pack: "secure-build", status: "findings", findingCount: 1, suppressedCount: 0, gapCount: 0, observationCount: 0, durationMs: 4 },
     { checkId: "production.next-security-headers", checkVersion: "1", pack: "production-ready", status: "unverified", findingCount: 0, suppressedCount: 0, gapCount: 1, observationCount: 0, durationMs: 2 },
-    { checkId: "production.server-surface-inventory", checkVersion: "1", pack: "production-ready", status: "passed", findingCount: 0, suppressedCount: 0, gapCount: 0, observationCount: 1, durationMs: 2 },
+    { checkId: "production.server-surface-inventory", checkVersion: "2", pack: "production-ready", status: "passed", findingCount: 0, suppressedCount: 0, gapCount: 0, observationCount: 1, durationMs: 2 },
     { checkId: "cost.vercel-cron-frequency", checkVersion: "2", pack: "cost-aware", status: "suppressed", findingCount: 0, suppressedCount: 1, gapCount: 0, observationCount: 0, durationMs: 1 },
   ],
 };
@@ -90,14 +90,14 @@ test("local source labels do not retain the full machine path", () => {
   assert.equal(safeSourceLabel("local", "/home/tom/signals"), "signals");
 });
 
-test("successful diagnostics keep counts and rule versions but not suppressed or observed details", () => {
+test("successful diagnostics keep scan consent, counts and rule versions but not suppressed or observed details", () => {
   const entry = createSuccessDiagnostic({
     report,
     sourceMode: "local",
     sourceValue: "C:\\Users\\tom\\signals",
     gitRef: "",
     packs: ["secure-build", "production-ready", "cost-aware"],
-    options: { networkedDependencyScan: true },
+    options: { localSemgrepScan: true, networkedDependencyScan: true },
     elapsedMs: 123.6,
   });
 
@@ -105,6 +105,7 @@ test("successful diagnostics keep counts and rule versions but not suppressed or
   assert.equal(entry.fileCount, 94);
   assert.equal(entry.inventorySource, "git-tracked");
   assert.equal(entry.elapsedMs, 124);
+  assert.equal(entry.options.localSemgrepScan, true);
   assert.equal(entry.options.networkedDependencyScan, true);
   assert.equal(entry.suppressedCount, 1);
   assert.equal(entry.unverifiedCount, 1);
@@ -112,6 +113,7 @@ test("successful diagnostics keep counts and rule versions but not suppressed or
   assert.equal(entry.coverage.length, 2);
   assert.equal(entry.checks[1].gapCount, 1);
   assert.equal(entry.checks[2].observationCount, 1);
+  assert.equal(entry.checks[2].checkVersion, "2");
   assert.equal(entry.checks[3].checkVersion, "2");
   assert.equal(entry.checks[3].suppressedCount, 1);
   assert.equal("findings" in entry, false);
@@ -123,13 +125,15 @@ test("successful diagnostics keep counts and rule versions but not suppressed or
   assert.doesNotMatch(JSON.stringify(entry), /app\/api\/private\/route\.ts/);
   assert.doesNotMatch(JSON.stringify(entry), /Server request surfaces discovered/);
   assert.match(formatReceipt(entry), /94 files · 4 checks · git-tracked/);
+  assert.match(formatReceipt(entry), /local Semgrep scan: on/);
+  assert.match(formatReceipt(entry), /dependency network scan: on/);
   assert.match(formatReceipt(entry), /1 suppressed findings/);
   assert.match(formatReceipt(entry), /cost\.vercel-cron-frequency@2/);
   assert.match(formatReceipt(entry), /1 unverified · 1 observed/);
   assert.match(formatReceipt(entry), /not-assessed\s+runtime/);
 });
 
-test("network consent defaults off in diagnostic metadata", () => {
+test("deep scan consent defaults off in diagnostic metadata", () => {
   const entry = createSuccessDiagnostic({
     report,
     sourceMode: "local",
@@ -138,7 +142,9 @@ test("network consent defaults off in diagnostic metadata", () => {
     packs: ["secure-build"],
     elapsedMs: 10,
   });
+  assert.equal(entry.options.localSemgrepScan, false);
   assert.equal(entry.options.networkedDependencyScan, false);
+  assert.match(formatReceipt(entry), /local Semgrep scan: off/);
   assert.match(formatReceipt(entry), /dependency network scan: off/);
 });
 
@@ -149,13 +155,14 @@ test("failure diagnostics redact common secret shapes", () => {
     sourceValue: "https://token@github.com/tomcwxyz/private-repo",
     gitRef: "main",
     packs: ["secure-build"],
-    options: { networkedDependencyScan: false },
+    options: { localSemgrepScan: true, networkedDependencyScan: false },
     elapsedMs: 50,
     engineVersion: "0.0.0-alpha.6",
     error: `clone failed with ${secret}`,
   });
 
   assert.equal(entry.source.label, "tomcwxyz/private-repo");
+  assert.equal(entry.options.localSemgrepScan, true);
   assert.doesNotMatch(JSON.stringify(entry), new RegExp(secret));
   assert.match(entry.error, /redacted-openai-key/);
 });
