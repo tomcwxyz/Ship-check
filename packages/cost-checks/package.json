@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@ship-check/checks": "workspace:*",
     "@ship-check/core": "workspace:*",
     "@ship-check/schemas": "workspace:*"
   }

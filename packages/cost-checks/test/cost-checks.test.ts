@@ -33,7 +33,7 @@ describe("cost-aware checks", () => {
     expect(report.findings).toHaveLength(0);
   });
 
-  it("grades five-minute cron work high and fifteen-minute work medium", async () => {
+  it("grades cadence-only five-minute cron work medium and fifteen-minute work low", async () => {
     const root = await temporaryDirectory();
     await fs.writeFile(
       path.join(root, "vercel.json"),
@@ -50,8 +50,8 @@ describe("cost-aware checks", () => {
     const cronFindings = report.findings.filter((finding) => finding.checkId === "cost.vercel-cron-frequency");
 
     expect(cronFindings).toHaveLength(2);
-    expect(cronFindings.find((finding) => finding.summary.includes("every 5 minutes"))?.severity).toBe("high");
-    expect(cronFindings.find((finding) => finding.summary.includes("every 15 minutes"))?.severity).toBe("medium");
+    expect(cronFindings.find((finding) => finding.summary.includes("every 5 minutes"))?.severity).toBe("medium");
+    expect(cronFindings.find((finding) => finding.summary.includes("every 15 minutes"))?.severity).toBe("low");
     expect(JSON.stringify(cronFindings)).not.toContain("/api/hourly is scheduled");
   });
 
