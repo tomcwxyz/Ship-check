@@ -99,6 +99,19 @@
             </label>
           </fieldset>
 
+          <label class="network-check-card local-check-card" for="local-semgrep-scan">
+            <input id="local-semgrep-scan" type="checkbox" />
+            <span class="network-check-copy">
+              <span class="network-check-heading">
+                <strong>Run pinned local Semgrep rules</strong>
+                <span class="network-badge local-badge">Local · optional</span>
+              </span>
+              <small>
+                Uses Ship Check's own small, SHA-pinned ruleset against a temporary local mirror. Semgrep itself is not bundled in this alpha; install a compatible Semgrep 1.176.x CLI or set <code>SHIP_CHECK_SEMGREP_PATH</code>. No Registry rules, metrics or source upload are used.
+              </small>
+            </span>
+          </label>
+
           <label class="network-check-card" for="networked-dependency-scan">
             <input id="networked-dependency-scan" type="checkbox" />
             <span class="network-check-copy">
@@ -115,7 +128,7 @@
           <div class="scan-actions">
             <div class="scan-explainer">
               <strong>Nothing changes in the repository.</strong>
-              <span>Normal checks and Gitleaks stay local. The OSV dependency check uses the network only when you enable it above.</span>
+              <span>Normal checks, Gitleaks and optional Semgrep stay local. Only the OSV dependency check uses the network, and only when you enable it above.</span>
             </div>
             <button class="button button-primary" id="run-scan" type="button" disabled>
               Check this repo

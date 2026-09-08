@@ -41,6 +41,7 @@ const elements = {
   projectPath: document.querySelector("#project-path"),
   projectPathValue: document.querySelector("#project-path-value"),
   packGrid: document.querySelector("#pack-grid"),
+  localSemgrepScan: document.querySelector("#local-semgrep-scan"),
   networkedDependencyScan: document.querySelector("#networked-dependency-scan"),
   runScan: document.querySelector("#run-scan"),
   rerunScan: document.querySelector("#rerun-scan"),
@@ -72,12 +73,18 @@ function selectedPacks() {
   );
 }
 
+function secureBuildSelected() {
+  return selectedPacks().includes("secure-build");
+}
+
 function productionReadySelected() {
   return selectedPacks().includes("production-ready");
 }
 
 function scanOptions() {
   return {
+    localSemgrepScan:
+      secureBuildSelected() && Boolean(elements.localSemgrepScan?.checked),
     networkedDependencyScan:
       productionReadySelected() && Boolean(elements.networkedDependencyScan?.checked),
   };
@@ -103,10 +110,17 @@ function currentSourceValue() {
 }
 
 function updateDeepScanAvailability() {
-  if (!elements.networkedDependencyScan) return;
-  const enabledByPack = productionReadySelected();
-  if (!enabledByPack) elements.networkedDependencyScan.checked = false;
-  elements.networkedDependencyScan.disabled = state.scanning || !enabledByPack;
+  const semgrepEnabledByPack = secureBuildSelected();
+  if (elements.localSemgrepScan) {
+    if (!semgrepEnabledByPack) elements.localSemgrepScan.checked = false;
+    elements.localSemgrepScan.disabled = state.scanning || !semgrepEnabledByPack;
+  }
+
+  const dependencyEnabledByPack = productionReadySelected();
+  if (elements.networkedDependencyScan) {
+    if (!dependencyEnabledByPack) elements.networkedDependencyScan.checked = false;
+    elements.networkedDependencyScan.disabled = state.scanning || !dependencyEnabledByPack;
+  }
 }
 
 function updateRunAvailability() {
@@ -193,7 +207,7 @@ function ensureDiagnosticsPanel() {
 
   const copy = document.createElement("p");
   copy.className = "source-help";
-  copy.textContent = "Stored locally for alpha testing. Includes repo label, engine/rule versions, selected network option, inventory source, coverage status, suppression/observation counts, timings and check outcomes — never source contents, suppression rationales/finding details, observation paths/details, evidence excerpts or matched secret values.";
+  copy.textContent = "Stored locally for alpha testing. Includes repo label, engine/rule versions, selected local/network scan options, inventory source, coverage status, suppression/observation counts, timings and check outcomes — never source contents, suppression rationales/finding details, observation paths/details, evidence excerpts or matched secret values.";
   panel.append(copy);
 
   const receipt = document.createElement("pre");
@@ -298,8 +312,9 @@ function renderReport(report, options) {
     : generated.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
   const source = state.sourceMode === "github" ? "GitHub repo" : "local repo";
   const inventory = report.project.inventorySource === "git-tracked" ? "Git tracked" : "filesystem";
+  const semgrepMode = options.localSemgrepScan ? "Semgrep local" : "Semgrep off";
   const dependencyMode = options.networkedDependencyScan ? "OSV network check" : "OSV off";
-  elements.scanMeta.textContent = `${source} · ${report.project.fileCount.toLocaleString("en-GB")} files · ${report.checks.length} checks · ${report.suppressedFindings.length} suppressed · ${report.observations.length} observed · ${report.gaps.length} unverified · ${dependencyMode} · ${inventory} · ${when}`;
+  elements.scanMeta.textContent = `${source} · ${report.project.fileCount.toLocaleString("en-GB")} files · ${report.checks.length} checks · ${report.suppressedFindings.length} suppressed · ${report.observations.length} observed · ${report.gaps.length} unverified · ${semgrepMode} · ${dependencyMode} · ${inventory} · ${when}`;
 
   elements.emptyCopy.textContent = report.findings.length === 0
     ? report.suppressedFindings.length > 0

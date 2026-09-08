@@ -17,6 +17,8 @@ pub struct ScanRequest {
     #[serde(default)]
     pub packs: Vec<String>,
     #[serde(default)]
+    pub local_semgrep_scan: bool,
+    #[serde(default)]
     pub networked_dependency_scan: bool,
 }
 
@@ -185,6 +187,13 @@ pub fn scan(app: &AppHandle, request: ScanRequest) -> Result<Value, String> {
     let project = canonical_project(&request.project_path)?;
     let packs = validated_packs(&request.packs)?;
 
+    if request.local_semgrep_scan && !packs.iter().any(|pack| pack == "secure-build") {
+        return Err("Local Semgrep scanning requires the Secure Build pack.".to_string());
+    }
+    if request.networked_dependency_scan && !packs.iter().any(|pack| pack == "production-ready") {
+        return Err("Networked dependency scanning requires the Production Ready pack.".to_string());
+    }
+
     let mut command = Command::new(&engine);
     command
         .arg("scan")
@@ -196,6 +205,9 @@ pub fn scan(app: &AppHandle, request: ScanRequest) -> Result<Value, String> {
 
     for pack in packs {
         command.arg("--pack").arg(pack);
+    }
+    if request.local_semgrep_scan {
+        command.arg("--local-semgrep-scan");
     }
     if request.networked_dependency_scan {
         command.arg("--networked-dependency-scan");

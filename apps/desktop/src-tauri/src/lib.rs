@@ -14,6 +14,8 @@ struct GithubScanRequest {
     #[serde(default)]
     packs: Vec<String>,
     #[serde(default)]
+    local_semgrep_scan: bool,
+    #[serde(default)]
     networked_dependency_scan: bool,
 }
 
@@ -58,6 +60,7 @@ async fn scan_github_repository(
             ScanRequest {
                 project_path: checkout.project_path.to_string_lossy().to_string(),
                 packs: request.packs,
+                local_semgrep_scan: request.local_semgrep_scan,
                 networked_dependency_scan: request.networked_dependency_scan,
             },
         )?;

@@ -11,6 +11,7 @@ import { importAwareSurfaceChecks, replacedSurfaceCheckIds } from "@ship-check/c
 import { scanProject, type CheckDefinition } from "@ship-check/core";
 import { costAwareChecks } from "@ship-check/cost-checks";
 import { deepChecksForPacks } from "@ship-check/deep-checks";
+import { semgrepLocalCheck } from "@ship-check/deep-checks/semgrep";
 import {
   AssuranceGateIdSchema,
   CheckPackSchema,
@@ -36,7 +37,7 @@ const areaNames: Record<AssessmentArea, string> = {
 };
 
 function usage(): string {
-  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-or-github-repo] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--networked-dependency-scan] [--format pretty|json|rack|oos] [--fail-on critical|high|medium|low|never]\n\nRepository sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  Server-boundary checks trace a bounded local import graph so auth, webhook verification and paid work can live in shared helpers.\n  Production Ready records positive server-surface observations separately from findings and unverified controls.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.\n\nAccepted exceptions:\n  A tracked .ship-check.json may suppress an exact finding ID only when it also names the matching rule version and a substantive rationale. Suppressed findings remain visible in the report and rule-version changes invalidate old suppressions.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan . --networked-dependency-scan\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n`;
+  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-or-github-repo] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--local-semgrep-scan] [--networked-dependency-scan] [--format pretty|json|rack|oos] [--fail-on critical|high|medium|low|never]\n\nRepository sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  Server-boundary checks trace a bounded local import graph so auth, webhook verification and paid work can live in shared helpers.\n  Production Ready records positive server-surface observations separately from findings and unverified controls.\n  --local-semgrep-scan opts into Ship Check's small pinned local Semgrep ruleset and requires Secure Build. It stays offline, disables Semgrep metrics/version checks and never uses Registry/auto rules. Semgrep itself is not bundled in the alpha desktop; use a compatible local CLI or SHIP_CHECK_SEMGREP_PATH.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.\n\nAccepted exceptions:\n  A tracked .ship-check.json may suppress an exact finding ID only when it also names the matching rule version and a substantive rationale. Suppressed findings remain visible in the report and rule-version changes invalidate old suppressions.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan . --pack secure-build --local-semgrep-scan\n  ship-check scan . --networked-dependency-scan\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n`;
 }
 
 function checkVersionFor(report: ScanReport, checkId: string): string {
@@ -112,7 +113,7 @@ function printPretty(report: ScanReport): void {
 
 function checksForRequestedPacks(
   packs: CheckPack[],
-  options: { networkedDependencyScan: boolean }
+  options: { networkedDependencyScan: boolean; localSemgrepScan: boolean }
 ): CheckDefinition[] {
   const standard = packs.filter(
     (pack): pack is "secure-build" | "production-ready" => pack !== "cost-aware"
@@ -125,7 +126,8 @@ function checksForRequestedPacks(
     ...(packs.includes("secure-build") ? importAwareSurfaceChecks : []),
     ...(packs.includes("production-ready") ? [serverSurfaceInventoryCheck] : []),
     ...(packs.includes("cost-aware") ? costAwareChecks : []),
-    ...deepChecksForPacks(packs, options)
+    ...deepChecksForPacks(packs, { networkedDependencyScan: options.networkedDependencyScan }),
+    ...(packs.includes("secure-build") && options.localSemgrepScan ? [semgrepLocalCheck] : [])
   ];
 }
 
@@ -139,6 +141,7 @@ async function main(): Promise<void> {
       gate: { type: "string", default: "ship-check" },
       "step-id": { type: "string" },
       ref: { type: "string" },
+      "local-semgrep-scan": { type: "boolean", default: false },
       "networked-dependency-scan": { type: "boolean", default: false },
       help: { type: "boolean", short: "h" },
       version: { type: "boolean", short: "v" }
@@ -169,7 +172,11 @@ async function main(): Promise<void> {
     throw new Error(`Unknown --fail-on severity: ${failOn}`);
   }
   const gateThreshold = (failOn === "never" ? "high" : failOn) as Severity;
+  const localSemgrepScan = Boolean(values["local-semgrep-scan"]);
   const networkedDependencyScan = Boolean(values["networked-dependency-scan"]);
+  if (localSemgrepScan && !requestedPacks.includes("secure-build")) {
+    throw new Error("--local-semgrep-scan requires the secure-build pack because the pinned static-analysis rules belong to Secure Build.");
+  }
   if (networkedDependencyScan && !requestedPacks.includes("production-ready")) {
     throw new Error("--networked-dependency-scan requires the production-ready pack because OSV findings belong to Production Ready.");
   }
@@ -178,7 +185,7 @@ async function main(): Promise<void> {
   try {
     const scanned = await scanProject(
       source.projectPath,
-      checksForRequestedPacks(requestedPacks, { networkedDependencyScan }),
+      checksForRequestedPacks(requestedPacks, { networkedDependencyScan, localSemgrepScan }),
       version
     );
     const report: ScanReport = source.kind === "github"

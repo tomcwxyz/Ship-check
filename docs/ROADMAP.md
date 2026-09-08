@@ -54,6 +54,8 @@ Priorities:
 
 Goal: make Ship Check materially more trustworthy before broadening it into database/runtime inspection. A user should be able to see **what was observed, what was assessed, what produced findings, what was consciously accepted, and what remains unverified or unassessed**.
 
+The implementation target for this line is `0.0.0-alpha.6`. Once the matching desktop build is produced, Alpha 1.6 moves into the corpus/testing protocol in [`ALPHA_1_6_TESTING.md`](./ALPHA_1_6_TESTING.md); corpus calibration is testing work, not a reason to keep expanding the implementation surface.
+
 ### Implemented in the Alpha 1.6 line
 
 - [x] Add an explicit assessment coverage model across: Secrets, Access Control, Configuration, Supply Chain, Cost, Code Security, Database and Runtime.
@@ -77,13 +79,14 @@ Goal: make Ship Check materially more trustworthy before broadening it into data
 - [x] Add explicit per-check rule versions and tracked `.ship-check.json` suppressions bound to an exact finding ID + rule version + substantive rationale. Suppressed findings remain visible as accepted exceptions and old suppressions stop matching after a rule-version change.
 - [x] Resolve repository-local `tsconfig.json` / `jsconfig.json` `baseUrl` + `paths` aliases in bounded import tracing, including exact and single-wildcard mappings, nearest nested-config precedence and repository-boundary protection.
 - [x] Upgrade `production.server-surface-inventory` to v2 with named module/inline Server Action enumeration plus explicit Auth.js/NextAuth, Supabase auth-callback, Clerk and Lucia request-surface detection; Auth.js callback configuration is inventoried separately without inferring authorisation or correctness.
+- [x] Add an explicitly opt-in **pinned local Semgrep** adapter using only Ship Check-owned rules, SHA-256 ruleset provenance, disabled metrics/version checks, bounded temporary repository mirroring and no retained matched source. Alpha.6 deliberately does not bundle Semgrep itself; a compatible trusted local CLI is required.
 
-### Next depth work inside 1.6
+### Alpha 1.6 testing gate
 
 - [ ] Complete the representative Good Ship corpus pass and use it to tune the new checks and surface inventory for false positives/false negatives.
 - [ ] Dogfood bundled Gitleaks on Windows and macOS, especially false positives, large repositories and proof that matched values never persist in diagnostics/reports.
 - [ ] Dogfood opt-in OSV across representative package managers and compare Supply Chain coverage with the option off/on.
-- [ ] Add a small **pinned local Semgrep ruleset** with provenance once its desktop packaging/runtime boundary is reproducible. Do not default to remote/`--config=auto` rules.
+- [ ] Dogfood the pinned local Semgrep boundary with a compatible CLI and with Semgrep unavailable/unsupported; absence must remain an evidence gap, not a pass.
 
 ### Cross-product practice evidence already landed
 
