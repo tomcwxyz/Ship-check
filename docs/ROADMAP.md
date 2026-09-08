@@ -9,7 +9,7 @@ A scan should distinguish four things clearly:
 3. **Unverified** — Ship Check found a relevant control or boundary but cannot establish it from the evidence available.
 4. **Coverage** — the bounded areas Ship Check did or did not assess.
 
-“No findings” must never imply that unassessed areas are safe, and “observed” must never be treated as “verified” unless a specific check establishes the control.
+“No findings” must never imply that unassessed areas are safe, and “observed” must never be treated as “verified” unless a specific check establishes the control. Explicitly suppressed findings remain visible as accepted exceptions rather than disappearing from the evidence record.
 
 ## Alpha 0 — checking contract and CLI
 
@@ -52,7 +52,7 @@ Priorities:
 
 ## Alpha 1.6 — checking depth and honest coverage
 
-Goal: make Ship Check materially more trustworthy before broadening it into database/runtime inspection. A user should be able to see **what was observed, what was assessed, what produced findings, and what remains unverified or unassessed**.
+Goal: make Ship Check materially more trustworthy before broadening it into database/runtime inspection. A user should be able to see **what was observed, what was assessed, what produced findings, what was consciously accepted, and what remains unverified or unassessed**.
 
 ### Implemented in the Alpha 1.6 line
 
@@ -66,13 +66,15 @@ Goal: make Ship Check materially more trustworthy before broadening it into data
 - [x] Identify webhook receivers and record signature-verification evidence gaps without declaring an unverified handler vulnerable.
 - [x] Trace Vercel cron declarations to Next.js handlers and record unverified scheduler-auth boundaries.
 - [x] Carry unverified controls into RACK/assurance output as `uncertain` rather than `pass`.
-- [x] Keep diagnostic history metadata-only while recording coverage/gap/observation counts, never observation paths/details or source evidence.
+- [x] Keep diagnostic history metadata-only while recording coverage/gap/observation/suppression counts, never observation paths/details, suppression rationales or source evidence.
 - [x] Fix engine/CLI provenance so the alpha.5 code reports the matching version rather than the older alpha.4 constant.
 - [x] Replace the narrow default credential-pattern scan with **Gitleaks 8.30.1**, pinned and bundled per desktop platform. Gitleaks scans a temporary mirror of Ship Check's tracked inventory and secret values never enter the canonical report.
 - [x] Add **OSV-Scanner 2.5.1** as an explicitly opt-in networked dependency-vulnerability check. Only recognised dependency manifests/lockfiles are mirrored; the desktop makes the network boundary visible before the scan.
 - [x] Verify third-party release artifacts against pinned SHA-256 digests during desktop packaging rather than downloading mutable `latest` binaries.
 - [x] Trace up to two bounded local import levels for paid-service, webhook-verification and Vercel-cron controls, including common root/`src` `@/` aliases, while retaining the existing stable check IDs.
 - [x] Add a first bounded Next.js/Vercel **server-surface inventory** covering API/request routes, Server Actions, webhook-like routes, Vercel cron declarations, auth/admin routes, paid-service request paths and database request paths. Discovery remains distinct from verification.
+- [x] Compose Vercel cron **cadence × work** evidence so frequent model/paid-provider/database/fan-out work is prioritised over lightweight cadence alone, without inventing monetary cost estimates.
+- [x] Add explicit per-check rule versions and tracked `.ship-check.json` suppressions bound to an exact finding ID + rule version + substantive rationale. Suppressed findings remain visible as accepted exceptions and old suppressions stop matching after a rule-version change.
 
 ### Next depth work inside 1.6
 
@@ -80,10 +82,8 @@ Goal: make Ship Check materially more trustworthy before broadening it into data
 - [ ] Dogfood bundled Gitleaks on Windows and macOS, especially false positives, large repositories and proof that matched values never persist in diagnostics/reports.
 - [ ] Dogfood opt-in OSV across representative package managers and compare Supply Chain coverage with the option off/on.
 - [ ] Add a small **pinned local Semgrep ruleset** with provenance once its desktop packaging/runtime boundary is reproducible. Do not default to remote/`--config=auto` rules.
-- [ ] Add check metadata/versioning and explicit suppression with a required rationale.
 - [ ] Extend server-surface inventory to framework-specific auth callbacks and richer Server Action boundaries where corpus evidence supports reliable detection.
 - [ ] Extend imported-helper tracing from the common `@/`/`~/` convention to explicit `tsconfig`/`jsconfig` path aliases where corpus evidence justifies it.
-- [ ] Broaden cost analysis from cadence alone towards **cadence × work** evidence (paid providers, fan-out, database/model work) without inventing precise cost estimates.
 
 ### Cross-product practice evidence already landed
 
