@@ -20,6 +20,7 @@ export const desktopBridge = {
       request: {
         projectPath,
         packs,
+        localSemgrepScan: Boolean(options.localSemgrepScan),
         networkedDependencyScan: Boolean(options.networkedDependencyScan),
       },
     });
@@ -31,6 +32,7 @@ export const desktopBridge = {
         repository,
         gitRef: gitRef || null,
         packs,
+        localSemgrepScan: Boolean(options.localSemgrepScan),
         networkedDependencyScan: Boolean(options.networkedDependencyScan),
       },
     });
