@@ -1,3 +1,4 @@
+import { browserDataCheck } from "./browserData.js";
 import path from "node:path";
 import type { CheckDefinition, ProjectContext } from "@ship-check/core";
 import type { AssessmentGap, Confidence, Finding, Severity } from "@ship-check/schemas";
@@ -436,6 +437,7 @@ const vercelCronAuthCheck: CheckDefinition = {
 
 const lockfileCheck: CheckDefinition = {
   id: "production.package-lock-discipline",
+  appliesTo: (context) => context.hasFile("package.json"),
   pack: "production-ready",
   title: "Dependency lock file",
   description: "Check JavaScript projects for a single repository-visible dependency lock file.",
@@ -490,6 +492,8 @@ async function isNextProject(context: ProjectContext): Promise<boolean> {
 
 const nextHeadersCheck: CheckDefinition = {
   id: "production.next-security-headers",
+  version: "2",
+  appliesTo: isNextProject,
   pack: "production-ready",
   title: "Next.js security headers",
   description: "Look for repository-visible security-header configuration in Next.js projects without treating missing repository evidence as a defect.",
@@ -519,6 +523,7 @@ const nextHeadersCheck: CheckDefinition = {
 };
 
 export const builtInChecks: CheckDefinition[] = [
+  browserDataCheck,
   trackedEnvCheck,
   secretPatternCheck,
   paidEndpointCheck,

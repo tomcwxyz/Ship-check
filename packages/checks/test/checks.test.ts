@@ -219,3 +219,24 @@ describe("production-ready checks", () => {
     expect(report.coverage.find((entry) => entry.area === "configuration")?.status).toBe("partial");
   });
 });
+describe("browser data review", () => {
+  it("raises questions about client database permissions, external lookups and failed saves", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(root, "package.json", '{"dependencies":{"react":"18"}}');
+    await writeFile(root, "src/client.js", "import { createClient } from '@supabase/supabase-js'; const client = createClient(url, anonKey);");
+    await writeFile(root, "src/Form.js", "const promise = 'it does not leave your browser'; const label = `it doesn't leave your browser`; fetch(`https://api.postcodes.io/postcodes/${postcode}`); async function contribute() { await insertData(data); setDone(true); } function insertData() { if (error) { return; } }");
+    const report = await scanProject(root, checksForPacks(["production-ready"]));
+    expect(report.gaps.map(item => item.id)).toEqual(expect.arrayContaining([
+      expect.stringContaining(":database:"), expect.stringContaining(":promise:"), expect.stringContaining(":save:")
+    ]));
+    expect(report.checks.find(item => item.checkId === "production.next-security-headers")?.status).toBe("not-applicable");
+    expect(report.coverage.find(item => item.area === "database")?.status).toBe("not-assessed");
+  });
+  it("records an external lookup without inventing a broken privacy promise", async () => {
+    const root = await temporaryDirectory();
+    await writeFile(root, "client.js", "fetch(`https://api.postcodes.io/postcodes/${postcode}`);");
+    const report = await scanProject(root, checksForPacks(["production-ready"]));
+    expect(report.gaps).toHaveLength(0);
+    expect(report.observations).toHaveLength(1);
+  });
+});

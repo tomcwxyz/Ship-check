@@ -149,13 +149,43 @@
 
           <div class="summary-grid" id="summary-grid" aria-label="Scan summary"></div>
 
+          <div class="results-toolbar">
+            <div class="filter-group" id="severity-filters" aria-label="Filter findings by severity">
+              <button class="filter-chip is-active" type="button" data-severity="all">All</button>
+              <button class="filter-chip" type="button" data-severity="critical">Critical</button>
+              <button class="filter-chip" type="button" data-severity="high">High</button>
+              <button class="filter-chip" type="button" data-severity="medium">Medium</button>
+              <button class="filter-chip" type="button" data-severity="low">Low</button>
+              <button class="filter-chip" type="button" data-severity="info">Info</button>
+            </div>
+            <button class="button button-quiet" id="rerun-scan" type="button">Run again</button>
+          </div>
+
+          <div class="empty-state" id="empty-state" hidden>
+            <p class="empty-symbol" aria-hidden="true">—</p>
+            <h3>No findings in this view</h3>
+            <p id="empty-copy">The selected checks did not surface anything here.</p>
+          </div>
+
+          <div class="findings-list" id="findings-list"></div>
+          <section class="unverified-panel" id="unverified-panel" aria-labelledby="unverified-title" hidden>
+            <div class="coverage-heading">
+              <div>
+                <p class="section-kicker">Needs checking</p>
+                <h3 id="unverified-title">Questions to check with your developer</h3>
+              </div>
+              <p>The code does not answer these questions. Check them before relying on the app.</p>
+            </div>
+            <div class="unverified-list" id="unverified-list"></div>
+          </section>
+
           <section class="coverage-panel" aria-labelledby="coverage-title">
             <div class="coverage-heading">
               <div>
                 <p class="section-kicker">Coverage</p>
-                <h3 id="coverage-title">What this scan actually assessed</h3>
+                <h3 id="coverage-title">What was checked</h3>
               </div>
-              <p>Partial means Ship Check ran useful narrow checks here, not that the whole area is verified.</p>
+              <p>Completed checks can still find problems. Limited checks cover only part of an area.</p>
             </div>
             <div class="coverage-grid" id="coverage-grid"></div>
           </section>
@@ -164,9 +194,9 @@
             <div class="coverage-heading">
               <div>
                 <p class="section-kicker">Observed</p>
-                <h3 id="observations-title">Repository surfaces Ship Check discovered</h3>
+                <h3 id="observations-title">What we noticed about this project</h3>
               </div>
-              <p>These are useful inventory/evidence, not findings and not proof that every discovered surface is secure.</p>
+              <p>These observations help explain the project. They do not prove that it is safe.</p>
             </div>
             <div class="observations-list" id="observations-list"></div>
           </section>
@@ -182,36 +212,9 @@
             <div class="suppressions-list" id="suppressions-list"></div>
           </section>
 
-          <section class="unverified-panel" id="unverified-panel" aria-labelledby="unverified-title" hidden>
-            <div class="coverage-heading">
-              <div>
-                <p class="section-kicker">Unverified</p>
-                <h3 id="unverified-title">Controls Ship Check could not establish</h3>
-              </div>
-              <p>These are evidence gaps, not confirmed defects. Verify them before treating the area as clean.</p>
-            </div>
-            <div class="unverified-list" id="unverified-list"></div>
-          </section>
 
-          <div class="results-toolbar">
-            <div class="filter-group" id="severity-filters" aria-label="Filter findings by severity">
-              <button class="filter-chip is-active" type="button" data-severity="all">All</button>
-              <button class="filter-chip" type="button" data-severity="critical">Critical</button>
-              <button class="filter-chip" type="button" data-severity="high">High</button>
-              <button class="filter-chip" type="button" data-severity="medium">Medium</button>
-              <button class="filter-chip" type="button" data-severity="low">Low</button>
-              <button class="filter-chip" type="button" data-severity="info">Info</button>
-            </div>
-            <button class="button button-quiet" id="rerun-scan" type="button">Run again</button>
-          </div>
 
-          <div class="empty-state" id="empty-state" hidden>
-            <p class="empty-symbol" aria-hidden="true">✓</p>
-            <h3>No findings in this view</h3>
-            <p id="empty-copy">The selected checks did not surface anything here.</p>
-          </div>
 
-          <div class="findings-list" id="findings-list"></div>
         </section>
       </main>
 

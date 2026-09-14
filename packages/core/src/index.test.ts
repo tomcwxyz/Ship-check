@@ -220,3 +220,17 @@ describe("scan execution", () => {
     });
   });
 });
+
+describe("check applicability", () => {
+  it("does not execute or claim coverage for an inapplicable check", async () => {
+    const root = await temporaryDirectory();
+    await fs.writeFile(path.join(root, "readme.md"), "Browser project");
+    const report = await scanProject(root, [{
+      id: "test.not-applicable", pack: "production-ready", title: "Not applicable", description: "No matching framework",
+      appliesTo: () => false, coverage: [{area:"configuration",status:"assessed"}],
+      async run() { throw new Error("must not run"); }
+    }]);
+    expect(report.checks[0]?.status).toBe("not-applicable");
+    expect(report.coverage.find(entry => entry.area === "configuration")?.status).toBe("not-assessed");
+  });
+});

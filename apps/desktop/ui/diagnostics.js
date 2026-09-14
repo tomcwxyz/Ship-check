@@ -41,6 +41,7 @@ export function safeSourceLabel(sourceMode, value) {
 function safeCheck(check) {
   return {
     checkId: check.checkId,
+    ...(check.scannerVersion ? { scannerVersion: check.scannerVersion } : {}),
     checkVersion: check.checkVersion ?? "1",
     pack: check.pack,
     status: check.status,
@@ -77,6 +78,7 @@ export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRe
     source: {
       kind: sourceMode,
       label: safeSourceLabel(sourceMode, sourceValue),
+      ...(typeof report?.project?.commit === "string" ? { commit: report.project.commit } : {}),
       ...(sourceMode === "github" && gitRef ? { ref: truncate(gitRef, 200) } : {}),
     },
     inventorySource:

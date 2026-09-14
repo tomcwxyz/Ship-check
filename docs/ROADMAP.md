@@ -1,5 +1,15 @@
 # Roadmap
 
+## Post-alpha.6: understandable, evidence-led review
+
+- [x] Distinguish recognised public Supabase client keys from potential private credentials.
+- [x] Explicit check applicability and source/scanner provenance.
+- [x] Browser-data boundary questions and plain-language review cards with technical handoff.
+- [ ] Native installer testing of the new review flow.
+- [ ] Broaden reviewed guidance and data-flow coverage beyond the initial bounded rules.
+
+See [implementation and limitations](./PLAIN_LANGUAGE_REVIEW.md).
+
 Ship Check is an assurance tool, not a clean-bill-of-health generator. The roadmap therefore prioritises **defensible evidence depth** over simply adding more UI or more regex rules.
 
 A scan should distinguish four things clearly:
