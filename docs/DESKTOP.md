@@ -88,7 +88,9 @@ The manual desktop alpha release builds three native targets from the same commi
 
 - Windows x64 as an unsigned NSIS `.exe`;
 - Linux x64 as a `.deb`;
-- macOS Apple Silicon, targeting macOS 12 or later, as an ad-hoc-signed `.dmg`.
+- macOS Apple Silicon, targeting macOS 12 or later, as an ad-hoc-signed `.app` in a `.app.zip` archive.
+
+On macOS, extract the ZIP and drag `Ship Check.app` to Applications before opening it. The release workflow verifies the app signature before archiving it with Apple's `ditto` tool.
 
 The macOS alpha is not Apple-notarised, so testers may need to approve it in macOS Privacy & Security. Developer ID signing, notarisation and Intel/universal packaging remain later pilot-readiness work.
 

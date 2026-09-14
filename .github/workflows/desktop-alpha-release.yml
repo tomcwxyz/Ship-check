@@ -139,7 +139,7 @@ jobs:
             bundle: deb
           - platform: macos-14
             label: macOS Apple Silicon desktop
-            bundle: dmg
+            bundle: app
 
     runs-on: ${{ matrix.platform }}
     timeout-minutes: 40
@@ -253,6 +253,20 @@ jobs:
           BUNDLE: ${{ matrix.bundle }}
         run: cargo tauri build --bundles "$BUNDLE"
 
+      - name: Verify and archive macOS application
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          app="apps/desktop/src-tauri/target/release/bundle/macos/Ship Check.app"
+          archive="apps/desktop/src-tauri/target/release/bundle/macos/Ship.Check_${VERSION}_aarch64.app.zip"
+          test -d "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          ditto -c -k --sequesterRsrc --keepParent "$app" "$archive"
+          unzip -t "$archive"
+
       - name: Upload installers to draft release
         shell: bash
         env:
@@ -263,7 +277,7 @@ jobs:
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             pattern="apps/desktop/src-tauri/target/release/bundle/nsis/*.exe"
           elif [[ "$RUNNER_OS" == "macOS" ]]; then
-            pattern="apps/desktop/src-tauri/target/release/bundle/dmg/*.dmg"
+            pattern="apps/desktop/src-tauri/target/release/bundle/macos/*.app.zip"
           else
             pattern="apps/desktop/src-tauri/target/release/bundle/deb/*.deb"
           fi
