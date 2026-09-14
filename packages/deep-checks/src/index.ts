@@ -1,3 +1,4 @@
+import { isPublicSupabaseMatch } from "./publicCredentials.js";
 import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
@@ -260,7 +261,7 @@ export function parseGitleaksReport(raw: unknown, mirrorRoot: string, version: s
       checkId: "secure.secret-pattern",
       pack: "secure-build",
       suffix: `gitleaks:${fingerprint}`,
-      title: "Potential credential detected by Gitleaks",
+      title: "Check a possible exposed access key",
       summary: `${description} matched Gitleaks rule ${ruleId} in ${file}. The matched secret is never copied into the Ship Check report.`,
       severity: "high",
       evidence: [{
@@ -271,7 +272,7 @@ export function parseGitleaksReport(raw: unknown, mirrorRoot: string, version: s
         detail: `Gitleaks ${version} matched a mature secret-detection rule against the tracked Ship Check source mirror.`
       }],
       why: "Credential-shaped values in repository source may provide direct access to production data, infrastructure or paid services.",
-      fix: "Treat the value as potentially live: verify and rotate it first, remove it from source/history where appropriate, and use the deployment secret store instead.",
+      fix: "Ask your developer to identify the key type without sharing its value. If it is a private credential, revoke or rotate it and remove it from source. Public client keys may be intentional: verify their permissions instead.",
       verify: "Confirm any exposed credential is revoked, then rerun Ship Check and confirm the Gitleaks rule no longer fires.",
       agentPrompt: `Gitleaks rule ${ruleId} matched ${file}${line ? `:${line}` : ""}. Do not reveal the value. Determine whether it is live, rotate/revoke if needed, remove the credential safely, use a secret store, and rerun the scanner.`
     })];
@@ -279,6 +280,7 @@ export function parseGitleaksReport(raw: unknown, mirrorRoot: string, version: s
 }
 
 export const gitleaksSecretCheck: CheckDefinition = {
+  version: "2",
   id: "secure.secret-pattern",
   pack: "secure-build",
   title: "Mature credential scanning",
@@ -338,10 +340,21 @@ export const gitleaksSecretCheck: CheckDefinition = {
       ]);
       if (result.code !== 0) throw new Error(result.stderr.trim() || `Gitleaks exited with ${result.code}.`);
       const raw = JSON.parse(await fs.readFile(reportPath, "utf8"));
-      return {
-        findings: parseGitleaksReport(raw, mirror, version),
-        coverage: [{ area: "secrets", status: "assessed" }]
-      };
+      const candidates = parseGitleaksReport(raw, mirror, version);
+      const findings: Finding[] = [];
+      const observations: NonNullable<CheckExecution["observations"]> = [];
+      for (const candidate of candidates) {
+        const evidence = candidate.evidence[0];
+        const rule = evidence?.excerpt?.match(/^Gitleaks ([^;]+);/)?.[1] ?? "";
+        const text = evidence?.path ? await context.readText(evidence.path) : null;
+        if (text && evidence?.line && isPublicSupabaseMatch(text, evidence.line, rule)) {
+          observations.push({ id: `${candidate.id}:public-key`, checkId: this.id, pack: this.pack,
+            area: "secrets", kind: "inventory", title: "A public Supabase key is present",
+            summary: "This key has the shape and usage of a public client key. That is not proof of a leaked administrator credential. Database permissions still need checking; the token signature and live access were not verified.",
+            evidence: candidate.evidence });
+        } else findings.push(candidate);
+      }
+      return { findings, observations, scannerVersion: version, coverage: [{ area: "secrets", status: "assessed" }] };
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

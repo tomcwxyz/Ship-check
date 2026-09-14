@@ -368,6 +368,7 @@ const paidProviderPattern = /\b(?:OpenAI|Anthropic|Resend|Firecrawl|Stripe|gener
 const abuseControlPattern = /\b(?:rate.?limit|Ratelimit|turnstile|captcha|hcaptcha|recaptcha|requireAuth|requireUser|requireSession|getServerSession|currentUser|verifyToken|verifySession|auth\s*\(|getUser\s*\(|session\s*=)\b/i;
 
 export const importedAwarePaidEndpointCheck: CheckDefinition = {
+  appliesTo: (context) => context.files.some(isApiHandler),
   id: "secure.paid-endpoint-abuse-control",
   pack: "secure-build",
   title: "Paid public endpoints",
@@ -415,6 +416,7 @@ const webhookMarkerPattern = /\b(?:stripe\.webhooks|svix|webhook)\b/i;
 const webhookVerificationPattern = /\b(?:constructEvent|verifyWebhook|verifySignature|webhooks\.verify|createHmac|timingSafeEqual|svix)\b/i;
 
 export const importedAwareWebhookCheck: CheckDefinition = {
+  appliesTo: (context) => context.files.some(isApiHandler),
   id: "secure.webhook-signature-verification",
   pack: "secure-build",
   title: "Webhook signature verification",
@@ -467,6 +469,7 @@ const cronAuthPattern = /\b(?:CRON_SECRET|cronSecret|verifyCron|requireCron|auth
 
 export const importedAwareVercelCronAuthCheck: CheckDefinition = {
   id: "secure.vercel-cron-auth",
+  appliesTo: (context) => context.hasFile("vercel.json"),
   pack: "secure-build",
   title: "Vercel cron endpoint authentication",
   description: "Trace bounded local imports from repository-declared Vercel cron handlers before recording scheduler-auth evidence gaps.",

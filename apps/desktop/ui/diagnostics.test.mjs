@@ -180,3 +180,10 @@ test("diagnostic history is capped to the newest 100 entries", () => {
   assert.match(formatDiagnostics(entries), /observation paths\/details/);
   assert.match(formatDiagnostics(entries), /source contents/);
 });
+
+test('diagnostics retain resolved commit and scanner version without finding details', () => {
+  const entry = createSuccessDiagnostic({ report: {...report, project:{...report.project,commit:'a'.repeat(40)},checks:[{checkId:'secure.secret-pattern',scannerVersion:'8.30.1',status:'passed',findingCount:0,durationMs:1}]}, sourceMode:'github',sourceValue:'owner/repo',packs:[],elapsedMs:1 });
+  assert.equal(entry.source.commit, 'a'.repeat(40));
+  assert.equal(entry.checks[0].scannerVersion, '8.30.1');
+  assert.equal(entry.findings, undefined);
+});

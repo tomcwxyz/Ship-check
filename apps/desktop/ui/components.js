@@ -1,3 +1,4 @@
+import { reviewFinding, reviewSummary } from "./review.js";
 export const severityOrder = {
   critical: 5,
   high: 4,
@@ -13,20 +14,20 @@ const packNames = {
 };
 
 const areaNames = {
-  secrets: "Secrets",
-  "access-control": "Access control",
+  secrets: "Access keys and passwords",
+  "access-control": "Who can use the app",
   configuration: "Configuration",
-  "supply-chain": "Supply chain",
+  "supply-chain": "Software packages",
   cost: "Cost",
   "code-security": "Code security",
   database: "Database",
-  runtime: "Runtime",
+  runtime: "The running app",
 };
 
 const coverageNames = {
-  assessed: "Assessed",
-  partial: "Partial",
-  "not-assessed": "Not assessed",
+  assessed: "Checks completed",
+  partial: "Limited checks",
+  "not-assessed": "Not checked",
 };
 
 function element(tag, className, text) {
@@ -61,21 +62,18 @@ export function setEnginePill(pill, label, status) {
 
 export function renderSummary(container, report) {
   container.replaceChildren();
-  const items = [
-    ["Findings", report.summary.total],
-    ["Suppressed", report.summary.suppressed ?? report.suppressedFindings?.length ?? 0],
-    ["Unverified", report.gaps?.length ?? 0],
-    ["Observed", report.observations?.length ?? 0],
-    ["High + critical", report.summary.high + report.summary.critical],
-    ["Checks run", report.checks.length],
-  ];
-
-  for (const [label, value] of items) {
-    const card = element("div", "summary-card");
-    card.append(element("span", "summary-number", value));
-    card.append(element("span", "summary-label", label));
-    container.append(card);
-  }
+  const summary = reviewSummary(report);
+  const card = element("div", "review-overview");
+  card.append(element("h3", "", summary.title));
+  card.append(element("p", "", summary.detail));
+  if (summary.optional) card.append(element("p", "", summary.optional));
+  if (report.summary.suppressed) card.append(element("p", "", `${report.summary.suppressed} accepted exceptions remain in this project.`));
+  const details = element("details", "review-technical");
+  details.append(element("summary", "", "See individual checks"));
+  const labels = { passed: "Nothing found by this check", "not-applicable": "Does not apply", findings: "Needs review", unverified: "Could not verify", error: "Could not complete", suppressed: "Accepted exception" };
+  for (const check of report.checks) details.append(element("p", "", `${check.checkId}: ${labels[check.status] ?? check.status}`));
+  card.append(details);
+  container.append(card);
 }
 
 export function renderCoverage(container, coverage = []) {
@@ -87,7 +85,7 @@ export function renderCoverage(container, coverage = []) {
     heading.append(element("strong", "coverage-area", areaNames[entry.area] || entry.area));
     heading.append(element("span", `coverage-status coverage-${entry.status}`, coverageNames[entry.status] || entry.status));
     card.append(heading);
-    card.append(element("p", "coverage-detail", entry.detail));
+    card.append(element("p", "coverage-detail", entry.status === "not-assessed" ? "This scan did not check this area." : entry.status === "partial" ? "Only a limited part of this area was checked." : "Selected checks completed. This does not verify the whole area."));
     container.append(card);
   }
 }
@@ -120,7 +118,9 @@ export function renderObservations(panel, container, observations = []) {
 
     const evidenceList = element("ul", "evidence-list observation-evidence");
     for (const evidence of observation.evidence || []) evidenceList.append(evidenceItem(evidence));
-    article.append(evidenceList);
+    const details = element("details", "review-technical");
+    details.append(element("summary", "", "Show technical evidence"), evidenceList);
+    article.append(details);
     container.append(article);
   }
 }
@@ -153,7 +153,7 @@ export function renderGaps(panel, container, gaps = []) {
   for (const gap of gaps) {
     const article = element("article", "gap-card");
     const badges = element("div", "finding-badges");
-    badges.append(element("span", "gap-badge", "Unverified"));
+    badges.append(element("span", "gap-badge", "Needs checking"));
     badges.append(element("span", "pack-badge", packNames[gap.pack] || gap.pack));
     badges.append(element("span", "confidence-badge", areaNames[gap.area] || gap.area));
     article.append(badges);
@@ -162,8 +162,18 @@ export function renderGaps(panel, container, gaps = []) {
 
     const evidenceList = element("ul", "evidence-list");
     for (const evidence of gap.evidence || []) evidenceList.append(evidenceItem(evidence));
-    article.append(evidenceList);
-    article.append(labelledValue("How to verify", gap.verify, "gap-verify"));
+    const details = element("details", "review-technical");
+    details.append(element("summary", "", "Show technical evidence"), evidenceList);
+    article.append(details);
+    article.append(labelledValue("How to check", gap.verify, "gap-verify"));
+    const copyButton = element("button", "button button-quiet", "Copy checking instructions");
+    copyButton.type = "button";
+    const instructions = [gap.title, gap.summary, `Rule: ${gap.checkId}`, `Question: ${gap.id}`,
+      ...gap.evidence.map(item => `${item.path ?? "Project"}${item.line ? `:${item.line}` : ""}: ${item.detail}`),
+      gap.verify, "This is an unanswered question, not a confirmed defect. Verify the behaviour before making changes. Do not share access keys or personal data."
+    ].join("\n\n");
+    copyButton.addEventListener("click", () => copyPrompt(copyButton, instructions));
+    article.append(copyButton);
     container.append(article);
   }
 }
@@ -185,6 +195,7 @@ export function createFindingCard(finding, checkVersion = "1") {
   const article = element("article", "finding-card");
   article.dataset.severity = finding.severity;
 
+  const review = reviewFinding(finding);
   const heading = element("div", "finding-heading");
   const headingCopy = element("div", "finding-heading-copy");
   const badges = element("div", "finding-badges");
@@ -192,10 +203,11 @@ export function createFindingCard(finding, checkVersion = "1") {
   badges.append(element("span", "pack-badge", packNames[finding.pack] || finding.pack));
   badges.append(element("span", "confidence-badge", `${finding.confidence} confidence`));
   badges.append(element("span", "rule-badge", `${finding.checkId}@${checkVersion}`));
-  headingCopy.append(badges);
-  headingCopy.append(element("h3", "finding-title", finding.title));
-  headingCopy.append(element("p", "finding-summary", finding.summary));
-  headingCopy.append(element("code", "finding-id", finding.id));
+
+  headingCopy.append(element("span", "gap-badge", ["critical", "high"].includes(finding.severity) ? "Review first" : "Review when ready"));
+  headingCopy.append(element("h3", "finding-title", review.title));
+  headingCopy.append(element("p", "finding-summary", review.summary));
+
   heading.append(headingCopy);
   article.append(heading);
 
@@ -206,21 +218,23 @@ export function createFindingCard(finding, checkVersion = "1") {
     evidenceList.append(evidenceItem(evidence));
   }
   evidenceSection.append(evidenceList);
-  article.append(evidenceSection);
+  const technical = element("details", "review-technical");
+  technical.append(element("summary", "", "Technical evidence for your developer"));
+  technical.append(badges, element("code", "finding-id", finding.id), evidenceSection);
 
   const remediation = element("section", "finding-section remediation-grid");
-  remediation.append(labelledValue("Why it matters", finding.remediation.why, "remediation-item"));
-  remediation.append(labelledValue("Fix", finding.remediation.fix, "remediation-item"));
-  remediation.append(labelledValue("Verify", finding.remediation.verify, "remediation-item"));
-  article.append(remediation);
+  remediation.append(labelledValue("Why it matters", review.why, "remediation-item"));
+  remediation.append(labelledValue("What to do next", review.next, "remediation-item"));
+  remediation.append(labelledValue("How to know it is fixed", review.verification, "remediation-item"));
+  article.append(remediation, technical);
 
   const prompt = element("div", "agent-prompt");
   const promptCopy = element("div", "agent-prompt-copy");
-  promptCopy.append(element("span", "agent-prompt-label", "Repair prompt"));
-  promptCopy.append(element("p", "agent-prompt-text", finding.remediation.agentPrompt));
-  const copyButton = element("button", "button button-quiet", "Copy prompt");
+  promptCopy.append(element("span", "agent-prompt-label", "Instructions for your developer or AI tool"));
+
+  const copyButton = element("button", "button button-quiet", "Copy repair instructions");
   copyButton.type = "button";
-  copyButton.addEventListener("click", () => copyPrompt(copyButton, finding.remediation.agentPrompt));
+  copyButton.addEventListener("click", () => copyPrompt(copyButton, `${review.repairInstructions}\n\nRule version: ${checkVersion}`));
   prompt.append(promptCopy, copyButton);
   article.append(prompt);
 

@@ -68,6 +68,7 @@ export type ProjectContext = {
   files: string[];
   gitRepository: boolean;
   inventorySource: ProjectInventorySource;
+  commit?: string;
   hasFile(relativePath: string): boolean;
   isTracked(relativePath: string): boolean | null;
   readText(relativePath: string): Promise<string | null>;
@@ -79,6 +80,7 @@ export type CoverageContribution = {
 };
 
 export type CheckExecution = {
+  scannerVersion?: string;
   findings?: Finding[];
   gaps?: AssessmentGap[];
   observations?: Observation[];
@@ -93,6 +95,7 @@ export type CheckDefinition = {
   description: string;
   principles?: PracticePrincipleId[];
   coverage?: CoverageContribution[];
+  appliesTo?(context: ProjectContext): boolean | Promise<boolean>;
   run(context: ProjectContext): Promise<Finding[] | CheckExecution>;
 };
 
@@ -160,6 +163,10 @@ export async function createProjectContext(projectPath: string): Promise<Project
     );
   }
 
+  let commit: string | undefined;
+  if (gitRepository) {
+    try { commit = (await execFileAsync("git", ["-C", root, "rev-parse", "HEAD"], { encoding: "utf8" })).stdout.trim(); } catch { /* Unborn repositories have no commit. */ }
+  }
   const fileSet = new Set(files);
   const trackedSet = gitRepository ? new Set(tracked) : null;
 
@@ -168,6 +175,7 @@ export async function createProjectContext(projectPath: string): Promise<Project
     files,
     gitRepository,
     inventorySource,
+    commit,
     hasFile(relativePath) {
       return fileSet.has(normalise(relativePath));
     },
@@ -222,9 +230,10 @@ function summarise(findings: Finding[], suppressed: number): ScanReport["summary
 
 function normaliseExecution(execution: Finding[] | CheckExecution): Required<CheckExecution> {
   if (Array.isArray(execution)) {
-    return { findings: execution, gaps: [], observations: [], coverage: [] };
+    return { findings: execution, gaps: [], observations: [], coverage: [], scannerVersion: "" };
   }
   return {
+    scannerVersion: execution.scannerVersion ?? "",
     findings: execution.findings ?? [],
     gaps: execution.gaps ?? [],
     observations: execution.observations ?? [],
@@ -300,6 +309,12 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
     const principles = check.principles ?? BUILT_IN_PRACTICE_PRINCIPLES[check.id] ?? [];
     const checkVersion = check.version ?? DEFAULT_CHECK_VERSION;
     try {
+      if (check.appliesTo && !(await check.appliesTo(context))) {
+        results.push({ checkId: check.id, checkVersion, pack: check.pack, principles,
+          status: "not-applicable", findingCount: 0, suppressedCount: 0, gapCount: 0,
+          observationCount: 0, durationMs: Math.max(0, Math.round(performance.now() - started)) });
+        continue;
+      }
       const execution = normaliseExecution(await check.run(context));
       const suppression = suppressFindings(execution.findings, checkVersion, config);
       findings.push(...suppression.active);
@@ -321,6 +336,7 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
             : suppression.suppressed.length > 0
               ? "suppressed"
               : "passed",
+        ...(execution.scannerVersion ? { scannerVersion: execution.scannerVersion } : {}),
         findingCount: suppression.active.length,
         suppressedCount: suppression.suppressed.length,
         gapCount: execution.gaps.length,
@@ -350,6 +366,7 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
     project: {
       path: context.root,
       gitRepository: context.gitRepository,
+      ...(context.commit ? { commit: context.commit } : {}),
       inventorySource: context.inventorySource,
       fileCount: context.files.length
     },

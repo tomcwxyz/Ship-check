@@ -791,3 +791,11 @@ input:focus-visible {
     width: 100%;
   }
 }
+
+.review-overview { grid-column: 1 / -1; padding: 1.25rem; border: 1px solid var(--border, #ddd); border-radius: 12px; }
+.review-overview h3 { margin: 0 0 .6rem; }
+.review-overview p { line-height: 1.6; max-width: 75ch; }
+.review-technical { margin-block: 1rem; overflow-wrap: anywhere; }
+.review-technical summary { cursor: pointer; font-weight: 600; padding-block: .5rem; }
+.review-technical summary:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+.review-technical .finding-badges { margin-top: .8rem; }

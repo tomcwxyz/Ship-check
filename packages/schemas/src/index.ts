@@ -123,11 +123,12 @@ export const CoverageEntrySchema = z.object({
 export type CoverageEntry = z.infer<typeof CoverageEntrySchema>;
 
 export const CheckResultSchema = z.object({
+  scannerVersion: z.string().optional(),
   checkId: z.string(),
   checkVersion: CheckVersionSchema.default("1"),
   pack: CheckPackSchema,
   principles: z.array(PracticePrincipleIdSchema).default([]),
-  status: z.enum(["passed", "findings", "suppressed", "unverified", "error"]),
+  status: z.enum(["passed", "findings", "suppressed", "unverified", "not-applicable", "error"]),
   findingCount: z.number().int().nonnegative(),
   suppressedCount: z.number().int().nonnegative().default(0),
   gapCount: z.number().int().nonnegative().default(0),
@@ -147,7 +148,8 @@ export const ScanReportSchema = z.object({
     path: z.string(),
     gitRepository: z.boolean(),
     inventorySource: InventorySourceSchema,
-    fileCount: z.number().int().nonnegative()
+    fileCount: z.number().int().nonnegative(),
+    commit: z.string().regex(/^[a-f0-9]{40,64}$/).optional()
   }),
   packs: z.array(CheckPackSchema),
   checks: z.array(CheckResultSchema),

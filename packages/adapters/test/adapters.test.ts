@@ -155,3 +155,7 @@ describe("ecosystem context adapters", () => {
     });
   });
 });
+it("does not pass a gate made entirely of inapplicable checks", () => {
+  const input = report({ checks: [{checkId:"next",checkVersion:"2",pack:"production-ready",principles:[],status:"not-applicable",findingCount:0,suppressedCount:0,gapCount:0,observationCount:0,durationMs:0}] });
+  expect(evaluateAssuranceGate(input, {gateId:"ship-check-production-ready"}).outcome).toBe("incomplete");
+});

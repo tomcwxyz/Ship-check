@@ -115,7 +115,7 @@ export function evaluateAssuranceGate(
     (entry) => !selectedPack || entry.finding.pack === selectedPack
   );
   const gaps = (report.gaps ?? []).filter((gap) => !selectedPack || gap.pack === selectedPack);
-  const checks = report.checks.filter((check) => !selectedPack || check.pack === selectedPack);
+  const checks = report.checks.filter((check) => check.status !== "not-applicable" && (!selectedPack || check.pack === selectedPack));
   const checkErrors = checks
     .filter((check) => check.status === "error")
     .map((check) => ({
@@ -124,6 +124,7 @@ export function evaluateAssuranceGate(
     }));
 
   const warnings: string[] = [];
+  if (checks.length === 0) warnings.push("No applicable checks ran for this gate.");
   if (selectedPack && !report.packs.includes(selectedPack)) {
     warnings.push(`The ${selectedPack} pack was not included in this Ship Check report.`);
   }
@@ -153,7 +154,7 @@ export function evaluateAssuranceGate(
 
   let outcome: AssuranceGateResult["outcome"] = "pass";
   if (gateFailures.length > 0) outcome = "fail";
-  else if (checkErrors.length > 0 || (selectedPack !== null && !report.packs.includes(selectedPack))) {
+  else if (checks.length === 0 || checkErrors.length > 0 || (selectedPack !== null && !report.packs.includes(selectedPack))) {
     outcome = "incomplete";
   } else if (gaps.length > 0) {
     outcome = "uncertain";

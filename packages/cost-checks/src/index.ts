@@ -161,6 +161,7 @@ function severityForCron(minutes: number, composition: WorkComposition): Severit
 
 const vercelCronFrequencyCheck: CheckDefinition = {
   id: "cost.vercel-cron-frequency",
+  appliesTo: (context) => context.hasFile("vercel.json"),
   version: "2",
   pack: "cost-aware",
   title: "Frequent Vercel cron work",
