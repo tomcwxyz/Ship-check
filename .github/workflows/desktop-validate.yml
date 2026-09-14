@@ -8,6 +8,7 @@ on:
       - "scripts/install-deep-scanners.cjs"
       - "package.json"
       - ".github/workflows/desktop-validate.yml"
+      - ".github/workflows/desktop-alpha-release.yml"
   push:
     branches: [main]
     paths:
@@ -16,6 +17,7 @@ on:
       - "scripts/install-deep-scanners.cjs"
       - "package.json"
       - ".github/workflows/desktop-validate.yml"
+      - ".github/workflows/desktop-alpha-release.yml"
 
 concurrency:
   group: ship-check-desktop-${{ github.ref }}
