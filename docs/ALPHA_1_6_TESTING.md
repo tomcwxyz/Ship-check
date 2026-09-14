@@ -1,6 +1,6 @@
 # Alpha 1.6 testing protocol
 
-`0.0.0-alpha.6` is the first Ship Check build intended to test the full Alpha 1.6 evidence model rather than the earlier narrow finding catalogue.
+`0.0.0-alpha.7` supersedes alpha.6 as the Alpha 1.6 test build. It retains the expanded evidence model and adds clearer review guidance, honest not-applicable statuses, public-key classification and the repaired macOS packaging path.
 
 The implementation phase is complete when the pinned local Semgrep adapter is merged and the matching desktop build is produced. The work below is **dogfood/testing**, and should tune Alpha 1.6 before Database Ready work begins.
 
