@@ -23,11 +23,17 @@ It should not feel like:
 
 ## Mark
 
-The in-product mark is an abstract **survey ring**: a circle crossed by a horizontal inspection line, held inside a square signal-orange plate.
+The product mark is an abstract **survey ring**: a circle crossed by a horizontal inspection line, held inside a square signal-orange plate.
 
 It is intentionally adjacent to maritime load-line/survey marks rather than a literal reproduction of a regulatory certification mark. The square plate makes it read as a tool/instrument symbol and gives Ship Check a recognisable silhouette at small sizes.
 
-For alpha.8 the mark is rendered in CSS in the desktop header. A future packaged-app icon should use the same geometry rather than reverting to the old checkmark motif.
+The same geometry is now used across:
+
+- the CSS-rendered desktop header mark;
+- the 128×128 packaged PNG source;
+- the generated 32×32 Windows ICO used by the desktop build.
+
+The packaged icon keeps a small transparent gutter and uses deliberately heavier geometry at 32px so the ring/line remains legible when Windows renders it at taskbar sizes. `scripts/generate-desktop-assets.cjs` validates the PNG source dimensions and generates the ICO deterministically without adding an image-processing dependency.
 
 ## Palette
 
@@ -71,3 +77,5 @@ Avoid visual devices that imply certification, a percentage-safe score, or a bin
 ## Implementation
 
 The brand layer is isolated in `apps/desktop/ui/ship-check-brand.css` and imported by the alpha.8 stylesheet after the existing structural stylesheets. This keeps behaviour and layout logic separate from identity and makes later iteration relatively low-risk.
+
+Desktop packaging uses `apps/desktop/src-tauri/icons/icon.png.b64` as the checked-in 128px source. `pnpm desktop:assets` decodes that PNG and creates the Windows ICO using the same graphite/signal-orange survey-mark geometry. The Windows packaged-app pass remains the final check for icon legibility at real OS sizes.
