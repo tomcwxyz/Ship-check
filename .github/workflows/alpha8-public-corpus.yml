@@ -1,0 +1,52 @@
+name: Alpha 8 public corpus
+
+on:
+  pull_request:
+    paths:
+      - "packages/checks/**"
+      - "packages/cli/**"
+      - "scripts/alpha8-corpus.mjs"
+      - "package.json"
+      - ".github/workflows/alpha8-public-corpus.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ship-check-alpha8-corpus-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  corpus:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: pnpm install
+      - name: Run public calibration corpus
+        run: |
+          node scripts/alpha8-corpus.mjs \
+            tomcwxyz/glade \
+            tomcwxyz/Carry \
+            tomcwxyz/open-recs-local \
+            tomcwxyz/volunteering-mcp-server
+      - name: Print calibration worksheet
+        if: always()
+        run: |
+          find .ship-check-alpha8 -name CALIBRATION.md -print -exec cat {} \;
+      - name: Upload calibration worksheet
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: alpha8-public-corpus
+          path: .ship-check-alpha8/
+          if-no-files-found: warn
+          retention-days: 7
