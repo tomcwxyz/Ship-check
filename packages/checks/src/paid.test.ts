@@ -35,6 +35,36 @@ describe("calibrated paid endpoint detection", () => {
     expect(report.findings).toHaveLength(0);
   });
 
+  it("does not treat a provider interface method declaration as paid work", async () => {
+    const root = await fixture({
+      "app/api/search/route.ts": 'import type { LlmProvider } from "@/lib/types"; export async function GET() { return Response.json({ ok: true }); }',
+      "lib/types.ts": 'export interface LlmProvider { generateText(input: { prompt: string }): Promise<{ text: string }>; }'
+    });
+    const report = await scanProject(root, [calibratedPaidEndpointCheck]);
+    expect(report.findings).toHaveLength(0);
+  });
+
+  it("does not treat provider URLs mentioned only in comments as paid work", async () => {
+    const root = await fixture({
+      "app/api/models/route.ts": 'import { listModels } from "@/lib/discover"; export async function GET() { return listModels("http://localhost:11434/v1"); }',
+      "lib/discover.ts": [
+        '/** OpenAI-compatible example: https://api.openai.com/v1/models */',
+        'export async function listModels(baseUrl) { return fetch(`${baseUrl}/models`); }'
+      ].join("\n")
+    });
+    const report = await scanProject(root, [calibratedPaidEndpointCheck]);
+    expect(report.findings).toHaveLength(0);
+  });
+
+  it("does not scan test files as deployable API handlers", async () => {
+    const root = await fixture({
+      "app/api/models/route.test.ts": 'export async function POST() { return fetch("https://api.openai.com/v1/responses"); }'
+    });
+    const report = await scanProject(root, [calibratedPaidEndpointCheck]);
+    expect(report.findings).toHaveLength(0);
+    expect(report.checks[0]?.status).toBe("not-applicable");
+  });
+
   it("does not treat a signed Stripe webhook as an unprotected paid endpoint", async () => {
     const root = await fixture({
       "app/api/webhooks/stripe/route.ts": [
@@ -87,6 +117,20 @@ describe("calibrated paid endpoint detection", () => {
         'export async function POST() { await requireUser(); return ask(); }'
       ].join("\n"),
       "lib/auth.ts": 'export async function requireUser() { return auth(); }',
+      "lib/ai.ts": 'export async function ask() { return generateText({ model: "example", prompt: "hello" }); }'
+    });
+    const report = await scanProject(root, [calibratedPaidEndpointCheck]);
+    expect(report.findings).toHaveLength(0);
+  });
+
+  it("accepts a provider auth context as a visible request boundary", async () => {
+    const root = await fixture({
+      "app/api/search/route.ts": [
+        'import { providers } from "@/lib/providers";',
+        'import { ask } from "@/lib/ai";',
+        'export async function GET(req) { await providers.auth.getContext(req); return ask(); }'
+      ].join("\n"),
+      "lib/providers.ts": 'export const providers = { auth: { getContext: async () => ({ user: { id: "1" } }) } };',
       "lib/ai.ts": 'export async function ask() { return generateText({ model: "example", prompt: "hello" }); }'
     });
     const report = await scanProject(root, [calibratedPaidEndpointCheck]);
