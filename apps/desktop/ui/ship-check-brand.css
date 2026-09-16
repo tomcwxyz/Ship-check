@@ -1,0 +1,675 @@
+/*
+ * Ship Check visual identity
+ *
+ * A restrained inspection-instrument language: survey marks, signal colour,
+ * technical plates and evidence-first typography. This deliberately moves Ship
+ * Check away from the softer editorial look used elsewhere in the Good Ship
+ * family without turning the product into a cyber-security dashboard.
+ */
+
+:root {
+  --ink: #18211f;
+  --muted: #626a65;
+  --paper: #f6f3ea;
+  --paper-strong: #fffdf7;
+  --line: #b8bab1;
+  --soft-line: #d9d9d0;
+  --accent: #f2633a;
+  --accent-dark: #b83f21;
+  --green: #236650;
+  --green-soft: #dfeae3;
+  --yellow-soft: #f2e5aa;
+  --red-soft: #f2d8d0;
+  --plate: #e9e7de;
+  --shadow: 7px 7px 0 rgba(24, 33, 31, 0.11);
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+body {
+  background-color: #eceae2;
+  background-image:
+    linear-gradient(180deg, rgba(242, 99, 58, 0.09), transparent 15rem),
+    repeating-linear-gradient(90deg, transparent 0, transparent 47px, rgba(24, 33, 31, 0.027) 48px),
+    repeating-linear-gradient(0deg, transparent 0, transparent 47px, rgba(24, 33, 31, 0.027) 48px);
+  color: var(--ink);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 20;
+  height: 5px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.app-shell {
+  width: min(1160px, calc(100% - 56px));
+}
+
+.topbar {
+  min-height: 88px;
+  border-bottom: 2px solid var(--ink);
+}
+
+.brand-lockup {
+  gap: 14px;
+}
+
+/* An abstract survey/load-line mark rather than a literal ship/check icon. */
+.brand-mark {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  overflow: hidden;
+  border: 2px solid var(--ink);
+  border-radius: 2px;
+  background: var(--accent);
+  box-shadow: none;
+  color: transparent;
+  font-size: 0;
+}
+
+.brand-mark::before {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  left: 11px;
+  top: 11px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: transparent;
+}
+
+.brand-mark::after {
+  content: "";
+  position: absolute;
+  width: 30px;
+  height: 2px;
+  left: 6px;
+  top: 21px;
+  background: var(--ink);
+}
+
+.brand-name {
+  font-size: 17px;
+  font-weight: 850;
+  letter-spacing: -0.025em;
+}
+
+.brand-kicker,
+.eyebrow,
+.section-kicker,
+.project-path-label,
+.agent-prompt-label,
+.labelled-value-label,
+.footer,
+.scan-meta {
+  font-family: var(--mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.brand-kicker {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.engine-pill {
+  min-height: 32px;
+  padding: 7px 10px;
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+  background: rgba(255, 253, 247, 0.9);
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.engine-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 1px;
+}
+
+.engine-pill[data-state="ready"] .engine-dot,
+.engine-pill[data-state="missing"] .engine-dot {
+  box-shadow: none;
+}
+
+.hero {
+  position: relative;
+  max-width: 940px;
+  padding: 68px 0 38px;
+}
+
+.eyebrow,
+.section-kicker {
+  color: var(--accent-dark);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.hero h1,
+.scan-heading h2,
+.results-heading h2,
+.finding-title,
+.gap-title,
+.coverage-heading h3 {
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.hero h1 {
+  max-width: 880px;
+  margin: 14px 0 18px;
+  font-size: clamp(46px, 6vw, 72px);
+  line-height: 0.96;
+  font-weight: 780;
+  letter-spacing: -0.055em;
+}
+
+.hero-copy {
+  max-width: 760px;
+  color: #47504c;
+  font-size: 18px;
+  line-height: 1.58;
+}
+
+.privacy-note {
+  margin-top: 22px;
+  padding: 10px 12px;
+  border: 0;
+  border-left: 4px solid var(--green);
+  border-radius: 0;
+  background: rgba(223, 234, 227, 0.82);
+  color: #244e3f;
+  font-size: 12px;
+}
+
+.privacy-note span {
+  width: 7px;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 1px;
+  background: var(--green);
+  color: transparent;
+}
+
+.inspection-strip {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  max-width: 760px;
+  margin-top: 25px;
+  border-top: 1px solid var(--ink);
+  border-bottom: 1px solid var(--ink);
+}
+
+.inspection-strip span {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 39px;
+  padding: 7px 12px;
+  border-right: 1px solid var(--line);
+  color: #4c5550;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.inspection-strip span:last-child {
+  border-right: 0;
+}
+
+.inspection-strip b {
+  color: var(--accent-dark);
+  font-size: 9px;
+}
+
+.scan-card,
+.results {
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  background: rgba(255, 253, 247, 0.96);
+  box-shadow: var(--shadow);
+}
+
+.scan-card,
+.results {
+  position: relative;
+}
+
+.scan-card::before,
+.results::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto auto 0;
+  width: 66px;
+  height: 5px;
+  background: var(--accent);
+}
+
+.scan-card {
+  padding: 34px;
+}
+
+.scan-heading h2,
+.results-heading h2 {
+  margin-top: 7px;
+  font-size: clamp(27px, 3.6vw, 38px);
+  font-weight: 720;
+  letter-spacing: -0.035em;
+}
+
+.section-kicker::first-letter {
+  color: var(--accent-dark);
+}
+
+.button {
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 850;
+  letter-spacing: 0.01em;
+}
+
+.button-primary {
+  min-height: 50px;
+  border: 2px solid var(--ink);
+  background: var(--accent);
+  color: var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+.button-primary:hover:not(:disabled) {
+  transform: translate(2px, 2px);
+  background: #ff7047;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.button-secondary,
+.button-quiet {
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  background: var(--paper-strong);
+}
+
+.source-switch {
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  background: var(--plate);
+}
+
+.source-option {
+  min-height: 39px;
+  padding-inline: 16px;
+  border-radius: 0;
+  font-size: 11px;
+  letter-spacing: 0.02em;
+}
+
+.source-option + .source-option {
+  border-left: 1px solid var(--ink);
+}
+
+.source-option.is-active {
+  background: var(--ink);
+  color: #fffdf7;
+  box-shadow: none;
+}
+
+.project-path,
+.github-source,
+.default-scan-note,
+.repo-field input,
+.pack-card,
+.network-check-card,
+.diagnostics-card,
+.scan-receipt {
+  border-radius: 3px;
+}
+
+.project-path,
+.github-source {
+  background: #efede5;
+}
+
+.project-path {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--ink);
+}
+
+.project-path-label {
+  font-size: 9px;
+}
+
+.project-path-value,
+.repo-field input,
+.rule-badge,
+.finding-id,
+.scan-receipt {
+  font-family: var(--mono);
+}
+
+.repo-field > span,
+.pack-grid legend {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.default-scan-note {
+  border: 1px solid var(--ink);
+  border-left: 5px solid var(--green);
+  background: #f0f3ec;
+}
+
+.default-scan-note strong {
+  font-size: 13px;
+}
+
+.default-scan-note span {
+  font-size: 12px;
+}
+
+.advanced-checks {
+  border-color: var(--ink);
+}
+
+.advanced-checks > summary {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.055em;
+  text-transform: uppercase;
+}
+
+.pack-card {
+  min-height: 124px;
+  border-color: var(--line);
+  background: #faf8f1;
+}
+
+.pack-card:has(input:checked) {
+  border-color: var(--ink);
+  background: #f2eee4;
+  box-shadow: inset 0 4px 0 var(--accent);
+}
+
+.pack-card strong {
+  font-size: 13px;
+}
+
+.pack-card small {
+  font-size: 12px;
+}
+
+.network-check-card {
+  border-color: #a98b45;
+  background: #f8f1d8;
+}
+
+.network-check-card:has(input:checked) {
+  border-color: var(--ink);
+  background: #f2eee4;
+}
+
+.network-badge,
+.severity-badge,
+.pack-badge,
+.confidence-badge,
+.coverage-status,
+.gap-badge,
+.observation-badge,
+.suppression-badge,
+.rule-badge {
+  border-radius: 2px;
+}
+
+.scan-actions {
+  border-top: 2px solid var(--ink);
+}
+
+.results {
+  padding: 34px;
+}
+
+.summary-grid {
+  gap: 0;
+  border: 1px solid var(--ink);
+}
+
+.summary-card {
+  min-height: 94px;
+  border: 0;
+  border-right: 1px solid var(--ink);
+  border-radius: 0;
+  background: #efede5;
+}
+
+.summary-card:last-child {
+  border-right: 0;
+}
+
+.summary-number {
+  font-family: var(--mono);
+  font-size: 29px;
+  font-weight: 750;
+}
+
+.summary-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.results-toolbar {
+  border-top: 2px solid var(--ink);
+}
+
+.filter-group {
+  gap: 4px;
+}
+
+.filter-chip {
+  min-height: 32px;
+  border-color: var(--line);
+  border-radius: 2px;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.filter-chip.is-active {
+  border-color: var(--ink);
+  background: var(--ink);
+}
+
+.findings-list {
+  gap: 12px;
+}
+
+.finding-card {
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  background: var(--paper-strong);
+}
+
+.finding-card[data-severity="critical"] {
+  border-top: 1px solid var(--ink);
+  border-left: 6px solid #942c25;
+}
+
+.finding-card[data-severity="high"] {
+  border-top: 1px solid var(--ink);
+  border-left: 6px solid var(--accent);
+}
+
+.finding-card[data-severity="medium"] {
+  border-top: 1px solid var(--ink);
+  border-left: 6px solid #c18a26;
+}
+
+.finding-card[data-severity="low"] {
+  border-top: 1px solid var(--ink);
+  border-left: 6px solid #527765;
+}
+
+.finding-card[data-severity="info"] {
+  border-top: 1px solid var(--ink);
+  border-left: 6px solid #797e79;
+}
+
+.finding-heading {
+  padding: 22px 23px 19px;
+}
+
+.finding-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.finding-summary {
+  color: #4e5752;
+}
+
+.finding-section {
+  border-top-color: var(--line);
+}
+
+.severity-badge,
+.pack-badge,
+.confidence-badge {
+  font-family: var(--mono);
+  font-size: 9px;
+}
+
+.coverage-panel,
+.observations-panel,
+.suppressions-panel,
+.unverified-panel {
+  border: 1px solid var(--ink);
+  border-radius: 3px;
+  background: #f2f0e8;
+}
+
+.observations-panel {
+  border-left: 5px solid var(--green);
+  background: #edf3ee;
+}
+
+.unverified-panel {
+  border-left: 5px solid #c18a26;
+  background: #f7f0d9;
+}
+
+.suppressions-panel {
+  border-left: 5px solid #77628f;
+  background: #f0ebf4;
+}
+
+.coverage-heading h3 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.coverage-item,
+.observation-card,
+.suppression-card,
+.gap-card {
+  border-radius: 2px;
+}
+
+.coverage-item {
+  border-color: var(--line);
+}
+
+.observation-card,
+.gap-card,
+.suppression-card {
+  background: var(--paper-strong);
+}
+
+.empty-state {
+  border: 1px dashed var(--ink);
+  border-radius: 3px;
+  background: rgba(255, 253, 247, 0.7);
+}
+
+.error-banner {
+  border: 1px solid #a54931;
+  border-left: 5px solid #a54931;
+  border-radius: 2px;
+}
+
+.footer {
+  margin-top: 58px;
+  padding-top: 18px;
+  border-top: 2px solid var(--ink);
+  font-size: 9px;
+  letter-spacing: 0.055em;
+}
+
+@media (max-width: 760px) {
+  .app-shell {
+    width: min(100% - 30px, 1160px);
+  }
+
+  .hero {
+    padding-top: 48px;
+  }
+
+  .hero h1 {
+    font-size: clamp(40px, 11vw, 58px);
+  }
+
+  .inspection-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .inspection-strip span {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .inspection-strip span:last-child {
+    border-bottom: 0;
+  }
+
+  .scan-card,
+  .results {
+    padding: 24px 20px;
+    box-shadow: 5px 5px 0 rgba(24, 33, 31, 0.11);
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .summary-card {
+    border-bottom: 1px solid var(--ink);
+  }
+
+  .summary-card:nth-child(2n) {
+    border-right: 0;
+  }
+
+  .summary-card:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+}
