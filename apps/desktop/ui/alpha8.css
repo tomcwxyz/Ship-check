@@ -28,6 +28,17 @@
   padding: 0.95rem 0;
   font-weight: 650;
   list-style-position: outside;
+  border-radius: 8px;
+}
+
+.advanced-checks > summary:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.advanced-checks > summary:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 4px;
 }
 
 .advanced-checks[open] > summary {
