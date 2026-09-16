@@ -7,7 +7,9 @@ import { costAwareChecks } from "./index.js";
 
 const temporaryRoots: string[] = [];
 const cronCheck = costAwareChecks.find((check) => check.id === "cost.vercel-cron-frequency");
+const pollingCheck = costAwareChecks.find((check) => check.id === "cost.frequent-network-polling");
 if (!cronCheck) throw new Error("Missing cron cost check");
+if (!pollingCheck) throw new Error("Missing polling cost check");
 
 async function fixture(files: Record<string, string>): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "ship-check-cost-"));
@@ -105,5 +107,43 @@ describe("Vercel cron cadence × work", () => {
 
     const report = await scanProject(root, [cronCheck]);
     expect(report.findings).toEqual([]);
+  });
+});
+
+describe("frequent polling association", () => {
+  it("ignores an unrelated one-second UI timer but keeps a three-second network poll", async () => {
+    const root = await fixture({
+      "observer.tsx": [
+        'const fetchState = async () => { return fetch("/api/state"); };',
+        'setInterval(() => setNowMs(Date.now()), 1000);',
+        'setInterval(() => { if (document.visibilityState === "hidden") return; fetchState(); }, 3000);'
+      ].join("\n")
+    });
+
+    const report = await scanProject(root, [pollingCheck]);
+    expect(report.findings).toHaveLength(1);
+    expect(report.findings[0]?.summary).toMatch(/3 seconds/);
+  });
+
+  it("does not report a UI timer merely because the same file performs network work elsewhere", async () => {
+    const root = await fixture({
+      "timer.tsx": [
+        'async function load() { return fetch("/api/data"); }',
+        'setInterval(() => setClock(Date.now()), 1000);'
+      ].join("\n")
+    });
+
+    const report = await scanProject(root, [pollingCheck]);
+    expect(report.findings).toHaveLength(0);
+  });
+
+  it("reports direct network work inside an interval callback", async () => {
+    const root = await fixture({
+      "poll.ts": 'setInterval(async () => { await fetch("/api/state"); }, 5000);'
+    });
+
+    const report = await scanProject(root, [pollingCheck]);
+    expect(report.findings).toHaveLength(1);
+    expect(report.findings[0]?.severity).toBe("high");
   });
 });
