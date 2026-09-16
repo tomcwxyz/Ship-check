@@ -4,7 +4,9 @@ import { traceLocalImports, type TracedSource } from "./surface.js";
 
 const API_HANDLER = /(^|\/)(?:app\/api\/.+\/route|pages\/api\/.+|api\/.+)\.(?:js|jsx|ts|tsx)$/i;
 const TEST_SOURCE = /(?:^|\/)[^/]+\.(?:test|spec)\.(?:js|jsx|ts|tsx)$/i;
-const MUTATING_HANDLER = /export\s+(?:async\s+)?function\s+(?:POST|PUT|PATCH|DELETE)\b|export\s+const\s+(?:POST|PUT|PATCH|DELETE)\b/;
+const EXISTING_OBJECT_METHOD = /export\s+(?:async\s+)?function\s+(?:PUT|PATCH|DELETE)\b|export\s+const\s+(?:PUT|PATCH|DELETE)\b/;
+const POST_HANDLER = /export\s+(?:async\s+)?function\s+POST\b|export\s+const\s+POST\b/;
+const DYNAMIC_ROUTE_SEGMENT = /\[[^/\]]+\]/;
 const REQUEST_CONTROLLED_INPUT = /\b(?:params(?:\.|\[)|searchParams|request\.json\s*\(|req\.body|formData\s*\(|FormData\s*\()/i;
 const DATABASE_MUTATION = /(?:\b(?:db|database)\.(?:[A-Za-z_$][\w$]*\.)?(?:update|updateMany|delete|deleteMany|upsert)\s*\(|\.from\s*\([^)]*\)\s*\.(?:update|delete|upsert)\s*\(|\bsql\s*`[^`]*\b(?:UPDATE|DELETE\s+FROM)\b)/i;
 const DATABASE_MARKER = /\b(?:PrismaClient|drizzle\s*\(|createServerClient|SUPABASE_SERVICE_ROLE_KEY|DATABASE_URL|POSTGRES_URL|neon\s*\(|sql\s*`)|@(?:prisma\/client|neondatabase\/serverless|supabase\/supabase-js)|drizzle-orm|\b(?:db|database)\.(?:[A-Za-z_$][\w$]*\.)?(?:query|findMany|findFirst|findUnique|insert|create|update|updateMany|delete|deleteMany|upsert|select)\b|\.from\s*\(/i;
@@ -17,6 +19,13 @@ const WORKFLOW_FILE = /^\.github\/workflows\/.+\.ya?ml$/i;
 
 function isRuntimeApiHandler(file: string): boolean {
   return API_HANDLER.test(file) && !TEST_SOURCE.test(file);
+}
+
+function handlesExistingObject(file: string, text: string): boolean {
+  EXISTING_OBJECT_METHOD.lastIndex = 0;
+  if (EXISTING_OBJECT_METHOD.test(text)) return true;
+  POST_HANDLER.lastIndex = 0;
+  return POST_HANDLER.test(text) && DYNAMIC_ROUTE_SEGMENT.test(file);
 }
 
 function gap(input: {
@@ -79,10 +88,6 @@ function matchesAny(sources: TracedSource[], pattern: RegExp): boolean {
   return sources.some((source) => sourceMatches(source, pattern));
 }
 
-function firstSource(sources: TracedSource[], pattern: RegExp): TracedSource | undefined {
-  return sources.find((source) => sourceMatches(source, pattern));
-}
-
 function firstDatabaseMutationSource(sources: TracedSource[]): TracedSource | undefined {
   return sources.find(
     (source) => sourceMatches(source, DATABASE_MARKER) && sourceMatches(source, DATABASE_MUTATION)
@@ -98,7 +103,7 @@ export const mutatingObjectAuthorisationCheck: CheckDefinition = {
   version: "1",
   pack: "secure-build",
   title: "Object-level authorisation on changes",
-  description: "Identify mutating request paths where request-controlled identifiers reach a repository-visible database update/delete without a visible ownership, role or permission boundary.",
+  description: "Identify existing-object request paths where request-controlled input reaches a repository-visible database update/delete without a visible ownership, role or permission boundary.",
   principles: ["practice.preserve-safety"],
   coverage: [
     { area: "access-control", status: "partial" },
@@ -109,7 +114,7 @@ export const mutatingObjectAuthorisationCheck: CheckDefinition = {
     const gaps: AssessmentGap[] = [];
     for (const file of context.files.filter(isRuntimeApiHandler)) {
       const entry = await context.readText(file);
-      if (!entry || !MUTATING_HANDLER.test(entry)) continue;
+      if (!entry || !handlesExistingObject(file, entry)) continue;
       const sources = await traceLocalImports(context, file);
       if (!matchesAny(sources, REQUEST_CONTROLLED_INPUT)) continue;
       const mutationSource = firstDatabaseMutationSource(sources);
@@ -121,9 +126,9 @@ export const mutatingObjectAuthorisationCheck: CheckDefinition = {
         area: "access-control",
         suffix: file,
         title: "Check that people can only change records they are allowed to change",
-        summary: `${file} accepts request-controlled input and reaches a database update/delete path, but Ship Check could not find a repository-visible ownership, role or permission boundary in the bounded local call graph. This is an unanswered authorisation question, not proof of broken access control.`,
+        summary: `${file} accepts request-controlled input and reaches a database update/delete path for an existing-object request, but Ship Check could not find a repository-visible ownership, role or permission boundary in the bounded local call graph. This is an unanswered authorisation question, not proof of broken access control.`,
         evidence: [
-          { kind: "file-match", path: file, detail: "Mutating request handler with request-controlled input." },
+          { kind: "file-match", path: file, detail: "Existing-object request handler with request-controlled input." },
           ...(mutationSource.file !== file ? [{ kind: "file-match" as const, path: mutationSource.file, detail: "Database mutation reached through a bounded local import." }] : [])
         ],
         verify: "Test the route with two ordinary accounts that own different records. Confirm each account can change only its own records, cannot change another account's record by changing an ID, and cannot gain admin-only behaviour by changing request fields. If authorisation is enforced in database policy or an upstream layer, document and test that boundary."
