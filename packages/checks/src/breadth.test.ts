@@ -80,6 +80,24 @@ describe("object-level authorisation questions", () => {
     expect(report.checks[0]?.status).toBe("unverified");
   });
 
+  it("does not combine an unrelated crypto update call with database evidence elsewhere", async () => {
+    const root = await fixture({
+      "app/api/sources/route.ts": [
+        'import { createSource } from "@/lib/source";',
+        'import { encrypt } from "@/lib/crypto";',
+        'export async function POST(request) {',
+        '  const body = await request.formData();',
+        '  encrypt(String(body.get("title")));',
+        '  return createSource({ title: String(body.get("title")) });',
+        '}'
+      ].join("\n"),
+      "lib/source.ts": 'export async function createSource(input) { return db.source.create({ data: input }); }',
+      "lib/crypto.ts": 'export function encrypt(value) { const cipher = createCipheriv("aes-256-gcm", key, iv); return cipher.update(value); }'
+    });
+    const report = await scanProject(root, [mutatingObjectAuthorisationCheck]);
+    expect(report.gaps).toHaveLength(0);
+  });
+
   it("does not treat test routes as deployed mutation surfaces", async () => {
     const root = await fixture({
       "app/api/items/route.test.ts": 'export async function PATCH(request) { const { id } = await request.json(); return db.item.update({ where: { id } }); }'
