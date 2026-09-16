@@ -6,6 +6,7 @@ on:
       - "packages/checks/**"
       - "packages/cli/**"
       - "scripts/alpha8-corpus.mjs"
+      - "scripts/install-deep-scanners.cjs"
       - "package.json"
       - ".github/workflows/alpha8-public-corpus.yml"
   workflow_dispatch:
@@ -31,6 +32,8 @@ jobs:
         with:
           node-version: 22
       - run: pnpm install
+      - name: Install pinned local secret scanner
+        run: node scripts/install-deep-scanners.cjs --gitleaks-only
       - name: Run public calibration corpus
         run: |
           node scripts/alpha8-corpus.mjs \
