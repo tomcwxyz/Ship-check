@@ -167,14 +167,24 @@ function repositorySection(result) {
   return lines.join("\n");
 }
 
+function processFailure(error, fallback) {
+  const stdout = typeof error?.stdout === "string" ? error.stdout.trim() : "";
+  const stderr = typeof error?.stderr === "string" ? error.stderr.trim() : "";
+  return [fallback, stdout, stderr].filter(Boolean).join("\n");
+}
+
 async function buildCli() {
-  console.log("Building Ship Check CLI once for the corpus pass…");
-  await execFileAsync(command("pnpm"), ["--filter", "@ship-check/cli", "build"], {
-    cwd: process.cwd(),
-    windowsHide: true,
-    timeout: 180_000,
-    maxBuffer: 16 * 1024 * 1024,
-  });
+  console.log("Building Ship Check and workspace dependencies once for the corpus pass…");
+  try {
+    await execFileAsync(command("pnpm"), ["build"], {
+      cwd: process.cwd(),
+      windowsHide: true,
+      timeout: 180_000,
+      maxBuffer: 32 * 1024 * 1024,
+    });
+  } catch (error) {
+    throw new Error(processFailure(error, "Ship Check workspace build failed before the corpus scan."));
+  }
 }
 
 async function scanSource(source) {
@@ -192,10 +202,9 @@ async function scanSource(source) {
     );
     return { source, report: calibrationReport(JSON.parse(stdout), source) };
   } catch (error) {
-    const stderr = typeof error?.stderr === "string" ? error.stderr.trim() : "";
     return {
       source,
-      error: stderr || (error instanceof Error ? error.message : String(error)),
+      error: processFailure(error, error instanceof Error ? error.message : String(error)),
     };
   }
 }
