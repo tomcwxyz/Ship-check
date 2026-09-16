@@ -10,6 +10,7 @@
   "scripts": {
     "build": "turbo run build",
     "build:engine": "pnpm build && bun build packages/cli/src/index.ts --compile --outfile dist/ship-check",
+    "calibrate:alpha8": "node scripts/alpha8-corpus.mjs",
     "check": "turbo run check",
     "desktop:assets": "node scripts/generate-desktop-assets.cjs",
     "dogfood": "pnpm ship-check -- scan . --fail-on high",
