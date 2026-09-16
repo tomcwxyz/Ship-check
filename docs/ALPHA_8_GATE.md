@@ -77,7 +77,7 @@ The desktop should feel like an **inspection instrument** rather than a generic 
 - finding severity shown as evidence rails rather than large alarm-coloured surfaces;
 - no visual device that implies certification, a percentage-safe score or whole-product pass/fail.
 
-The packaged Windows pass must check the mark, contrast, focus states, status colours and responsive layout at real desktop sizes. The packaged application/taskbar icon should move to the same survey-ring geometry once that mark has been checked at OS icon sizes.
+The same survey-ring geometry is now used for the in-app mark and packaged desktop icon. The asset generator validates the 128×128 PNG source and creates a simplified 32×32 Windows ICO with a transparent gutter for taskbar legibility. The packaged Windows pass must still check the mark and icon at real OS sizes, alongside contrast, focus states, status colours and responsive layout.
 
 ## Corpus pass
 
@@ -128,6 +128,7 @@ Record important manual misses as well as noisy matches.
 - Is the advanced-check disclosure understandable without hiding the OSV network-consent boundary?
 - Does the default review remain useful on a zero-finding repository?
 - Does the distinct inspection-instrument identity remain calm and legible when findings/questions are present, rather than becoming alarmist?
+- Does the survey-ring icon remain distinct and readable in the installer/taskbar at 16–32px rather than collapsing into a generic coloured block?
 
 ## Build gate
 
@@ -138,6 +139,7 @@ Do not create the next desktop alpha until:
 - the desktop review tests pass;
 - the standard local scan flow is visually checked on Windows;
 - the Ship Check visual identity is checked in the packaged app, including focus/contrast and real window sizes;
+- the packaged survey-ring icon is checked in the installer/taskbar at real OS sizes;
 - at least the first representative corpus pass has been reviewed for obvious noise/misses;
 - no new breadth rule is being interpreted as broader assurance than its evidence supports.
 
