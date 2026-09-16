@@ -18,6 +18,10 @@
     "./breadth": {
       "types": "./dist/breadth.d.ts",
       "default": "./dist/breadth.js"
+    },
+    "./paid": {
+      "types": "./dist/paid.d.ts",
+      "default": "./dist/paid.js"
     }
   },
   "types": "./dist/index.d.ts",
