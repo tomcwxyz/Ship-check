@@ -48,10 +48,8 @@ const guidance = {
     next: "Ask your developer to read the cited advisory, move to the narrowest compatible fixed version, run the relevant tests and avoid unrelated dependency upgrades.",
   },
   "production.github-actions-supply-chain": {
-    title: "Tighten an automated build or release workflow",
-    summary: "A GitHub Actions workflow has a repository-visible supply-chain boundary that is broader or less reproducible than it needs to be.",
     why: "Build and release workflows execute code with repository permissions. Broad write access or moving external references increase the impact of an unexpected workflow change.",
-    next: "Ask your developer to use the smallest required workflow permissions and immutable reviewed action versions where the finding identifies them.",
+    next: "Ask your developer to tighten the specific workflow boundary named above: minimise token permissions, or replace a moving action reference with an immutable reviewed version.",
   },
   "cost.vercel-cron-frequency": {
     title: "Check whether scheduled work is running more often than it needs to",
@@ -66,18 +64,22 @@ const guidance = {
     next: "Ask your developer whether updates can happen on demand, through events, or less frequently, then measure request volume after the change.",
   },
   "secure.semgrep-local-rules": {
-    title: "Review a risky code pattern found by deeper local analysis",
-    summary: "The optional local code analyser matched one of Ship Check's deliberately small high-confidence rules.",
-    why: "The matched pattern weakens a security control in a way that is difficult to justify accidentally. The technical section names the exact rule and location.",
-    next: "Ask your developer to remove the matched bypass rather than suppressing the warning, preserve the intended behaviour and add a regression test for the security boundary.",
+    why: "The local analyser matched one of Ship Check's deliberately small high-confidence rules. The precise pattern above matters more than a generic scanner warning.",
+    next: "Ask your developer to remove the specific bypass or risky pattern named above, preserve intended behaviour and add a regression test for that security boundary.",
   },
 };
 
+const preserveFindingTitleAndSummary = new Set([
+  "production.github-actions-supply-chain",
+  "secure.semgrep-local-rules",
+]);
+
 export function reviewFinding(finding) {
   const copy = guidance[finding.checkId];
+  const preserveSpecific = preserveFindingTitleAndSummary.has(finding.checkId);
   return {
-    title: copy?.title ?? finding.title,
-    summary: copy?.summary ?? finding.summary,
+    title: preserveSpecific ? finding.title : copy?.title ?? finding.title,
+    summary: preserveSpecific ? finding.summary : copy?.summary ?? finding.summary,
     why: copy?.why ?? finding.remediation.why,
     next: copy?.next ?? finding.remediation.fix,
     verification: finding.remediation.verify,
