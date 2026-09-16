@@ -8,6 +8,7 @@ import {
 import { checksForPacks } from "@ship-check/checks";
 import { breadthChecks } from "@ship-check/checks/breadth";
 import { serverSurfaceInventoryCheck } from "@ship-check/checks/inventory";
+import { calibratedPaidEndpointCheck } from "@ship-check/checks/paid";
 import { importAwareSurfaceChecks, replacedSurfaceCheckIds } from "@ship-check/checks/surface";
 import { scanProject, type CheckDefinition } from "@ship-check/core";
 import { costAwareChecks } from "@ship-check/cost-checks";
@@ -123,9 +124,12 @@ function checksForRequestedPacks(
     (check) => check.id !== "secure.secret-pattern" && !replacedSurfaceCheckIds.has(check.id)
   );
   const selectedBreadthChecks = breadthChecks.filter((check) => packs.includes(check.pack));
+  const remainingSurfaceChecks = importAwareSurfaceChecks.filter(
+    (check) => check.id !== "secure.paid-endpoint-abuse-control"
+  );
   return [
     ...nativeChecks,
-    ...(packs.includes("secure-build") ? importAwareSurfaceChecks : []),
+    ...(packs.includes("secure-build") ? [calibratedPaidEndpointCheck, ...remainingSurfaceChecks] : []),
     ...selectedBreadthChecks,
     ...(packs.includes("production-ready") ? [serverSurfaceInventoryCheck] : []),
     ...(packs.includes("cost-aware") ? costAwareChecks : []),
