@@ -79,6 +79,15 @@ describe("object-level authorisation questions", () => {
     expect(report.gaps).toHaveLength(1);
     expect(report.checks[0]?.status).toBe("unverified");
   });
+
+  it("does not treat test routes as deployed mutation surfaces", async () => {
+    const root = await fixture({
+      "app/api/items/route.test.ts": 'export async function PATCH(request) { const { id } = await request.json(); return db.item.update({ where: { id } }); }'
+    });
+    const report = await scanProject(root, [mutatingObjectAuthorisationCheck]);
+    expect(report.gaps).toHaveLength(0);
+    expect(report.checks[0]?.status).toBe("not-applicable");
+  });
 });
 
 describe("outbound request boundary questions", () => {
@@ -113,6 +122,15 @@ describe("outbound request boundary questions", () => {
     });
     const report = await scanProject(root, [outboundRequestBoundaryCheck]);
     expect(report.gaps).toHaveLength(0);
+  });
+
+  it("does not ask outbound questions about route test files", async () => {
+    const root = await fixture({
+      "app/api/fetch/route.test.ts": 'export async function POST(request) { const { url } = await request.json(); return fetch(url); }'
+    });
+    const report = await scanProject(root, [outboundRequestBoundaryCheck]);
+    expect(report.gaps).toHaveLength(0);
+    expect(report.checks[0]?.status).toBe("not-applicable");
   });
 });
 
