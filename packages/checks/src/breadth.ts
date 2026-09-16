@@ -7,9 +7,8 @@ const MUTATING_HANDLER = /export\s+(?:async\s+)?function\s+(?:POST|PUT|PATCH|DEL
 const REQUEST_CONTROLLED_INPUT = /\b(?:params(?:\.|\[)|searchParams|request\.json\s*\(|req\.body|formData\s*\(|FormData\s*\()/i;
 const DATABASE_MUTATION = /\b(?:update|updateMany|delete|deleteMany|upsert)\s*\(|\.(?:update|delete|upsert)\s*\(|\b(?:UPDATE|DELETE\s+FROM)\b/i;
 const DATABASE_MARKER = /\b(?:PrismaClient|drizzle\s*\(|createServerClient|SUPABASE_SERVICE_ROLE_KEY|DATABASE_URL|POSTGRES_URL|neon\s*\(|sql\s*`)|@(?:prisma\/client|neondatabase\/serverless|supabase\/supabase-js)|drizzle-orm|\b(?:db|database)\.(?:[A-Za-z_$][\w$]*\.)?(?:query|findMany|findFirst|findUnique|insert|create|update|updateMany|delete|deleteMany|upsert|select)\b/i;
-const EXPLICIT_AUTHORISATION = /\b(?:authori[sz]e|permission|requireRole|requirePermission|can(?:Edit|Delete|Update|Manage)|isAdmin|adminOnly)\b/i;
-const AUTHENTICATED_IDENTITY = /\b(?:session\.user|currentUser|getServerSession|requireUser|verifySession|auth\s*\(|getUser\s*\()/i;
-const OBJECT_SCOPE = /\b(?:ownerId|userId|createdBy|accountId|organisationId|organizationId|tenantId|workspaceId)\b/i;
+const EXPLICIT_AUTHORISATION = /\b(?:authori[sz]e|permission|requireRole|requirePermission|requireOwner(?:ship)?|assertOwner(?:ship)?|can(?:Edit|Delete|Update|Manage)|isAdmin|adminOnly)\b/i;
+const AUTHENTICATED_OBJECT_SCOPE = /\b(?:ownerId|userId|createdBy|accountId|organisationId|organizationId|tenantId|workspaceId)\s*(?::|=)\s*(?:session\.user(?:\?\.|\.)id|currentUser(?:\s*\(\s*\))?(?:\?\.|\.)id|getUser\s*\(\s*\)(?:\?\.|\.)id)\b/i;
 const OUTBOUND_VARIABLE_TARGET = /\b(?:fetch|got|ky)\s*\(\s*(?:await\s+)?([A-Za-z_$][\w$]*(?:\.[\w$]+)*)|\baxios\.(?:get|post|put|patch|delete)\s*\(\s*(?:await\s+)?([A-Za-z_$][\w$]*(?:\.[\w$]+)*)/i;
 const URLISH_NAME = /(?:^|\.)(?:url|uri|endpoint|target|callback|webhook|source|src|remote|destination)$/i;
 const OUTBOUND_ALLOWLIST = /\b(?:allowedHosts?|allowlistedHosts?|trustedHosts?|trustedOrigins?|hostname\s*(?:===|==|!==|!=)|\.startsWith\s*\(\s*["']https:\/\/)/i;
@@ -80,8 +79,7 @@ function firstSource(sources: TracedSource[], pattern: RegExp): TracedSource | u
 }
 
 function hasVisibleAuthorisation(sources: TracedSource[]): boolean {
-  if (matchesAny(sources, EXPLICIT_AUTHORISATION)) return true;
-  return sources.some((source) => sourceMatches(source, AUTHENTICATED_IDENTITY) && sourceMatches(source, OBJECT_SCOPE));
+  return matchesAny(sources, EXPLICIT_AUTHORISATION) || matchesAny(sources, AUTHENTICATED_OBJECT_SCOPE);
 }
 
 export const mutatingObjectAuthorisationCheck: CheckDefinition = {
