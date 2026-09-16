@@ -80,6 +80,35 @@ describe("object-level authorisation questions", () => {
     expect(report.checks[0]?.status).toBe("unverified");
   });
 
+  it("does not treat a static POST create surface as an existing-object mutation", async () => {
+    const root = await fixture({
+      "app/api/sources/route.ts": [
+        'import { save } from "@/lib/source";',
+        'export async function POST(request) {',
+        '  const body = await request.formData();',
+        '  return save(String(body.get("title")));',
+        '}'
+      ].join("\n"),
+      "lib/source.ts": 'export async function save(title) { await db.source.update({ where: { slug: "template" }, data: { title } }); return db.source.create({ data: { title } }); }'
+    });
+    const report = await scanProject(root, [mutatingObjectAuthorisationCheck]);
+    expect(report.gaps).toHaveLength(0);
+  });
+
+  it("keeps dynamic POST actions on existing objects in scope", async () => {
+    const root = await fixture({
+      "api/cases/[id]/respond.ts": [
+        'export async function POST(request) {',
+        '  const { id, response } = await request.json();',
+        '  return db.case.update({ where: { id }, data: { response } });',
+        '}'
+      ].join("\n")
+    });
+    const report = await scanProject(root, [mutatingObjectAuthorisationCheck]);
+    expect(report.gaps).toHaveLength(1);
+    expect(report.checks[0]?.status).toBe("unverified");
+  });
+
   it("does not combine an unrelated crypto update call with database evidence elsewhere", async () => {
     const root = await fixture({
       "app/api/sources/route.ts": [
