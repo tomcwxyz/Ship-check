@@ -6,8 +6,8 @@ const API_HANDLER = /(^|\/)(?:app\/api\/.+\/route|pages\/api\/.+|api\/.+)\.(?:js
 const TEST_SOURCE = /(?:^|\/)[^/]+\.(?:test|spec)\.(?:js|jsx|ts|tsx)$/i;
 const MUTATING_HANDLER = /export\s+(?:async\s+)?function\s+(?:POST|PUT|PATCH|DELETE)\b|export\s+const\s+(?:POST|PUT|PATCH|DELETE)\b/;
 const REQUEST_CONTROLLED_INPUT = /\b(?:params(?:\.|\[)|searchParams|request\.json\s*\(|req\.body|formData\s*\(|FormData\s*\()/i;
-const DATABASE_MUTATION = /\b(?:update|updateMany|delete|deleteMany|upsert)\s*\(|\.(?:update|delete|upsert)\s*\(|\b(?:UPDATE|DELETE\s+FROM)\b/i;
-const DATABASE_MARKER = /\b(?:PrismaClient|drizzle\s*\(|createServerClient|SUPABASE_SERVICE_ROLE_KEY|DATABASE_URL|POSTGRES_URL|neon\s*\(|sql\s*`)|@(?:prisma\/client|neondatabase\/serverless|supabase\/supabase-js)|drizzle-orm|\b(?:db|database)\.(?:[A-Za-z_$][\w$]*\.)?(?:query|findMany|findFirst|findUnique|insert|create|update|updateMany|delete|deleteMany|upsert|select)\b/i;
+const DATABASE_MUTATION = /(?:\b(?:db|database)\.(?:[A-Za-z_$][\w$]*\.)?(?:update|updateMany|delete|deleteMany|upsert)\s*\(|\.from\s*\([^)]*\)\s*\.(?:update|delete|upsert)\s*\(|\bsql\s*`[^`]*\b(?:UPDATE|DELETE\s+FROM)\b)/i;
+const DATABASE_MARKER = /\b(?:PrismaClient|drizzle\s*\(|createServerClient|SUPABASE_SERVICE_ROLE_KEY|DATABASE_URL|POSTGRES_URL|neon\s*\(|sql\s*`)|@(?:prisma\/client|neondatabase\/serverless|supabase\/supabase-js)|drizzle-orm|\b(?:db|database)\.(?:[A-Za-z_$][\w$]*\.)?(?:query|findMany|findFirst|findUnique|insert|create|update|updateMany|delete|deleteMany|upsert|select)\b|\.from\s*\(/i;
 const EXPLICIT_AUTHORISATION = /\b(?:authori[sz]e|permission|requireRole|requirePermission|requireOwner(?:ship)?|assertOwner(?:ship)?|can(?:Edit|Delete|Update|Manage)|isAdmin|adminOnly)\b/i;
 const AUTHENTICATED_OBJECT_SCOPE = /\b(?:ownerId|userId|createdBy|accountId|organisationId|organizationId|tenantId|workspaceId)\s*(?::|=)\s*(?:session\.user(?:\?\.|\.)id|currentUser(?:\s*\(\s*\))?(?:\?\.|\.)id|getUser\s*\(\s*\)(?:\?\.|\.)id)\b/i;
 const OUTBOUND_VARIABLE_TARGET = /\b(?:fetch|got|ky)\s*\(\s*(?:await\s+)?([A-Za-z_$][\w$]*(?:\.[\w$]+)*)|\baxios\.(?:get|post|put|patch|delete)\s*\(\s*(?:await\s+)?([A-Za-z_$][\w$]*(?:\.[\w$]+)*)/i;
@@ -83,6 +83,12 @@ function firstSource(sources: TracedSource[], pattern: RegExp): TracedSource | u
   return sources.find((source) => sourceMatches(source, pattern));
 }
 
+function firstDatabaseMutationSource(sources: TracedSource[]): TracedSource | undefined {
+  return sources.find(
+    (source) => sourceMatches(source, DATABASE_MARKER) && sourceMatches(source, DATABASE_MUTATION)
+  );
+}
+
 function hasVisibleAuthorisation(sources: TracedSource[]): boolean {
   return matchesAny(sources, EXPLICIT_AUTHORISATION) || matchesAny(sources, AUTHENTICATED_OBJECT_SCOPE);
 }
@@ -92,7 +98,7 @@ export const mutatingObjectAuthorisationCheck: CheckDefinition = {
   version: "1",
   pack: "secure-build",
   title: "Object-level authorisation on changes",
-  description: "Identify mutating request paths where request-controlled identifiers reach database changes without a repository-visible ownership, role or permission boundary.",
+  description: "Identify mutating request paths where request-controlled identifiers reach a repository-visible database update/delete without a visible ownership, role or permission boundary.",
   principles: ["practice.preserve-safety"],
   coverage: [
     { area: "access-control", status: "partial" },
@@ -106,10 +112,10 @@ export const mutatingObjectAuthorisationCheck: CheckDefinition = {
       if (!entry || !MUTATING_HANDLER.test(entry)) continue;
       const sources = await traceLocalImports(context, file);
       if (!matchesAny(sources, REQUEST_CONTROLLED_INPUT)) continue;
-      if (!matchesAny(sources, DATABASE_MARKER) || !matchesAny(sources, DATABASE_MUTATION)) continue;
+      const mutationSource = firstDatabaseMutationSource(sources);
+      if (!mutationSource) continue;
       if (hasVisibleAuthorisation(sources)) continue;
 
-      const mutationSource = firstSource(sources, DATABASE_MUTATION);
       gaps.push(gap({
         checkId: this.id,
         area: "access-control",
@@ -118,7 +124,7 @@ export const mutatingObjectAuthorisationCheck: CheckDefinition = {
         summary: `${file} accepts request-controlled input and reaches a database update/delete path, but Ship Check could not find a repository-visible ownership, role or permission boundary in the bounded local call graph. This is an unanswered authorisation question, not proof of broken access control.`,
         evidence: [
           { kind: "file-match", path: file, detail: "Mutating request handler with request-controlled input." },
-          ...(mutationSource && mutationSource.file !== file ? [{ kind: "file-match" as const, path: mutationSource.file, detail: "Database mutation reached through a bounded local import." }] : [])
+          ...(mutationSource.file !== file ? [{ kind: "file-match" as const, path: mutationSource.file, detail: "Database mutation reached through a bounded local import." }] : [])
         ],
         verify: "Test the route with two ordinary accounts that own different records. Confirm each account can change only its own records, cannot change another account's record by changing an ID, and cannot gain admin-only behaviour by changing request fields. If authorisation is enforced in database policy or an upstream layer, document and test that boundary."
       }));
