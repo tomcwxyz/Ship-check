@@ -3,6 +3,7 @@ import type { AssessmentGap, Finding } from "@ship-check/schemas";
 import { traceLocalImports, type TracedSource } from "./surface.js";
 
 const API_HANDLER = /(^|\/)(?:app\/api\/.+\/route|pages\/api\/.+|api\/.+)\.(?:js|jsx|ts|tsx)$/i;
+const TEST_SOURCE = /(?:^|\/)[^/]+\.(?:test|spec)\.(?:js|jsx|ts|tsx)$/i;
 const MUTATING_HANDLER = /export\s+(?:async\s+)?function\s+(?:POST|PUT|PATCH|DELETE)\b|export\s+const\s+(?:POST|PUT|PATCH|DELETE)\b/;
 const REQUEST_CONTROLLED_INPUT = /\b(?:params(?:\.|\[)|searchParams|request\.json\s*\(|req\.body|formData\s*\(|FormData\s*\()/i;
 const DATABASE_MUTATION = /\b(?:update|updateMany|delete|deleteMany|upsert)\s*\(|\.(?:update|delete|upsert)\s*\(|\b(?:UPDATE|DELETE\s+FROM)\b/i;
@@ -13,6 +14,10 @@ const OUTBOUND_VARIABLE_TARGET = /\b(?:fetch|got|ky)\s*\(\s*(?:await\s+)?([A-Za-
 const URLISH_NAME = /(?:^|\.)(?:url|uri|endpoint|target|callback|webhook|source|src|remote|destination)$/i;
 const OUTBOUND_ALLOWLIST = /\b(?:allowedHosts?|allowlistedHosts?|trustedHosts?|trustedOrigins?|hostname\s*(?:===|==|!==|!=)|\.startsWith\s*\(\s*["']https:\/\/)/i;
 const WORKFLOW_FILE = /^\.github\/workflows\/.+\.ya?ml$/i;
+
+function isRuntimeApiHandler(file: string): boolean {
+  return API_HANDLER.test(file) && !TEST_SOURCE.test(file);
+}
 
 function gap(input: {
   checkId: string;
@@ -93,10 +98,10 @@ export const mutatingObjectAuthorisationCheck: CheckDefinition = {
     { area: "access-control", status: "partial" },
     { area: "database", status: "partial" }
   ],
-  appliesTo: (context) => context.files.some((file) => API_HANDLER.test(file)),
+  appliesTo: (context) => context.files.some(isRuntimeApiHandler),
   async run(context): Promise<CheckExecution> {
     const gaps: AssessmentGap[] = [];
-    for (const file of context.files.filter((candidate) => API_HANDLER.test(candidate))) {
+    for (const file of context.files.filter(isRuntimeApiHandler)) {
       const entry = await context.readText(file);
       if (!entry || !MUTATING_HANDLER.test(entry)) continue;
       const sources = await traceLocalImports(context, file);
@@ -127,16 +132,16 @@ export const outboundRequestBoundaryCheck: CheckDefinition = {
   version: "1",
   pack: "secure-build",
   title: "Request-controlled outbound destinations",
-  description: "Identify server request paths where request-controlled data appears to influence a variable outbound destination without a visible host allow-list.",
+  description: "Identify deployable server request paths where request-controlled data appears to influence a variable outbound destination without a visible host allow-list.",
   principles: ["practice.preserve-safety"],
   coverage: [
     { area: "code-security", status: "partial" },
     { area: "runtime", status: "partial" }
   ],
-  appliesTo: (context) => context.files.some((file) => API_HANDLER.test(file)),
+  appliesTo: (context) => context.files.some(isRuntimeApiHandler),
   async run(context): Promise<CheckExecution> {
     const gaps: AssessmentGap[] = [];
-    for (const file of context.files.filter((candidate) => API_HANDLER.test(candidate))) {
+    for (const file of context.files.filter(isRuntimeApiHandler)) {
       const sources = await traceLocalImports(context, file);
       if (!matchesAny(sources, REQUEST_CONTROLLED_INPUT)) continue;
       if (matchesAny(sources, OUTBOUND_ALLOWLIST)) continue;
