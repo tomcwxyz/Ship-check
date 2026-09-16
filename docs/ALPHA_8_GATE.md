@@ -2,7 +2,7 @@
 
 Alpha.8 is a calibration and product-coherence release, not the start of Database Ready or runtime verification.
 
-Its purpose is to make the current repository review broader, more understandable and more defensible before the next installer is cut.
+Its purpose is to make the current repository review broader, more understandable, more defensible and more recognisably Ship Check before the next installer is cut.
 
 ## What alpha.8 should establish
 
@@ -28,10 +28,12 @@ The evidence contract remains:
 
 `secure.mutating-object-authorisation` looks for a deliberately narrow shape:
 
-- mutating Next.js/API request handler;
+- mutating Next.js/API request handler affecting an existing object;
 - request-controlled input;
-- repository-visible database mutation in the bounded local call graph;
+- repository-visible database update/delete in the same bounded traced source;
 - no recognised explicit permission/role boundary and no paired authenticated-identity + object-scope evidence.
+
+Static create/upload POST endpoints are deliberately out of scope for this alpha unless the route itself identifies an existing object (for example a dynamic `[id]` action). This trades some recall for a more useful, defensible review question.
 
 A match is an **unverified question**, not a broken-access-control finding. Verification should use at least two ordinary accounts with different records and should include attempts to change another user's object by changing identifiers.
 
@@ -61,6 +63,21 @@ Before alpha.8 is built:
 - technical rule IDs, confidence and raw evidence remain available but secondary;
 - unanswered questions explicitly say that they are not confirmed defects;
 - coverage remains categorical (`assessed`, `partial`, `not-assessed`) rather than a score or percentage.
+
+## Visual identity gate
+
+Alpha.8 introduces a distinct Ship Check identity documented in `docs/SHIP_CHECK_BRAND.md`.
+
+The desktop should feel like an **inspection instrument** rather than a generic rounded dashboard or a cyber-security console:
+
+- abstract survey-ring mark rather than a literal tick/checkmark;
+- graphite/salt surfaces with signal orange used sparingly as the product accent;
+- harder 2–4px radii and technical plates instead of soft floating cards;
+- system sans-serif for explanation and monospace for evidence/status metadata;
+- finding severity shown as evidence rails rather than large alarm-coloured surfaces;
+- no visual device that implies certification, a percentage-safe score or whole-product pass/fail.
+
+The packaged Windows pass must check the mark, contrast, focus states, status colours and responsive layout at real desktop sizes. The packaged application/taskbar icon should move to the same survey-ring geometry once that mark has been checked at OS icon sizes.
 
 ## Corpus pass
 
@@ -93,7 +110,7 @@ Pass repositories explicitly to use a different corpus:
 pnpm calibrate:alpha8 -- tomcwxyz/glade tomcwxyz/Carry ./path/to/local-project
 ```
 
-A non-gating `Alpha 8 public corpus` workflow also exercises a small public sample on relevant pull-request changes. It exists to catch obvious calibration regressions early; the local harness remains authoritative for the private Good Ship corpus.
+A non-gating `Alpha 8 public corpus` workflow also exercises a small public sample on relevant pull-request changes. It installs the pinned checksum-verified Gitleaks binary so the secret-scanning environment is comparable with desktop, but deliberately does not download or run OSV. It exists to catch obvious calibration regressions early; the local harness remains authoritative for the private Good Ship corpus.
 
 For each finding classify `useful`, `true-but-low-value`, `false-positive` or `uncertain`.
 
@@ -110,6 +127,7 @@ Record important manual misses as well as noisy matches.
 - Do any existing findings still fall back to unnecessarily technical front-of-card copy?
 - Is the advanced-check disclosure understandable without hiding the OSV network-consent boundary?
 - Does the default review remain useful on a zero-finding repository?
+- Does the distinct inspection-instrument identity remain calm and legible when findings/questions are present, rather than becoming alarmist?
 
 ## Build gate
 
@@ -119,6 +137,7 @@ Do not create the next desktop alpha until:
 - the new breadth tests pass;
 - the desktop review tests pass;
 - the standard local scan flow is visually checked on Windows;
+- the Ship Check visual identity is checked in the packaged app, including focus/contrast and real window sizes;
 - at least the first representative corpus pass has been reviewed for obvious noise/misses;
 - no new breadth rule is being interpreted as broader assurance than its evidence supports.
 
