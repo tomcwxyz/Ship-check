@@ -74,14 +74,31 @@ const preserveFindingTitleAndSummary = new Set([
   "secure.semgrep-local-rules",
 ]);
 
+function isTestOrExampleSecret(finding) {
+  if (finding.checkId !== "secure.secret-pattern") return false;
+  return finding.evidence.some((item) => {
+    const path = item.path ?? "";
+    return /(?:^|\/)(?:docs|examples?|fixtures?|test-fixtures)(?:\/|$)|\.(?:test|spec)\.(?:js|jsx|ts|tsx)$/i.test(path);
+  });
+}
+
 export function reviewFinding(finding) {
   const copy = guidance[finding.checkId];
   const preserveSpecific = preserveFindingTitleAndSummary.has(finding.checkId);
+  const contextualSecret = isTestOrExampleSecret(finding);
   return {
-    title: preserveSpecific ? finding.title : copy?.title ?? finding.title,
-    summary: preserveSpecific ? finding.summary : copy?.summary ?? finding.summary,
-    why: copy?.why ?? finding.remediation.why,
-    next: copy?.next ?? finding.remediation.fix,
+    title: contextualSecret
+      ? "Check a secret-like value in test or example material"
+      : preserveSpecific ? finding.title : copy?.title ?? finding.title,
+    summary: contextualSecret
+      ? "A secret scanner matched a value in a test, fixture, example or documentation file. It may be deliberately synthetic, but Ship Check cannot safely assume that from the file location alone."
+      : preserveSpecific ? finding.summary : copy?.summary ?? finding.summary,
+    why: contextualSecret
+      ? "Test and planning files often contain fake credentials, but real keys are also sometimes copied into them. The value should stay visible until someone confirms what it is."
+      : copy?.why ?? finding.remediation.why,
+    next: contextualSecret
+      ? "Ask your developer to confirm the value is deliberately synthetic without sharing it. If it is live or reused anywhere, revoke or rotate it; if it is a fixture, make that intent obvious and use an unmistakably fake value where the test permits it."
+      : copy?.next ?? finding.remediation.fix,
     verification: finding.remediation.verify,
     repairInstructions: [
       finding.title, finding.summary,
