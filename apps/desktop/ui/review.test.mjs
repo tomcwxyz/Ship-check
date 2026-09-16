@@ -11,6 +11,16 @@ test('repair instructions preserve location, uncertainty and acceptance test', (
   assert.match(review.next, /public keys/);
 });
 
+test('secret findings in test or example material explain the uncertainty without dismissing the match', () => {
+  const item = {id:'secret:test',checkId:'secure.secret-pattern',title:'Possible key',summary:'Gitleaks match',evidence:[{path:'src/lib/auth/config.test.ts',line:22,detail:'Secret value redacted'}],remediation:{why:'Risk',fix:'Rotate it',verify:'Rerun',agentPrompt:'Do not reveal the key'}};
+  const review = reviewFinding(item);
+  assert.match(review.title, /test or example material/);
+  assert.match(review.summary, /may be deliberately synthetic/);
+  assert.match(review.why, /real keys/);
+  assert.match(review.next, /confirm the value is deliberately synthetic/);
+  assert.match(review.repairInstructions, /config\.test\.ts:22/);
+});
+
 test('workflow findings keep their specific plain-language title and summary', () => {
   const item = {id:'workflow:1',checkId:'production.github-actions-supply-chain',title:'Workflow grants broad write access',summary:'release.yml declares permissions: write-all.',evidence:[],remediation:{why:'Technical why',fix:'Technical fix',verify:'Run it',agentPrompt:'Repair it'}};
   const review = reviewFinding(item);
