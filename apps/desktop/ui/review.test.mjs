@@ -11,12 +11,13 @@ test('repair instructions preserve location, uncertainty and acceptance test', (
   assert.match(review.next, /public keys/);
 });
 
-test('common finding types receive plain-language review copy', () => {
-  const item = {id:'workflow:1',checkId:'production.github-actions-supply-chain',title:'Technical workflow title',summary:'Technical workflow summary',evidence:[],remediation:{why:'Technical why',fix:'Technical fix',verify:'Run it',agentPrompt:'Repair it'}};
+test('workflow findings keep their specific plain-language title and summary', () => {
+  const item = {id:'workflow:1',checkId:'production.github-actions-supply-chain',title:'Workflow grants broad write access',summary:'release.yml declares permissions: write-all.',evidence:[],remediation:{why:'Technical why',fix:'Technical fix',verify:'Run it',agentPrompt:'Repair it'}};
   const review = reviewFinding(item);
-  assert.equal(review.title, 'Tighten an automated build or release workflow');
-  assert.match(review.summary, /GitHub Actions workflow/);
-  assert.doesNotMatch(review.why, /Technical why/);
+  assert.equal(review.title, 'Workflow grants broad write access');
+  assert.match(review.summary, /write-all/);
+  assert.match(review.why, /Build and release workflows/);
+  assert.match(review.next, /specific workflow boundary/);
 });
 
 test('an empty report is not described as safe and disabled checks remain visible', () => {
