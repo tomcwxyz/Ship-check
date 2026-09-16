@@ -43,8 +43,8 @@ jobs:
           node --check scripts/generate-desktop-assets.cjs
           node --check scripts/install-deep-scanners.cjs
 
-      - name: Test desktop diagnostics
-        run: node --test apps/desktop/ui/diagnostics.test.mjs apps/desktop/ui/review.test.mjs
+      - name: Test desktop UI
+        run: node --test apps/desktop/ui/brand.test.mjs apps/desktop/ui/diagnostics.test.mjs apps/desktop/ui/review.test.mjs
 
       - name: Generate desktop assets
         run: node scripts/generate-desktop-assets.cjs
