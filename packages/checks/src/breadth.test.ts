@@ -47,7 +47,7 @@ describe("object-level authorisation questions", () => {
     expect(report.checks[0]?.status).toBe("unverified");
   });
 
-  it("does not raise the question when an ownership marker is visible in the bounded call graph", async () => {
+  it("does not raise the question when authenticated ownership scope is visible in the bounded call graph", async () => {
     const root = await fixture({
       "app/api/items/route.ts": [
         'import { updateOwned } from "@/lib/items";',
@@ -61,6 +61,23 @@ describe("object-level authorisation questions", () => {
     const report = await scanProject(root, [mutatingObjectAuthorisationCheck]);
     expect(report.gaps).toHaveLength(0);
     expect(report.checks[0]?.status).toBe("passed");
+  });
+
+  it("keeps the question when userId comes from the request even if the route also reads the signed-in user", async () => {
+    const root = await fixture({
+      "app/api/items/route.ts": [
+        'import { db } from "@/lib/db";',
+        'export async function PATCH(request) {',
+        '  const session = await auth();',
+        '  const { id, userId, title } = await request.json();',
+        '  return db.item.update({ where: { id, userId }, data: { title } });',
+        '}'
+      ].join("\n"),
+      "lib/db.ts": 'export const db = new PrismaClient();'
+    });
+    const report = await scanProject(root, [mutatingObjectAuthorisationCheck]);
+    expect(report.gaps).toHaveLength(1);
+    expect(report.checks[0]?.status).toBe("unverified");
   });
 });
 
