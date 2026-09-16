@@ -11,5 +11,6 @@ apps/desktop/src-tauri/icons/icon.ico
 apps/desktop/src-tauri/icons/icon.icns
 apps/desktop/src-tauri/icons/icon.iconset/
 coverage/
+.ship-check-alpha8/
 *.tsbuildinfo
 .DS_Store

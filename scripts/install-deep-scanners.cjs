@@ -7,6 +7,12 @@ const { execFileSync } = require("node:child_process");
 const root = path.resolve(__dirname, "..");
 const destination = path.join(root, "apps", "desktop", "src-tauri", "resources");
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "ship-check-scanners-"));
+const requested = new Set(process.argv.slice(2));
+const allowedArgs = new Set(["--gitleaks-only"]);
+for (const argument of requested) {
+  if (!allowedArgs.has(argument)) throw new Error(`Unknown scanner install option: ${argument}`);
+}
+const gitleaksOnly = requested.has("--gitleaks-only");
 
 const assets = {
   "win32-x64": {
@@ -126,8 +132,12 @@ async function main() {
   }
   fs.mkdirSync(destination, { recursive: true });
   await install("Gitleaks 8.30.1", selected.gitleaks);
-  await install("OSV-Scanner 2.5.1", selected.osv);
-  process.stdout.write(`Pinned deep scanners installed for ${platformKey}.\n`);
+  if (!gitleaksOnly) await install("OSV-Scanner 2.5.1", selected.osv);
+  process.stdout.write(
+    gitleaksOnly
+      ? `Pinned Gitleaks installed for ${platformKey}; OSV was not downloaded or run.\n`
+      : `Pinned deep scanners installed for ${platformKey}.\n`,
+  );
 }
 
 main()

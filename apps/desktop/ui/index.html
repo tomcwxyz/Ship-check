@@ -7,15 +7,16 @@
     <title>Ship Check</title>
     <link rel="stylesheet" href="./styles.css" />
     <link rel="stylesheet" href="./repo-mode.css" />
+    <link rel="stylesheet" href="./alpha8.css" />
   </head>
   <body>
     <div class="app-shell">
       <header class="topbar">
         <div class="brand-lockup" aria-label="Ship Check">
-          <div class="brand-mark" aria-hidden="true">✓</div>
+          <div class="brand-mark" aria-hidden="true"></div>
           <div>
             <p class="brand-name">Ship Check</p>
-            <p class="brand-kicker">Repository assurance</p>
+            <p class="brand-kicker">Before it ships</p>
           </div>
         </div>
         <div class="engine-pill" id="engine-pill" data-state="checking">
@@ -27,21 +28,26 @@
       <main>
         <section class="hero" aria-labelledby="hero-title">
           <p class="eyebrow">Before it ships</p>
-          <h1 id="hero-title">Check the repo. Find the risky bits.</h1>
+          <h1 id="hero-title">Check what could go wrong — and what still needs checking.</h1>
           <p class="hero-copy">
-            Point Ship Check at a local project or GitHub repository. It runs deterministic checks, shows the evidence and makes clear what it did not establish.
+            Choose a local project or GitHub repository. Ship Check reviews the source, shows what needs attention and is explicit about what the code cannot prove.
           </p>
           <div class="privacy-note">
             <span aria-hidden="true">●</span>
-            Local scans never upload source. GitHub scans use a temporary local checkout and remove it afterwards.
+            Normal scans stay local. GitHub scans use a temporary local checkout and remove it afterwards.
+          </div>
+          <div class="inspection-strip" aria-label="Ship Check principles">
+            <span><b>01</b> Repository evidence</span>
+            <span><b>02</b> Uncertainty shown</span>
+            <span><b>03</b> No safety score</span>
           </div>
         </section>
 
         <section class="scan-card" aria-labelledby="scan-title">
           <div class="scan-heading">
             <div>
-              <p class="section-kicker">1 · Repository</p>
-              <h2 id="scan-title">Choose what to check</h2>
+              <p class="section-kicker">1 · Project</p>
+              <h2 id="scan-title">Choose what you want to review</h2>
             </div>
           </div>
 
@@ -70,68 +76,78 @@
               </label>
             </div>
             <p class="source-help">
-              Ship Check asks your installed Git client to make a shallow temporary checkout. Existing Git credentials or SSH keys can be used for private repositories; tokens in repository URLs are rejected.
+              Ship Check makes a shallow temporary checkout using your installed Git client. Existing Git credentials or SSH keys can be used for private repositories; tokens in repository URLs are rejected.
             </p>
           </div>
 
-          <fieldset class="pack-grid" id="pack-grid">
-            <legend>Check packs</legend>
-            <label class="pack-card">
-              <input type="checkbox" value="secure-build" checked />
-              <span>
-                <strong>Secure Build</strong>
-                <small>Secrets, server boundaries, webhook/cron controls and high-risk execution primitives.</small>
-              </span>
-            </label>
-            <label class="pack-card">
-              <input type="checkbox" value="production-ready" checked />
-              <span>
-                <strong>Production Ready</strong>
-                <small>Operational safeguards, dependency evidence and an inventory of repository-visible server surfaces.</small>
-              </span>
-            </label>
-            <label class="pack-card">
-              <input type="checkbox" value="cost-aware" checked />
-              <span>
-                <strong>Cost Aware</strong>
-                <small>Known patterns that can create avoidable compute and polling spend.</small>
-              </span>
-            </label>
-          </fieldset>
+          <div class="default-scan-note">
+            <strong>The standard review is ready to run.</strong>
+            <span>It checks the applicable security, production and cost boundaries locally, including bundled secret scanning.</span>
+          </div>
 
-          <label class="network-check-card local-check-card" for="local-semgrep-scan">
-            <input id="local-semgrep-scan" type="checkbox" />
-            <span class="network-check-copy">
-              <span class="network-check-heading">
-                <strong>Run pinned local Semgrep rules</strong>
-                <span class="network-badge local-badge">Local · optional</span>
-              </span>
-              <small>
-                Uses Ship Check's own small, SHA-pinned ruleset against a temporary local mirror. Semgrep itself is not bundled in this alpha; install a compatible Semgrep 1.176.x CLI or set <code>SHIP_CHECK_SEMGREP_PATH</code>. No Registry rules, metrics or source upload are used.
-              </small>
-            </span>
-          </label>
+          <details class="advanced-checks">
+            <summary>Advanced checks and scan scope</summary>
+            <p class="source-help">The defaults are recommended for a normal pre-ship review. Change them only when you want a narrower scan or an optional deeper check.</p>
 
-          <label class="network-check-card" for="networked-dependency-scan">
-            <input id="networked-dependency-scan" type="checkbox" />
-            <span class="network-check-copy">
-              <span class="network-check-heading">
-                <strong>Check known dependency vulnerabilities</strong>
-                <span class="network-badge">Network · optional</span>
+            <fieldset class="pack-grid" id="pack-grid">
+              <legend>Areas to review</legend>
+              <label class="pack-card">
+                <input type="checkbox" value="secure-build" checked />
+                <span>
+                  <strong>Security boundaries</strong>
+                  <small>Access keys, server boundaries, authorisation questions, webhooks, outbound requests and high-risk execution patterns.</small>
+                </span>
+              </label>
+              <label class="pack-card">
+                <input type="checkbox" value="production-ready" checked />
+                <span>
+                  <strong>Production readiness</strong>
+                  <small>Dependency evidence, build/release workflow boundaries and repository-visible server surfaces.</small>
+                </span>
+              </label>
+              <label class="pack-card">
+                <input type="checkbox" value="cost-aware" checked />
+                <span>
+                  <strong>Cost boundaries</strong>
+                  <small>Scheduled and repeating work that can create avoidable compute, database or paid-service usage.</small>
+                </span>
+              </label>
+            </fieldset>
+
+            <label class="network-check-card local-check-card" for="local-semgrep-scan">
+              <input id="local-semgrep-scan" type="checkbox" />
+              <span class="network-check-copy">
+                <span class="network-check-heading">
+                  <strong>Run deeper local code rules</strong>
+                  <span class="network-badge local-badge">Local · optional</span>
+                </span>
+                <small>
+                  Uses Ship Check's small pinned Semgrep ruleset against a temporary local mirror. Semgrep itself is not bundled in this alpha; a compatible local Semgrep 1.176.x CLI is required. No Registry rules, metrics or source upload are used.
+                </small>
               </span>
-              <small>
-                Uses the bundled OSV-Scanner. Ship Check mirrors only dependency manifests and lockfiles; package identifiers and versions may be sent to the OSV service. Application source is not uploaded.
-              </small>
-            </span>
-          </label>
+            </label>
+
+            <label class="network-check-card" for="networked-dependency-scan">
+              <input id="networked-dependency-scan" type="checkbox" />
+              <span class="network-check-copy">
+                <span class="network-check-heading">
+                  <strong>Check packages against known vulnerabilities</strong>
+                  <span class="network-badge">Network · optional</span>
+                </span>
+                <small>
+                  Uses the bundled OSV-Scanner. Only dependency manifests and lockfiles are mirrored; package identifiers and versions may be sent to the OSV service. Application source is not uploaded.
+                </small>
+              </span>
+            </label>
+          </details>
 
           <div class="scan-actions">
             <div class="scan-explainer">
               <strong>Nothing changes in the repository.</strong>
-              <span>Normal checks, Gitleaks and optional Semgrep stay local. Only the OSV dependency check uses the network, and only when you enable it above.</span>
+              <span>Normal checks and bundled secret scanning stay local. The OSV package check uses the network only when you enable it above.</span>
             </div>
             <button class="button button-primary" id="run-scan" type="button" disabled>
-              Check this repo
+              Run Ship Check
             </button>
           </div>
 
@@ -142,7 +158,7 @@
           <div class="results-heading">
             <div>
               <p class="section-kicker">2 · Review</p>
-              <h2 id="results-title">What needs attention</h2>
+              <h2 id="results-title">What to look at before shipping</h2>
             </div>
             <p class="scan-meta" id="scan-meta"></p>
           </div>
@@ -151,7 +167,7 @@
 
           <div class="results-toolbar">
             <div class="filter-group" id="severity-filters" aria-label="Filter findings by severity">
-              <button class="filter-chip is-active" type="button" data-severity="all">All</button>
+              <button class="filter-chip is-active" type="button" data-severity="all">All findings</button>
               <button class="filter-chip" type="button" data-severity="critical">Critical</button>
               <button class="filter-chip" type="button" data-severity="high">High</button>
               <button class="filter-chip" type="button" data-severity="medium">Medium</button>
@@ -168,13 +184,14 @@
           </div>
 
           <div class="findings-list" id="findings-list"></div>
+
           <section class="unverified-panel" id="unverified-panel" aria-labelledby="unverified-title" hidden>
             <div class="coverage-heading">
               <div>
-                <p class="section-kicker">Needs checking</p>
-                <h3 id="unverified-title">Questions to check with your developer</h3>
+                <p class="section-kicker">Still to establish</p>
+                <h3 id="unverified-title">Questions the code cannot answer</h3>
               </div>
-              <p>The code does not answer these questions. Check them before relying on the app.</p>
+              <p>These are things worth verifying before relying on the app. They are not confirmed defects.</p>
             </div>
             <div class="unverified-list" id="unverified-list"></div>
           </section>
@@ -182,10 +199,10 @@
           <section class="coverage-panel" aria-labelledby="coverage-title">
             <div class="coverage-heading">
               <div>
-                <p class="section-kicker">Coverage</p>
-                <h3 id="coverage-title">What was checked</h3>
+                <p class="section-kicker">Scope</p>
+                <h3 id="coverage-title">What Ship Check looked at</h3>
               </div>
-              <p>Completed checks can still find problems. Limited checks cover only part of an area.</p>
+              <p>“Limited” means only a bounded part of that area was assessed. A completed check is not a guarantee for the whole area.</p>
             </div>
             <div class="coverage-grid" id="coverage-grid"></div>
           </section>
@@ -193,10 +210,10 @@
           <section class="observations-panel" id="observations-panel" aria-labelledby="observations-title" hidden>
             <div class="coverage-heading">
               <div>
-                <p class="section-kicker">Observed</p>
-                <h3 id="observations-title">What we noticed about this project</h3>
+                <p class="section-kicker">Context</p>
+                <h3 id="observations-title">What Ship Check noticed about the project</h3>
               </div>
-              <p>These observations help explain the project. They do not prove that it is safe.</p>
+              <p>These observations explain the shape of the application. They are not safety claims.</p>
             </div>
             <div class="observations-list" id="observations-list"></div>
           </section>
@@ -205,16 +222,12 @@
             <div class="coverage-heading">
               <div>
                 <p class="section-kicker">Accepted exceptions</p>
-                <h3 id="suppressions-title">Findings explicitly suppressed in this repo</h3>
+                <h3 id="suppressions-title">Concerns this project has explicitly accepted</h3>
               </div>
               <p>These findings still exist. A tracked <code>.ship-check.json</code> records the exact finding, rule version and rationale for accepting it.</p>
             </div>
             <div class="suppressions-list" id="suppressions-list"></div>
           </section>
-
-
-
-
         </section>
       </main>
 

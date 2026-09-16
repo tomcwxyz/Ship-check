@@ -242,8 +242,53 @@ const vercelCronFrequencyCheck: CheckDefinition = {
 };
 
 const networkUsePattern = /\b(?:fetch\s*\(|axios\.|\.refetch\s*\(|mutateAsync\s*\()/;
-const setIntervalPattern = /setInterval\s*\([\s\S]{0,1200}?,\s*(\d[\d_]*)\s*\)/g;
+const setIntervalPattern = /setInterval\s*\(([\s\S]{0,1200}?),\s*(\d[\d_]*)\s*\)/g;
 const refetchIntervalPattern = /refetchInterval\s*:\s*(\d[\d_]*)/g;
+const ignoredCallbackCalls = new Set([
+  "setInterval",
+  "clearInterval",
+  "setTimeout",
+  "Date",
+  "Math",
+  "Number",
+  "String",
+  "Boolean",
+  "console",
+]);
+
+function patternMatches(pattern: RegExp, text: string): boolean {
+  pattern.lastIndex = 0;
+  return pattern.test(text);
+}
+
+function helperReachesNetwork(text: string, name: string): boolean {
+  const escaped = escapeRegExp(name);
+  const declarations = [
+    new RegExp(`\\b(?:async\\s+)?function\\s+${escaped}\\b`),
+    new RegExp(`\\b(?:const|let|var)\\s+${escaped}\\s*=`),
+  ];
+  const indexes = declarations
+    .map((pattern) => pattern.exec(text)?.index)
+    .filter((index): index is number => typeof index === "number");
+  if (indexes.length === 0) return false;
+  const start = Math.min(...indexes);
+  return patternMatches(networkUsePattern, text.slice(start, start + 2500));
+}
+
+function intervalCallbackReachesNetwork(text: string, callback: string): boolean {
+  if (patternMatches(networkUsePattern, callback)) return true;
+
+  const bareCallback = /^\s*([A-Za-z_$][\w$]*)\s*$/.exec(callback)?.[1];
+  if (bareCallback && helperReachesNetwork(text, bareCallback)) return true;
+
+  const called = /\b([A-Za-z_$][\w$]*)\s*\(/g;
+  for (let match = called.exec(callback); match; match = called.exec(callback)) {
+    const name = match[1];
+    if (!name || ignoredCallbackCalls.has(name)) continue;
+    if (helperReachesNetwork(text, name)) return true;
+  }
+  return false;
+}
 
 function intervalFindings(
   context: ProjectContext,
@@ -251,17 +296,24 @@ function intervalFindings(
   text: string,
   checkId: string
 ): Finding[] {
-  if (!networkUsePattern.test(text)) return [];
+  if (!patternMatches(networkUsePattern, text)) return [];
   const findings: Finding[] = [];
 
   const candidates: Array<{ index: number; milliseconds: number; source: string }> = [];
-  for (const pattern of [setIntervalPattern, refetchIntervalPattern]) {
-    pattern.lastIndex = 0;
-    for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
-      const milliseconds = Number(match[1].replaceAll("_", ""));
-      if (Number.isFinite(milliseconds)) {
-        candidates.push({ index: match.index, milliseconds, source: match[0].slice(0, 120) });
-      }
+  setIntervalPattern.lastIndex = 0;
+  for (let match = setIntervalPattern.exec(text); match; match = setIntervalPattern.exec(text)) {
+    const callback = match[1] ?? "";
+    const milliseconds = Number((match[2] ?? "").replaceAll("_", ""));
+    if (Number.isFinite(milliseconds) && intervalCallbackReachesNetwork(text, callback)) {
+      candidates.push({ index: match.index, milliseconds, source: match[0].slice(0, 120) });
+    }
+  }
+
+  refetchIntervalPattern.lastIndex = 0;
+  for (let match = refetchIntervalPattern.exec(text); match; match = refetchIntervalPattern.exec(text)) {
+    const milliseconds = Number((match[1] ?? "").replaceAll("_", ""));
+    if (Number.isFinite(milliseconds)) {
+      candidates.push({ index: match.index, milliseconds, source: match[0].slice(0, 120) });
     }
   }
 
@@ -274,19 +326,19 @@ function intervalFindings(
         checkId,
         suffix: `${file}:${lineNumber(text, candidate.index)}`,
         title: "Frequent network polling may create continuous compute",
-        summary: `${file} contains network activity alongside a repeating interval of about ${seconds} seconds.`,
+        summary: `${file} contains a repeating network path of about ${seconds} seconds.`,
         severity,
         evidence: [{
           kind: "file-match",
           path: file,
           line: lineNumber(text, candidate.index),
           excerpt: `Repeating network-related interval: ~${seconds}s`,
-          detail: "A bounded source heuristic found frequent polling in code that also performs network requests."
+          detail: "A bounded source heuristic connected this interval to direct network work or a same-file helper that performs network work."
         }],
         why: "Short polling intervals can keep serverless functions, databases and paid APIs busy all day, even when the underlying state rarely changes.",
         fix: "Prefer on-demand refresh, push/event-driven updates or a substantially longer interval. If frequent polling is intentional, document the expected invocation and cost envelope.",
         verify: "Measure request/function invocation volume before and after the change and confirm the product still updates within the required latency.",
-        agentPrompt: `Review the polling in ${file} around line ${lineNumber(text, candidate.index)}. It repeats roughly every ${seconds} seconds and the file performs network work. Replace it with event-driven/on-demand refresh or the lowest useful cadence, unless the latency requirement clearly justifies polling. Preserve UX behaviour and add a regression test or instrumentation for request frequency.`
+        agentPrompt: `Review the polling in ${file} around line ${lineNumber(text, candidate.index)}. It repeats roughly every ${seconds} seconds and reaches network work. Replace it with event-driven/on-demand refresh or the lowest useful cadence, unless the latency requirement clearly justifies polling. Preserve UX behaviour and add a regression test or instrumentation for request frequency.`
       })
     );
   }
@@ -296,9 +348,10 @@ function intervalFindings(
 
 const frequentPollingCheck: CheckDefinition = {
   id: "cost.frequent-network-polling",
+  version: "2",
   pack: "cost-aware",
   title: "Frequent network polling",
-  description: "Find short recurring polling intervals in source that also performs network work.",
+  description: "Find short recurring intervals whose callback directly performs network work or reaches a same-file network helper.",
   async run(context) {
     const findings: Finding[] = [];
     const files = context.files.filter(

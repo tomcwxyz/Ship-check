@@ -139,7 +139,7 @@ function setScanning(scanning) {
     ? state.sourceMode === "github"
       ? "Checking out & scanning…"
       : "Checking…"
-    : "Check this repo";
+    : "Run Ship Check";
   elements.chooseProject.disabled = scanning;
   elements.githubRepository.disabled = scanning;
   elements.githubRef.disabled = scanning;
