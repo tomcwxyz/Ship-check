@@ -49,4 +49,5 @@ jobs:
           name: alpha8-public-corpus
           path: .ship-check-alpha8/
           if-no-files-found: warn
+          include-hidden-files: true
           retention-days: 7
