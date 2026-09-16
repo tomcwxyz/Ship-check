@@ -75,6 +75,26 @@ Run the branch/build against at least:
 | `tomcwxyz/the-list` | older Supabase/Resend/Vercel patterns |
 | one small non-Next repository | framework-bias check |
 
+The repeatable local harness is:
+
+```bash
+pnpm calibrate:alpha8
+```
+
+It builds the CLI once, scans the default corpus using the machine's existing Git credentials, continues if an individual repository cannot be reached, and writes a git-ignored calibration bundle under `.ship-check-alpha8/`. Each run contains:
+
+- `CALIBRATION.md` — a worksheet with every active finding and unanswered question plus classification/notes columns;
+- `reports/*.json` — redacted calibration records containing rule/check metadata and evidence locations, not source contents or matched secret values;
+- `manifest.json` — the sources and completion/failure counts for the run.
+
+Pass repositories explicitly to use a different corpus:
+
+```bash
+pnpm calibrate:alpha8 -- tomcwxyz/glade tomcwxyz/Carry ./path/to/local-project
+```
+
+A non-gating `Alpha 8 public corpus` workflow also exercises a small public sample on relevant pull-request changes. It exists to catch obvious calibration regressions early; the local harness remains authoritative for the private Good Ship corpus.
+
 For each finding classify `useful`, `true-but-low-value`, `false-positive` or `uncertain`.
 
 For each unverified question classify `useful-to-verify`, `already-protected-elsewhere`, `heuristic-missed-local-evidence` or `not-useful`.
