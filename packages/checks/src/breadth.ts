@@ -1,4 +1,4 @@
-import type { CheckDefinition, CheckExecution, ProjectContext } from "@ship-check/core";
+import type { CheckDefinition, CheckExecution } from "@ship-check/core";
 import type { AssessmentGap, Finding } from "@ship-check/schemas";
 import { traceLocalImports, type TracedSource } from "./surface.js";
 
@@ -6,11 +6,13 @@ const API_HANDLER = /(^|\/)(?:app\/api\/.+\/route|pages\/api\/.+|api\/.+)\.(?:js
 const MUTATING_HANDLER = /export\s+(?:async\s+)?function\s+(?:POST|PUT|PATCH|DELETE)\b|export\s+const\s+(?:POST|PUT|PATCH|DELETE)\b/;
 const REQUEST_CONTROLLED_INPUT = /\b(?:params(?:\.|\[)|searchParams|request\.json\s*\(|req\.body|formData\s*\(|FormData\s*\()/i;
 const DATABASE_MUTATION = /\b(?:update|updateMany|delete|deleteMany|upsert)\s*\(|\.(?:update|delete|upsert)\s*\(|\b(?:UPDATE|DELETE\s+FROM)\b/i;
-const DATABASE_MARKER = /\b(?:PrismaClient|drizzle\s*\(|createServerClient|SUPABASE_SERVICE_ROLE_KEY|DATABASE_URL|POSTGRES_URL|neon\s*\(|sql\s*`)|@(?:prisma\/client|neondatabase\/serverless|supabase\/supabase-js)|drizzle-orm|\b(?:db|database)\.(?:query|insert|update|delete|select)\b/i;
-const AUTHORISATION_MARKER = /\b(?:ownerId|userId|createdBy|accountId|organisationId|organizationId|tenantId|workspaceId|role|permission|authori[sz]e|can(?:Edit|Delete|Update|Manage)|requireRole|requirePermission|isAdmin|adminOnly)\b/i;
+const DATABASE_MARKER = /\b(?:PrismaClient|drizzle\s*\(|createServerClient|SUPABASE_SERVICE_ROLE_KEY|DATABASE_URL|POSTGRES_URL|neon\s*\(|sql\s*`)|@(?:prisma\/client|neondatabase\/serverless|supabase\/supabase-js)|drizzle-orm|\b(?:db|database)\.(?:[A-Za-z_$][\w$]*\.)?(?:query|findMany|findFirst|findUnique|insert|create|update|updateMany|delete|deleteMany|upsert|select)\b/i;
+const EXPLICIT_AUTHORISATION = /\b(?:authori[sz]e|permission|requireRole|requirePermission|can(?:Edit|Delete|Update|Manage)|isAdmin|adminOnly)\b/i;
+const AUTHENTICATED_IDENTITY = /\b(?:session\.user|currentUser|getServerSession|requireUser|verifySession|auth\s*\(|getUser\s*\()/i;
+const OBJECT_SCOPE = /\b(?:ownerId|userId|createdBy|accountId|organisationId|organizationId|tenantId|workspaceId)\b/i;
 const OUTBOUND_VARIABLE_TARGET = /\b(?:fetch|got|ky)\s*\(\s*(?:await\s+)?([A-Za-z_$][\w$]*(?:\.[\w$]+)*)|\baxios\.(?:get|post|put|patch|delete)\s*\(\s*(?:await\s+)?([A-Za-z_$][\w$]*(?:\.[\w$]+)*)/i;
 const URLISH_NAME = /(?:^|\.)(?:url|uri|endpoint|target|callback|webhook|source|src|remote|destination)$/i;
-const OUTBOUND_ALLOWLIST = /\b(?:allowedHosts?|allowlistedHosts?|trustedHosts?|trustedOrigins?|new\s+URL\s*\(|hostname\s*(?:===|==|!==|!=)|\.startsWith\s*\(\s*["']https:\/\/)/i;
+const OUTBOUND_ALLOWLIST = /\b(?:allowedHosts?|allowlistedHosts?|trustedHosts?|trustedOrigins?|hostname\s*(?:===|==|!==|!=)|\.startsWith\s*\(\s*["']https:\/\/)/i;
 const WORKFLOW_FILE = /^\.github\/workflows\/.+\.ya?ml$/i;
 
 function gap(input: {
@@ -64,18 +66,22 @@ function finding(input: {
   };
 }
 
+function sourceMatches(source: TracedSource, pattern: RegExp): boolean {
+  pattern.lastIndex = 0;
+  return pattern.test(source.text);
+}
+
 function matchesAny(sources: TracedSource[], pattern: RegExp): boolean {
-  return sources.some((source) => {
-    pattern.lastIndex = 0;
-    return pattern.test(source.text);
-  });
+  return sources.some((source) => sourceMatches(source, pattern));
 }
 
 function firstSource(sources: TracedSource[], pattern: RegExp): TracedSource | undefined {
-  return sources.find((source) => {
-    pattern.lastIndex = 0;
-    return pattern.test(source.text);
-  });
+  return sources.find((source) => sourceMatches(source, pattern));
+}
+
+function hasVisibleAuthorisation(sources: TracedSource[]): boolean {
+  if (matchesAny(sources, EXPLICIT_AUTHORISATION)) return true;
+  return sources.some((source) => sourceMatches(source, AUTHENTICATED_IDENTITY) && sourceMatches(source, OBJECT_SCOPE));
 }
 
 export const mutatingObjectAuthorisationCheck: CheckDefinition = {
@@ -83,7 +89,7 @@ export const mutatingObjectAuthorisationCheck: CheckDefinition = {
   version: "1",
   pack: "secure-build",
   title: "Object-level authorisation on changes",
-  description: "Identify mutating request paths where request-controlled identifiers reach database changes without a repository-visible ownership, role or permission marker.",
+  description: "Identify mutating request paths where request-controlled identifiers reach database changes without a repository-visible ownership, role or permission boundary.",
   principles: ["practice.preserve-safety"],
   coverage: [
     { area: "access-control", status: "partial" },
@@ -98,7 +104,7 @@ export const mutatingObjectAuthorisationCheck: CheckDefinition = {
       const sources = await traceLocalImports(context, file);
       if (!matchesAny(sources, REQUEST_CONTROLLED_INPUT)) continue;
       if (!matchesAny(sources, DATABASE_MARKER) || !matchesAny(sources, DATABASE_MUTATION)) continue;
-      if (matchesAny(sources, AUTHORISATION_MARKER)) continue;
+      if (hasVisibleAuthorisation(sources)) continue;
 
       const mutationSource = firstSource(sources, DATABASE_MUTATION);
       gaps.push(gap({
@@ -106,7 +112,7 @@ export const mutatingObjectAuthorisationCheck: CheckDefinition = {
         area: "access-control",
         suffix: file,
         title: "Check that people can only change records they are allowed to change",
-        summary: `${file} accepts request-controlled input and reaches a database update/delete path, but Ship Check could not find an ownership, role or permission check in the bounded local call graph. This is an unanswered authorisation question, not proof of broken access control.`,
+        summary: `${file} accepts request-controlled input and reaches a database update/delete path, but Ship Check could not find a repository-visible ownership, role or permission boundary in the bounded local call graph. This is an unanswered authorisation question, not proof of broken access control.`,
         evidence: [
           { kind: "file-match", path: file, detail: "Mutating request handler with request-controlled input." },
           ...(mutationSource && mutationSource.file !== file ? [{ kind: "file-match" as const, path: mutationSource.file, detail: "Database mutation reached through a bounded local import." }] : [])
@@ -154,7 +160,7 @@ export const outboundRequestBoundaryCheck: CheckDefinition = {
         area: "code-security",
         suffix: `${file}:${outbound.source.file}:${outbound.variable}`,
         title: "Check whether visitors can choose where the server sends a request",
-        summary: `${file} handles request-controlled input and reaches an outbound request using ${outbound.variable} as a variable destination. Ship Check could not find a recognised destination allow-list in the bounded local call graph. This needs verification before treating it as an SSRF-safe boundary.`,
+        summary: `${file} handles request-controlled input and reaches an outbound request using ${outbound.variable} as a variable destination. Ship Check could not find a recognised destination allow-list in the bounded local call graph. This needs verification before treating it as a safe outbound-request boundary.`,
         evidence: [
           { kind: "file-match", path: file, detail: "Server request surface accepts request-controlled input." },
           { kind: "file-match", path: outbound.source.file, excerpt: `variable destination: ${outbound.variable}`, detail: "Outbound request uses a URL-like variable rather than a repository-visible fixed destination." }
