@@ -1,0 +1,56 @@
+.default-scan-note {
+  display: grid;
+  gap: 0.3rem;
+  margin: 1.25rem 0 0.75rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--line, #dedbd4);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.default-scan-note strong {
+  font-size: 0.96rem;
+}
+
+.default-scan-note span {
+  color: var(--muted, #67645f);
+  line-height: 1.5;
+}
+
+.advanced-checks {
+  margin: 0 0 1.25rem;
+  border-top: 1px solid var(--line, #dedbd4);
+  border-bottom: 1px solid var(--line, #dedbd4);
+}
+
+.advanced-checks > summary {
+  cursor: pointer;
+  padding: 0.95rem 0;
+  font-weight: 650;
+  list-style-position: outside;
+}
+
+.advanced-checks[open] > summary {
+  margin-bottom: 0.25rem;
+}
+
+.advanced-checks .pack-grid,
+.advanced-checks .network-check-card {
+  margin-top: 0.9rem;
+}
+
+.advanced-checks .network-check-card:last-child {
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 720px) {
+  .default-scan-note {
+    margin-top: 1rem;
+  }
+
+  .advanced-checks > summary {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+  }
+}
