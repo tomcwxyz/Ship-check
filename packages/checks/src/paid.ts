@@ -3,15 +3,91 @@ import type { Finding } from "@ship-check/schemas";
 import { traceLocalImports, type TracedSource } from "./surface.js";
 
 const API_HANDLER = /(^|\/)(?:app\/api\/.+\/route|pages\/api\/.+|api\/.+)\.(?:js|jsx|ts|tsx)$/i;
+const TEST_SOURCE = /(?:^|\/)[^/]+\.(?:test|spec)\.(?:js|jsx|ts|tsx)$/i;
 const REQUEST_HANDLER = /export\s+(?:async\s+)?function\s+(?:GET|POST|PUT|PATCH|DELETE)|export\s+const\s+(?:GET|POST|PUT|PATCH|DELETE)/;
 
-// Intentionally match operations rather than provider names/configuration. Bare
-// references such as OPENAI_API_KEY, Stripe types or provider configuration do
-// not establish that a request can trigger paid work.
-export const PAID_OPERATION_PATTERN = /(?:\b(?:generateText|generateObject|streamText)\s*\(|\bchat\.completions\.create\s*\(|\bresponses\.create\s*\(|\bmessages\.create\s*\(|\baudio\.transcriptions\.create\s*\(|\bemails\.send\s*\(|\b(?:scrapeUrl|crawlUrl)\s*\(|https:\/\/(?:api\.openai\.com|api\.anthropic\.com|api\.resend\.com|api\.firecrawl\.dev|api\.perplexity\.ai)\b)/i;
+// Match executable paid/metered operations rather than provider names,
+// configuration, type signatures or prose comments. AI SDK calls are required
+// to start an object-literal invocation so `interface { generateText(input) }`
+// does not masquerade as runtime work.
+export const PAID_OPERATION_PATTERN = /(?:\b(?:generateText|generateObject|streamText|embed|embedMany)\s*\(\s*\{|\.generateText\s*\(\s*\{|\bchat\.completions\.create\s*\(|\bresponses\.create\s*\(|\bmessages\.create\s*\(|\baudio\.transcriptions\.create\s*\(|\bemails\.send\s*\(|\b(?:scrapeUrl|crawlUrl)\s*\(|https:\/\/(?:api\.openai\.com|api\.anthropic\.com|api\.resend\.com|api\.firecrawl\.dev|api\.perplexity\.ai)\b)/i;
 
-const ABUSE_CONTROL_PATTERN = /\b(?:rate.?limit|Ratelimit|turnstile|captcha|hcaptcha|recaptcha|requireAuth|requireUser|requireSession|getServerSession|currentUser|verifyToken|verifySession|auth\s*\(|getUser\s*\(|session\s*=|constructEvent|verifyWebhook|verifySignature|webhooks\.verify|createHmac|timingSafeEqual|svix)\b/i;
+const ABUSE_CONTROL_PATTERN = /\b(?:rate.?limit|Ratelimit|turnstile|captcha|hcaptcha|recaptcha|requireAuth|requireUser|requireSession|getServerSession|currentUser|verifyToken|verifySession|auth\s*\(|getUser\s*\(|session\s*=|\.auth\.getContext\s*\(|constructEvent|verifyWebhook|verifySignature|webhooks\.verify|createHmac|timingSafeEqual|svix)\b/i;
 const MAX_IMPORT_DEPTH = 2;
+
+function isRuntimeApiHandler(file: string): boolean {
+  return API_HANDLER.test(file) && !TEST_SOURCE.test(file);
+}
+
+function withoutComments(text: string): string {
+  let output = "";
+  let quote: "'" | '"' | "`" | null = null;
+  let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const current = text[index];
+    const next = text[index + 1];
+
+    if (lineComment) {
+      if (current === "\n" || current === "\r") {
+        lineComment = false;
+        output += current;
+      } else {
+        output += " ";
+      }
+      continue;
+    }
+
+    if (blockComment) {
+      if (current === "*" && next === "/") {
+        output += "  ";
+        blockComment = false;
+        index += 1;
+      } else {
+        output += current === "\n" || current === "\r" ? current : " ";
+      }
+      continue;
+    }
+
+    if (quote) {
+      output += current;
+      if (escaped) escaped = false;
+      else if (current === "\\") escaped = true;
+      else if (current === quote) quote = null;
+      continue;
+    }
+
+    if (current === "'" || current === '"' || current === "`") {
+      quote = current;
+      output += current;
+      continue;
+    }
+
+    if (current === "/" && next === "/") {
+      lineComment = true;
+      output += "  ";
+      index += 1;
+      continue;
+    }
+    if (current === "/" && next === "*") {
+      blockComment = true;
+      output += "  ";
+      index += 1;
+      continue;
+    }
+
+    output += current;
+  }
+
+  return output;
+}
+
+function sourceHasPattern(source: TracedSource, pattern: RegExp): boolean {
+  pattern.lastIndex = 0;
+  return pattern.test(withoutComments(source.text));
+}
 
 function finding(input: {
   file: string;
@@ -43,23 +119,22 @@ function finding(input: {
 
 function firstMatchingSource(sources: TracedSource[], pattern: RegExp): TracedSource | null {
   for (const source of sources) {
-    pattern.lastIndex = 0;
-    if (pattern.test(source.text)) return source;
+    if (sourceHasPattern(source, pattern)) return source;
   }
   return null;
 }
 
 export const calibratedPaidEndpointCheck: CheckDefinition = {
-  appliesTo: (context) => context.files.some((file) => API_HANDLER.test(file)),
+  appliesTo: (context) => context.files.some(isRuntimeApiHandler),
   id: "secure.paid-endpoint-abuse-control",
   version: "2",
   pack: "secure-build",
   title: "Paid public endpoints",
-  description: "Trace bounded local imports from API handlers and flag repository-visible paid operations only when no visible abuse-control or signed-webhook boundary is present.",
+  description: "Trace bounded local imports from deployable API handlers and flag repository-visible paid operations only when no visible abuse-control or signed-webhook boundary is present.",
   principles: ["practice.preserve-safety", "practice.cost-discipline"],
   async run(context): Promise<CheckExecution> {
     const findings: Finding[] = [];
-    for (const file of context.files.filter((candidate) => API_HANDLER.test(candidate))) {
+    for (const file of context.files.filter(isRuntimeApiHandler)) {
       const entryText = await context.readText(file);
       if (!entryText || !REQUEST_HANDLER.test(entryText)) continue;
 
