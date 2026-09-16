@@ -57,6 +57,29 @@
   margin-bottom: 1rem;
 }
 
+button:focus-visible,
+input:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .button,
+  .pack-card {
+    transition: none;
+  }
+
+  .button:hover:not(:disabled),
+  .pack-card:hover {
+    transform: none;
+  }
+}
+
 @media (max-width: 720px) {
   .default-scan-note {
     margin-top: 1rem;
