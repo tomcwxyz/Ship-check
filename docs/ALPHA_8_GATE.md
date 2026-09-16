@@ -1,0 +1,105 @@
+# Desktop alpha.8 quality gate
+
+Alpha.8 is a calibration and product-coherence release, not the start of Database Ready or runtime verification.
+
+Its purpose is to make the current repository review broader, more understandable and more defensible before the next installer is cut.
+
+## What alpha.8 should establish
+
+A normal user should be able to:
+
+1. choose a local folder or GitHub repository;
+2. run the recommended review without understanding packs or scanner names;
+3. see confirmed concerns before technical detail;
+4. see unanswered questions separately from confirmed findings;
+5. understand what Ship Check looked at and what it did not assess;
+6. hand a precise repair or verification instruction to a developer or AI tool.
+
+The evidence contract remains:
+
+- **Finding** — repository evidence supports a concrete concern.
+- **Observed** — useful repository-visible context was discovered; this is not a safety claim.
+- **Unverified** — a relevant boundary exists but source evidence is not enough to establish it.
+- **Coverage** — the bounded areas Ship Check did or did not assess.
+
+## Breadth added before alpha.8
+
+### Object-level authorisation
+
+`secure.mutating-object-authorisation` looks for a deliberately narrow shape:
+
+- mutating Next.js/API request handler;
+- request-controlled input;
+- repository-visible database mutation in the bounded local call graph;
+- no recognised explicit permission/role boundary and no paired authenticated-identity + object-scope evidence.
+
+A match is an **unverified question**, not a broken-access-control finding. Verification should use at least two ordinary accounts with different records and should include attempts to change another user's object by changing identifiers.
+
+### Outbound request destinations
+
+`secure.outbound-request-boundary` looks for request-controlled server paths that reach a URL-like variable outbound destination without a recognised host allow-list marker.
+
+A match is an **unverified question**, not an SSRF vulnerability claim. Verification should establish destination construction, host restrictions, redirect handling and rejection of internal/private destinations.
+
+### GitHub Actions supply-chain boundaries
+
+`production.github-actions-supply-chain` currently makes concrete findings only for two explicit repository-visible patterns:
+
+- `permissions: write-all`;
+- external actions following branch-like moving references such as `@main`, `@master` or `@latest`.
+
+It deliberately does **not** flag every semver action tag in this release. That broader policy may be useful later, but it should be corpus-calibrated before generating more workflow noise.
+
+## Language and UI gate
+
+Before alpha.8 is built:
+
+- the standard all-pack local review is the obvious default path;
+- pack selection and optional Semgrep/OSV controls are secondary/advanced;
+- result summaries never imply that zero findings means safe;
+- the main finding families have reviewed plain-language titles, consequence, next-step and verification guidance;
+- technical rule IDs, confidence and raw evidence remain available but secondary;
+- unanswered questions explicitly say that they are not confirmed defects;
+- coverage remains categorical (`assessed`, `partial`, `not-assessed`) rather than a score or percentage.
+
+## Corpus pass
+
+Run the branch/build against at least:
+
+| Repository | Focus |
+| --- | --- |
+| `tomcwxyz/attention-agent-pilot` | auth/agent/scheduled work, Neon, outbound integrations |
+| `tomcwxyz/glade` | paid endpoints, auth, Stripe/Resend, rate limiting |
+| `tomcwxyz/Event` | quiet modern repo and false-positive rate |
+| `tomcwxyz/Trader` | scheduled/data work and cost calibration |
+| `tomcwxyz/the-list` | older Supabase/Resend/Vercel patterns |
+| one small non-Next repository | framework-bias check |
+
+For each finding classify `useful`, `true-but-low-value`, `false-positive` or `uncertain`.
+
+For each unverified question classify `useful-to-verify`, `already-protected-elsewhere`, `heuristic-missed-local-evidence` or `not-useful`.
+
+Record important manual misses as well as noisy matches.
+
+## Specific alpha.8 calibration questions
+
+- Does the authorisation question appear only where there is a real object-level review task?
+- Does common ownership scoping suppress it without letting input-provided `userId` fields create a false sense of verification?
+- Does the outbound-request question identify genuinely variable destinations without flagging normal fixed provider calls?
+- Are GitHub Actions findings useful at current severity, or do they need to move to lower severity/observation?
+- Do any existing findings still fall back to unnecessarily technical front-of-card copy?
+- Is the advanced-check disclosure understandable without hiding the OSV network-consent boundary?
+- Does the default review remain useful on a zero-finding repository?
+
+## Build gate
+
+Do not create the next desktop alpha until:
+
+- `Validate` and `Desktop validate` pass;
+- the new breadth tests pass;
+- the desktop review tests pass;
+- the standard local scan flow is visually checked on Windows;
+- at least the first representative corpus pass has been reviewed for obvious noise/misses;
+- no new breadth rule is being interpreted as broader assurance than its evidence supports.
+
+Database permissions/RLS inspection remains the next **Database Ready** roadmap line. Live deployment checks remain the later **runtime verification** line.
