@@ -15,6 +15,7 @@ import {
   type Finding,
   type Observation,
   type PracticePrincipleId,
+  type ProjectEvidenceCapability,
   type ProjectEvidenceSource,
   type ProjectEvidenceSourceInput,
   type ProjectSnapshot,
@@ -101,6 +102,8 @@ export type CheckDefinition = {
   description: string;
   principles?: PracticePrincipleId[];
   coverage?: CoverageContribution[];
+  /** Current repository checks default to source-files; future runtime/database checks override this. */
+  requiresEvidence?: ProjectEvidenceCapability[];
   appliesTo?(context: ProjectContext): boolean | Promise<boolean>;
   run(context: ProjectContext): Promise<Finding[] | CheckExecution>;
 };
@@ -332,10 +335,32 @@ export async function scanProject(
     const started = performance.now();
     const principles = check.principles ?? BUILT_IN_PRACTICE_PRINCIPLES[check.id] ?? [];
     const checkVersion = check.version ?? DEFAULT_CHECK_VERSION;
+    const requiredEvidence = check.requiresEvidence ?? ["source-files"];
+    const missingEvidence = requiredEvidence.filter(
+      (capability) => !context.source.capabilities.includes(capability)
+    );
+
+    if (missingEvidence.length > 0) {
+      results.push({
+        checkId: check.id,
+        checkVersion,
+        pack: check.pack,
+        principles,
+        status: "not-assessed",
+        missingEvidence,
+        findingCount: 0,
+        suppressedCount: 0,
+        gapCount: 0,
+        observationCount: 0,
+        durationMs: Math.max(0, Math.round(performance.now() - started))
+      });
+      continue;
+    }
+
     try {
       if (check.appliesTo && !(await check.appliesTo(context))) {
         results.push({ checkId: check.id, checkVersion, pack: check.pack, principles,
-          status: "not-applicable", findingCount: 0, suppressedCount: 0, gapCount: 0,
+          status: "not-applicable", missingEvidence: [], findingCount: 0, suppressedCount: 0, gapCount: 0,
           observationCount: 0, durationMs: Math.max(0, Math.round(performance.now() - started)) });
         continue;
       }
@@ -360,6 +385,7 @@ export async function scanProject(
             : suppression.suppressed.length > 0
               ? "suppressed"
               : "passed",
+        missingEvidence: [],
         ...(execution.scannerVersion ? { scannerVersion: execution.scannerVersion } : {}),
         findingCount: suppression.active.length,
         suppressedCount: suppression.suppressed.length,
@@ -374,6 +400,7 @@ export async function scanProject(
         pack: check.pack,
         principles,
         status: "error",
+        missingEvidence: [],
         findingCount: 0,
         suppressedCount: 0,
         gapCount: 0,
