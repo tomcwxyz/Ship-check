@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { createProjectContext, scanProject } from "./index.js";
+import { createProjectContext, scanProject, type CheckDefinition } from "./index.js";
 
 const temporaryRoots: string[] = [];
 
@@ -60,5 +60,40 @@ describe("project evidence provenance", () => {
       source: "filesystem",
       fileCount: 1
     });
+  });
+
+  it("marks a source check not assessed when only runtime evidence is available", async () => {
+    const root = await temporaryProject();
+    let executed = false;
+    const sourceOnlyCheck: CheckDefinition = {
+      id: "test.source-only",
+      pack: "secure-build",
+      title: "Source-only test",
+      description: "Requires source evidence by default.",
+      coverage: [{ area: "code-security", status: "assessed" }],
+      async run() {
+        executed = true;
+        return [];
+      }
+    };
+
+    const report = await scanProject(root, [sourceOnlyCheck], "0.0.0-test", {
+      id: "url:https://example.test",
+      type: "deployment",
+      provider: "url",
+      label: "https://example.test",
+      acquisition: "runtime-probe",
+      executionLocation: "ship-check-managed",
+      capabilities: ["runtime-http"],
+      ephemeral: true
+    });
+
+    expect(executed).toBe(false);
+    expect(report.checks[0]).toMatchObject({
+      status: "not-assessed",
+      missingEvidence: ["source-files"],
+      findingCount: 0
+    });
+    expect(report.coverage.find((entry) => entry.area === "code-security")?.status).toBe("not-assessed");
   });
 });
