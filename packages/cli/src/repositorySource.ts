@@ -4,11 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { ProjectEvidenceSourceInput } from "@ship-check/schemas";
+import { prepareArchiveSource } from "./archiveSource.js";
 
 const execFileAsync = promisify(execFile);
 
 export type PreparedRepositorySource = {
-  kind: "local" | "github";
+  kind: "local" | "github" | "archive";
   projectPath: string;
   displayName: string;
   sourceInput: ProjectEvidenceSourceInput;
@@ -119,10 +120,13 @@ export async function prepareRepositorySource(
     };
   }
 
+  const archive = await prepareArchiveSource(input);
+  if (archive) return archive;
+
   const github = parseGithubRepository(input);
   if (!github) {
     throw new Error(
-      `Could not find '${input}' as a local folder or GitHub repository. Use a folder path, owner/repository, or a github.com repository URL.`,
+      `Could not find '${input}' as a local folder, exported ZIP project or GitHub repository. Use a folder path, .zip file, owner/repository, or a github.com repository URL.`,
     );
   }
 
