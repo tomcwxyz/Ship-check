@@ -52,18 +52,20 @@ function buildPracticeEvidence(
     const checkIds = principleChecks.map((check) => check.checkId);
     const relevantFindings = findings.filter((finding) => checkIds.includes(finding.checkId));
     const relevantGaps = gaps.filter((gap) => checkIds.includes(gap.checkId));
-    const errors = principleChecks.filter((check) => check.status === "error");
+    const incompleteChecks = principleChecks.filter(
+      (check) => check.status === "error" || check.status === "not-assessed"
+    );
     const gateFailures = relevantFindings.filter(
       (finding) => severityRank[finding.severity] >= severityRank[threshold]
     );
 
-    if (errors.length > 0) {
+    if (incompleteChecks.length > 0) {
       evidence.push({
         principleId,
         outcome: "incomplete",
         findingIds: relevantFindings.map((finding) => finding.id),
         checkIds,
-        summary: `${errors.length} practice-linked check${errors.length === 1 ? " did" : "s did"} not complete, so Ship Check cannot interpret this principle reliably.`
+        summary: `${incompleteChecks.length} practice-linked check${incompleteChecks.length === 1 ? " did" : "s did"} not complete because execution failed or required evidence was unavailable, so Ship Check cannot interpret this principle reliably.`
       });
       continue;
     }
@@ -122,6 +124,7 @@ export function evaluateAssuranceGate(
       checkId: check.checkId,
       message: check.error ?? "Check failed without an error message."
     }));
+  const notAssessed = checks.filter((check) => check.status === "not-assessed");
 
   const warnings: string[] = [];
   if (checks.length === 0) warnings.push("No applicable checks ran for this gate.");
@@ -147,6 +150,12 @@ export function evaluateAssuranceGate(
       `${gaps.length} control${gaps.length === 1 ? " was" : "s were"} not verified from repository evidence; Ship Check does not treat this as a clean pass.`
     );
   }
+  if (notAssessed.length > 0) {
+    const capabilities = [...new Set(notAssessed.flatMap((check) => check.missingEvidence ?? []))];
+    warnings.push(
+      `${notAssessed.length} check${notAssessed.length === 1 ? " was" : "s were"} not assessed because required evidence was unavailable${capabilities.length ? ` (${capabilities.join(", ")})` : ""}.`
+    );
+  }
 
   const gateFailures = findings.filter(
     (finding) => severityRank[finding.severity] >= severityRank[threshold]
@@ -154,7 +163,12 @@ export function evaluateAssuranceGate(
 
   let outcome: AssuranceGateResult["outcome"] = "pass";
   if (gateFailures.length > 0) outcome = "fail";
-  else if (checks.length === 0 || checkErrors.length > 0 || (selectedPack !== null && !report.packs.includes(selectedPack))) {
+  else if (
+    checks.length === 0 ||
+    checkErrors.length > 0 ||
+    notAssessed.length > 0 ||
+    (selectedPack !== null && !report.packs.includes(selectedPack))
+  ) {
     outcome = "incomplete";
   } else if (gaps.length > 0) {
     outcome = "uncertain";
