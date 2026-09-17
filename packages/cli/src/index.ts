@@ -190,14 +190,12 @@ async function main(): Promise<void> {
 
   const source = await prepareRepositorySource(positionals[1] ?? ".", { ref: values.ref });
   try {
-    const scanned = await scanProject(
+    const report = await scanProject(
       source.projectPath,
       checksForRequestedPacks(requestedPacks, { networkedDependencyScan, localSemgrepScan }),
-      version
+      version,
+      source.sourceInput
     );
-    const report: ScanReport = source.kind === "github"
-      ? { ...scanned, project: { ...scanned.project, path: source.displayName } }
-      : scanned;
 
     if (values.format === "json") {
       console.log(JSON.stringify(report, null, 2));
