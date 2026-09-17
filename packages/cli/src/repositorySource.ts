@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
+import type { ProjectEvidenceSourceInput } from "@ship-check/schemas";
 
 const execFileAsync = promisify(execFile);
 
@@ -10,6 +11,7 @@ export type PreparedRepositorySource = {
   kind: "local" | "github";
   projectPath: string;
   displayName: string;
+  sourceInput: ProjectEvidenceSourceInput;
   cleanup: () => Promise<void>;
 };
 
@@ -104,6 +106,15 @@ export async function prepareRepositorySource(
       kind: "local",
       projectPath: local,
       displayName: local,
+      sourceInput: {
+        type: "source",
+        provider: "local",
+        label: local,
+        acquisition: "local",
+        executionLocation: "user-device",
+        capabilities: ["source-files"],
+        ephemeral: false
+      },
       cleanup: async () => {},
     };
   }
@@ -137,10 +148,21 @@ export async function prepareRepositorySource(
   }
 
   let cleaned = false;
+  const displayName = `${github.displayName}${ref ? `#${ref}` : ""}`;
   return {
     kind: "github",
     projectPath: checkoutPath,
-    displayName: `${github.displayName}${ref ? `#${ref}` : ""}`,
+    displayName,
+    sourceInput: {
+      type: "source",
+      provider: "github",
+      label: displayName,
+      acquisition: "transient-checkout",
+      executionLocation: "user-device",
+      capabilities: ["source-files", "git-history"],
+      ephemeral: true,
+      ...(ref ? { ref } : {})
+    },
     cleanup: async () => {
       if (cleaned) return;
       cleaned = true;
