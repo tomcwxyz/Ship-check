@@ -15,9 +15,14 @@ import {
   type Finding,
   type Observation,
   type PracticePrincipleId,
+  type ProjectEvidenceCapability,
+  type ProjectEvidenceSource,
+  type ProjectEvidenceSourceInput,
+  type ProjectSnapshot,
   type ScanReport,
   type ShipCheckConfig
 } from "@ship-check/schemas";
+import { createProjectSnapshot, resolveProjectEvidenceSource } from "./projectEvidence.js";
 
 const execFileAsync = promisify(execFile);
 const MAX_TEXT_BYTES = 512 * 1024;
@@ -69,6 +74,8 @@ export type ProjectContext = {
   gitRepository: boolean;
   inventorySource: ProjectInventorySource;
   commit?: string;
+  source: ProjectEvidenceSource;
+  snapshot: ProjectSnapshot;
   hasFile(relativePath: string): boolean;
   isTracked(relativePath: string): boolean | null;
   readText(relativePath: string): Promise<string | null>;
@@ -95,6 +102,8 @@ export type CheckDefinition = {
   description: string;
   principles?: PracticePrincipleId[];
   coverage?: CoverageContribution[];
+  /** Current repository checks default to source-files; future runtime/database checks override this. */
+  requiresEvidence?: ProjectEvidenceCapability[];
   appliesTo?(context: ProjectContext): boolean | Promise<boolean>;
   run(context: ProjectContext): Promise<Finding[] | CheckExecution>;
 };
@@ -140,7 +149,10 @@ async function walkFiles(root: string, current = root): Promise<string[]> {
   return output.sort();
 }
 
-export async function createProjectContext(projectPath: string): Promise<ProjectContext> {
+export async function createProjectContext(
+  projectPath: string,
+  sourceInput?: ProjectEvidenceSourceInput
+): Promise<ProjectContext> {
   const root = path.resolve(projectPath);
   const stat = await fs.stat(root);
   if (!stat.isDirectory()) throw new Error(`Ship Check needs a project directory: ${root}`);
@@ -167,6 +179,14 @@ export async function createProjectContext(projectPath: string): Promise<Project
   if (gitRepository) {
     try { commit = (await execFileAsync("git", ["-C", root, "rev-parse", "HEAD"], { encoding: "utf8" })).stdout.trim(); } catch { /* Unborn repositories have no commit. */ }
   }
+
+  const source = resolveProjectEvidenceSource({ root, gitRepository, input: sourceInput });
+  const snapshot = createProjectSnapshot({
+    source,
+    inventorySource,
+    fileCount: files.length,
+    ...(commit ? { commit } : {})
+  });
   const fileSet = new Set(files);
   const trackedSet = gitRepository ? new Set(tracked) : null;
 
@@ -176,6 +196,8 @@ export async function createProjectContext(projectPath: string): Promise<Project
     gitRepository,
     inventorySource,
     commit,
+    source,
+    snapshot,
     hasFile(relativePath) {
       return fileSet.has(normalise(relativePath));
     },
@@ -294,8 +316,13 @@ function summariseCoverage(
   });
 }
 
-export async function scanProject(projectPath: string, checks: CheckDefinition[], version = "0.0.0-alpha.6"): Promise<ScanReport> {
-  const context = await createProjectContext(projectPath);
+export async function scanProject(
+  projectPath: string,
+  checks: CheckDefinition[],
+  version = "0.0.0-alpha.6",
+  sourceInput?: ProjectEvidenceSourceInput
+): Promise<ScanReport> {
+  const context = await createProjectContext(projectPath, sourceInput);
   const config = await loadConfig(context);
   const findings: Finding[] = [];
   const suppressedFindings: AppliedSuppression[] = [];
@@ -308,10 +335,32 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
     const started = performance.now();
     const principles = check.principles ?? BUILT_IN_PRACTICE_PRINCIPLES[check.id] ?? [];
     const checkVersion = check.version ?? DEFAULT_CHECK_VERSION;
+    const requiredEvidence = check.requiresEvidence ?? ["source-files"];
+    const missingEvidence = requiredEvidence.filter(
+      (capability) => !context.source.capabilities.includes(capability)
+    );
+
+    if (missingEvidence.length > 0) {
+      results.push({
+        checkId: check.id,
+        checkVersion,
+        pack: check.pack,
+        principles,
+        status: "not-assessed",
+        missingEvidence,
+        findingCount: 0,
+        suppressedCount: 0,
+        gapCount: 0,
+        observationCount: 0,
+        durationMs: Math.max(0, Math.round(performance.now() - started))
+      });
+      continue;
+    }
+
     try {
       if (check.appliesTo && !(await check.appliesTo(context))) {
         results.push({ checkId: check.id, checkVersion, pack: check.pack, principles,
-          status: "not-applicable", findingCount: 0, suppressedCount: 0, gapCount: 0,
+          status: "not-applicable", missingEvidence: [], findingCount: 0, suppressedCount: 0, gapCount: 0,
           observationCount: 0, durationMs: Math.max(0, Math.round(performance.now() - started)) });
         continue;
       }
@@ -336,6 +385,7 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
             : suppression.suppressed.length > 0
               ? "suppressed"
               : "passed",
+        missingEvidence: [],
         ...(execution.scannerVersion ? { scannerVersion: execution.scannerVersion } : {}),
         findingCount: suppression.active.length,
         suppressedCount: suppression.suppressed.length,
@@ -350,6 +400,7 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
         pack: check.pack,
         principles,
         status: "error",
+        missingEvidence: [],
         findingCount: 0,
         suppressedCount: 0,
         gapCount: 0,
@@ -364,11 +415,12 @@ export async function scanProject(projectPath: string, checks: CheckDefinition[]
     schemaVersion: "0.1" as const,
     tool: { name: "ship-check" as const, version },
     project: {
-      path: context.root,
+      path: context.source.label,
       gitRepository: context.gitRepository,
       ...(context.commit ? { commit: context.commit } : {}),
       inventorySource: context.inventorySource,
-      fileCount: context.files.length
+      fileCount: context.files.length,
+      snapshot: context.snapshot
     },
     packs: [...new Set(checks.map((check) => check.pack))],
     checks: results,

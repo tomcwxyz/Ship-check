@@ -1,4 +1,7 @@
 import { z } from "zod";
+import { ProjectEvidenceCapabilitySchema, ProjectEvidenceSourceSchema } from "./projectEvidence.js";
+
+export * from "./projectEvidence.js";
 
 export const PracticePrincipleIdSchema = z.string().regex(
   /^practice\.[a-z][a-z0-9-]*(?:\.[a-z][a-z0-9-]*)*$/,
@@ -128,7 +131,8 @@ export const CheckResultSchema = z.object({
   checkVersion: CheckVersionSchema.default("1"),
   pack: CheckPackSchema,
   principles: z.array(PracticePrincipleIdSchema).default([]),
-  status: z.enum(["passed", "findings", "suppressed", "unverified", "not-applicable", "error"]),
+  status: z.enum(["passed", "findings", "suppressed", "unverified", "not-assessed", "not-applicable", "error"]),
+  missingEvidence: z.array(ProjectEvidenceCapabilitySchema).default([]),
   findingCount: z.number().int().nonnegative(),
   suppressedCount: z.number().int().nonnegative().default(0),
   gapCount: z.number().int().nonnegative().default(0),
@@ -141,6 +145,18 @@ export type CheckResult = z.infer<typeof CheckResultSchema>;
 export const InventorySourceSchema = z.enum(["git-tracked", "filesystem"]);
 export type InventorySource = z.infer<typeof InventorySourceSchema>;
 
+export const ProjectSnapshotSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  id: z.string().uuid(),
+  source: ProjectEvidenceSourceSchema,
+  inventory: z.object({
+    source: InventorySourceSchema,
+    fileCount: z.number().int().nonnegative(),
+    commit: z.string().regex(/^[a-f0-9]{40,64}$/).optional()
+  }).strict()
+}).strict();
+export type ProjectSnapshot = z.infer<typeof ProjectSnapshotSchema>;
+
 export const ScanReportSchema = z.object({
   schemaVersion: z.literal("0.1"),
   tool: z.object({ name: z.literal("ship-check"), version: z.string() }),
@@ -149,7 +165,8 @@ export const ScanReportSchema = z.object({
     gitRepository: z.boolean(),
     inventorySource: InventorySourceSchema,
     fileCount: z.number().int().nonnegative(),
-    commit: z.string().regex(/^[a-f0-9]{40,64}$/).optional()
+    commit: z.string().regex(/^[a-f0-9]{40,64}$/).optional(),
+    snapshot: ProjectSnapshotSchema.optional()
   }),
   packs: z.array(CheckPackSchema),
   checks: z.array(CheckResultSchema),
