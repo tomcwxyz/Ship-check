@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ProjectEvidenceSourceSchema } from "./projectEvidence.js";
+import { ProjectEvidenceCapabilitySchema, ProjectEvidenceSourceSchema } from "./projectEvidence.js";
 
 export * from "./projectEvidence.js";
 
@@ -131,7 +131,8 @@ export const CheckResultSchema = z.object({
   checkVersion: CheckVersionSchema.default("1"),
   pack: CheckPackSchema,
   principles: z.array(PracticePrincipleIdSchema).default([]),
-  status: z.enum(["passed", "findings", "suppressed", "unverified", "not-applicable", "error"]),
+  status: z.enum(["passed", "findings", "suppressed", "unverified", "not-assessed", "not-applicable", "error"]),
+  missingEvidence: z.array(ProjectEvidenceCapabilitySchema).default([]),
   findingCount: z.number().int().nonnegative(),
   suppressedCount: z.number().int().nonnegative().default(0),
   gapCount: z.number().int().nonnegative().default(0),
