@@ -21,6 +21,36 @@ A scan should distinguish four things clearly:
 
 “No findings” must never imply that unassessed areas are safe, and “observed” must never be treated as “verified” unless a specific check establishes the control. Explicitly suppressed findings remain visible as accepted exceptions rather than disappearing from the evidence record.
 
+## Strategic direction — from repository scanner to project assurance
+
+The repository remains an important evidence source, but it should not become Ship Check's permanent product boundary. Increasingly, people build and deploy software in hosted environments where they may not work locally or directly with Git at all. Ship Check should therefore evolve towards checking a **project from the evidence sources the user can provide**, while remaining explicit about what each source can and cannot establish.
+
+A project may combine evidence from:
+
+- a local folder;
+- GitHub or another source-control provider;
+- an uploaded source archive;
+- a hosted builder such as Lovable, Replit, Bolt or similar;
+- a deployed application URL;
+- a read-only database connection;
+- CI/runtime execution;
+- platform-specific configuration or metadata.
+
+These sources should be normalised behind portable contracts rather than creating separate scanner implementations per platform. The canonical checking engine remains shared across local, CI and hosted execution.
+
+The product promise should remain evidence-led: **give Ship Check what you have built, wherever you built it, and it should say what it can establish, what needs attention, and what it still cannot see.**
+
+### Cloud/hybrid principles
+
+- **Local-first remains a real option, not a legacy mode.** A user must be able to run Ship Check without sending source to Ship Check infrastructure.
+- **Cloud is primarily a control plane before it is a hosted scanner.** History, comparison, collaboration and assurance metadata can provide value without centralising source code.
+- **Execution location is explicit.** A scan may run locally, inside CI, or in a managed ephemeral runner; reports should record where and how evidence was acquired.
+- **Source retention is not the default.** Managed source scans use isolated ephemeral workers and should not persist repository contents after the scan.
+- **Secrets never become report data.** Existing credential-redaction and bounded-evidence rules apply regardless of execution location.
+- **Evidence sources stay distinct.** Repository, runtime, database and platform evidence can corroborate one another, but provenance must remain visible.
+- **Coverage follows evidence.** A live URL must never imply that source, database or server-side controls were assessed when they were not.
+- **No fake score.** Cloud history should surface change, uncertainty and attention rather than collapsing assurance into a single green/red number.
+
 ## Alpha 0 — checking contract and CLI
 
 - [x] Versioned finding/report schemas.
@@ -122,13 +152,14 @@ Goal: add meaningful data-boundary assurance without turning Ship Check into a d
 
 ## Alpha 1.8 — opt-in runtime verification
 
-Goal: verify controls that source inspection cannot establish, while keeping runtime activity bounded and non-destructive.
+Goal: verify controls that source inspection cannot establish, while keeping runtime activity bounded and non-destructive. This line also becomes the first proof that Ship Check can work from a project evidence source other than a repository.
 
 - [ ] Explicit user-provided deployment URL and consent boundary.
 - [ ] Safe HTTP checks for HTTPS redirects, representative response security headers, cookie flags, basic CORS behaviour and obvious error disclosure.
 - [ ] Declared-route smoke checks that do not mutate data or attempt exploit payloads.
 - [ ] Clearly label runtime evidence with target URL, time and check provenance.
 - [ ] Let runtime evidence resolve an `unverified` repository control where the evidence actually matches the same boundary.
+- [ ] Allow a **URL-only project check** that clearly marks Source, Database and other unavailable evidence areas as not assessed rather than presenting a weak scan as complete assurance.
 
 ## Alpha 2 — pilot hardening and stronger packs
 
@@ -139,6 +170,76 @@ Goal: verify controls that source inspection cannot establish, while keeping run
 - [ ] Local scan history without source-content retention by default.
 - [ ] Stable check/ruleset provenance suitable for team/pilot use.
 
+## Alpha 2.1 — project evidence source abstraction
+
+Goal: stop treating `repository` as the only useful unit of inspection without weakening the canonical engine or evidence model.
+
+- [ ] Introduce a versioned `ProjectEvidenceSource` / `ProjectSnapshot` contract with explicit source type, provider, acquisition time, provenance and evidence capabilities.
+- [ ] Refactor local-folder and transient-GitHub inputs behind the same source adapter boundary without changing existing CLI behaviour.
+- [ ] Add **uploaded project archive** support for bounded ZIP/tar source snapshots, including archive traversal protection, extraction limits and explicit retention behaviour.
+- [ ] Record whether a source is local, CI-provided, uploaded, platform-provided or managed-hosted in the canonical report provenance.
+- [ ] Let checks declare evidence requirements/capabilities so unavailable evidence becomes `not assessed` or `unverified` rather than a false pass.
+- [ ] Preserve deterministic engine parity: the same project snapshot and ruleset should produce equivalent results regardless of whether execution happens locally, in CI or in a managed worker.
+- [ ] Define source fingerprinting that supports comparable scan history without retaining source content.
+
+## Alpha 2.2 — cloud control plane, history and CI
+
+Goal: create useful Cloud Ship Check without requiring source code to enter Ship Check infrastructure.
+
+- [ ] Hosted account/project model for connected projects and assurance history.
+- [ ] Optional report sync from local CLI/desktop with user-selectable data boundary: metadata only, structured findings, or bounded evidence.
+- [ ] Project timeline showing newly introduced, persistent, resolved and accepted findings/gaps across comparable scans.
+- [ ] GitHub App for repository/project association, webhook triggers and PR/release status surfaces.
+- [ ] Ship Check CI runner/Action using the canonical engine inside the repository owner's CI environment.
+- [ ] PR change summaries that distinguish new findings, newly exposed surfaces, resolved controls and still-unverified boundaries.
+- [ ] Team review state for accepted exceptions, verification notes and evidence history without turning Ship Check into a generic issue tracker.
+- [ ] Keep metadata-only organisational assurance output available as the narrowest cloud sync mode.
+- [ ] Define explicit retention/export/deletion controls before private-project pilot use.
+
+Suggested cloud sync levels:
+
+1. **Local only** — nothing is sent to Ship Check Cloud.
+2. **Assurance metadata** — project/commit identity, engine/ruleset provenance, coverage and counts.
+3. **Structured findings** — findings/gaps/observations without raw source content or secret values.
+4. **Bounded evidence** — selected evidence excerpts where the user or organisation permits it.
+5. **Managed scan** — source is temporarily available to a Ship Check ephemeral runner under the managed-execution boundary below.
+
+## Alpha 2.3 — managed ephemeral runner
+
+Goal: provide the convenience of zero-install cloud scanning while preserving a strong and inspectable trust boundary.
+
+- [ ] Per-scan isolated worker with ephemeral filesystem and automatic workspace destruction after report generation.
+- [ ] Short-lived, read-only source-provider credentials; no credentials embedded into cloned repository URLs.
+- [ ] Default-deny network egress during source inspection, with explicit bounded exceptions for checks such as OSV where the user enables them.
+- [ ] Ensure source contents and detected secrets never enter application logs, job metadata or persistent report storage.
+- [ ] Encrypt transient worker storage and inter-service traffic; document threat boundaries and operational responsibilities.
+- [ ] Add scan time/resource limits and intelligent change-based execution to control cost without silently reducing stated coverage.
+- [ ] Record runner image, engine version, ruleset versions and acquisition provenance for reproducibility.
+- [ ] Provide a self-hosted/organisation runner path later if pilot users require source to remain inside their own infrastructure.
+
+## Alpha 2.4 — hosted-builder and non-Git projects
+
+Goal: let people use Ship Check even when their normal development surface is not a local folder or Git repository.
+
+- [ ] Add a provider-adapter contract for hosted builders rather than platform-specific scanner forks.
+- [ ] Treat **Lovable** as the first reference journey: connect source directly where a supported read-only integration exists; otherwise offer connected GitHub, exported-project upload, or URL-only runtime checking as clear alternatives.
+- [ ] Do not assume private/platform APIs exist. Each adapter must advertise its actual evidence capabilities and degrade honestly when only deployment/runtime evidence is available.
+- [ ] Explore Replit, Bolt, v0 and similar hosted-builder adapters using the same contract after the Lovable journey is validated.
+- [ ] Show the acquisition route to the user in plain language: for example `Lovable → GitHub source`, `Lovable export → uploaded snapshot`, or `Lovable deployment → runtime evidence`.
+- [ ] Support multi-source projects so source, runtime and database evidence can corroborate or resolve one another without losing provenance.
+- [ ] Design the cloud project-connect UX around user intent (`Connect a project`, `Upload a project`, `Check a live site`, `Run locally`) rather than requiring users to understand Git terminology.
+
+## Alpha 2.5 — multi-source assurance
+
+Goal: move from repeated scans towards a durable, evidence-backed assurance record for a project.
+
+- [ ] Correlate source, runtime, database and platform evidence against the same bounded control where that relationship is defensible.
+- [ ] Allow stronger evidence to resolve an earlier `unverified` state while preserving the earlier evidence and provenance in history.
+- [ ] Keep contradictory evidence visible rather than automatically choosing one source as truth.
+- [ ] Surface project-level attention: what changed, what was resolved, what remains unknown and what has become newly relevant.
+- [ ] Add scheduled and event-triggered checks with change-aware scope rather than blindly rescanning all evidence sources on every event.
+- [ ] Provide team/portfolio views across projects using counts, change and coverage rather than an invented assurance score.
+
 ## Alpha 3 — ecosystem bridges
 
 - [x] First RACK Verification Plan process/JSON result adapter with `pass | fail | uncertain | incomplete` outcomes.
@@ -148,6 +249,8 @@ Goal: verify controls that source inspection cannot establish, while keeping run
 - [x] TOPO purpose-bound context-request adapter matching the current OOS context-request shape; context remains separate from scan evidence.
 - [x] Metadata-only Organisational OS technical-assurance summary contract.
 - [ ] End-to-end TOPO authorisation/review UX from the Ship Check desktop.
+- [ ] Let RACK request Ship Check execution through an explicit local, CI or managed-runner policy rather than assuming one execution location.
+- [ ] Let wider organisational assurance consume cloud/history metadata without requiring access to project source or bounded evidence unless separately authorised.
 
 ## Later packs
 
