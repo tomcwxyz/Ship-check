@@ -137,7 +137,7 @@ export const CheckResultSchema = z.object({
   findingCount: z.number().int().nonnegative(),
   suppressedCount: z.number().int().nonnegative().default(0),
   gapCount: z.number().int().nonnegative().default(0),
-  resolvedGapCount: z.number().int().nonnegative().default(0),
+  resolvedGapCount: z.number().int().nonnegative().optional(),
   observationCount: z.number().int().nonnegative().default(0),
   durationMs: z.number().nonnegative(),
   error: z.string().optional()
