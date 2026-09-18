@@ -36,4 +36,36 @@ describe("discoverAIProject", () => {
     expect(JSON.stringify(report)).not.toContain("organisational purpose");
     expect(report.limitations.join(" ")).toContain("cannot establish organisational purpose");
   });
+
+  it("discovers Python Anthropic workflows without app-specific meaning", async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), "ship-check-python-ai-discovery-"));
+    roots.push(root);
+    await mkdir(path.join(root, "server", "example", "ask"), { recursive: true });
+    await writeFile(path.join(root, "server", "example", "ask", "orchestrator.py"), [
+      "from anthropic import Anthropic",
+      "class AskOrchestrator:",
+      "    async def run(self):",
+      "        client = Anthropic(api_key='x')",
+      "        return client.messages.create(model='claude-sonnet', messages=[])",
+    ].join("\n"));
+    await writeFile(path.join(root, "server", "example", "ask", "test_orchestrator.py"), [
+      "from anthropic import Anthropic",
+      "client.messages.create(model='test', messages=[])",
+    ].join("\n"));
+
+    const report = await discoverAIProject(root);
+    expect(report.signals.some((signal) =>
+      signal.kind === "ai_provider" &&
+      signal.technology === "anthropic" &&
+      signal.workflow_hint === "ask"
+    )).toBe(true);
+    expect(report.signals.some((signal) =>
+      signal.kind === "model_call" &&
+      signal.technology === "anthropic" &&
+      signal.workflow_hint === "ask"
+    )).toBe(true);
+    expect(report.signals.every((signal) =>
+      signal.evidence.every((evidence) => !evidence.path?.includes("test_orchestrator.py"))
+    )).toBe(true);
+  });
 });
