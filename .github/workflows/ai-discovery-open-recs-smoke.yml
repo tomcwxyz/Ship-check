@@ -1,6 +1,7 @@
 name: ai-discovery-open-recs-smoke
 
 on:
+  pull_request:
   push:
     paths:
       - ".github/workflows/ai-discovery-open-recs-smoke.yml"
