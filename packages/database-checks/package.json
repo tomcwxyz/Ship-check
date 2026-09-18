@@ -18,6 +18,10 @@
     "./neon": {
       "types": "./dist/neon.d.ts",
       "default": "./dist/neon.js"
+    },
+    "./live": {
+      "types": "./dist/live.d.ts",
+      "default": "./dist/live.js"
     }
   },
   "types": "./dist/index.d.ts",
