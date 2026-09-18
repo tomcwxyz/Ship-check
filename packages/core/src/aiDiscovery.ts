@@ -23,6 +23,7 @@ export type CruxDiscoverySignal = {
   technology?: string;
   workflow_hint?: string;
   candidate_label?: string;
+  scope_hint?: "shared" | "use";
   evidence: Array<{
     path?: string;
     line?: number;
@@ -107,6 +108,7 @@ export async function discoverAIProject(
         label: item.label,
         confidence: "high",
         technology: item.technology,
+        scope_hint: "shared",
         evidence: [{ path: "package.json", line, detail: `${item.label} is declared in project dependencies.` }],
       });
     }
@@ -139,6 +141,7 @@ export async function discoverAIProject(
         label: "Configurable LLM provider boundary",
         confidence: "high",
         ...(/OpenAICompatible|OpenAICompat/.test(providerMatch[0]) ? { technology: "openai-compatible" } : {}),
+        scope_hint: "shared",
         evidence: [{ path: file, line, detail: "Source contains a configurable LLM/provider boundary." }],
       });
     }
@@ -155,8 +158,10 @@ export async function discoverAIProject(
         confidence: "high",
         technology: pattern.technology,
         ...(localWorkflow
-          ? { workflow_hint: localWorkflow.hint, candidate_label: localWorkflow.label }
-          : {}),
+          ? { workflow_hint: localWorkflow.hint, candidate_label: localWorkflow.label, scope_hint: "use" as const }
+          : /(?:^|\/)providers?(?:\/|$)/i.test(file)
+            ? { scope_hint: "shared" as const }
+            : { scope_hint: "use" as const }),
         evidence: [{ path: file, line, detail: `${pattern.label} call site detected. Prompt and response content are not included.` }],
       });
     }
