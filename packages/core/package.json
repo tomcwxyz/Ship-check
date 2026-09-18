@@ -14,6 +14,10 @@
     "./multiSource": {
       "types": "./dist/multiSource.d.ts",
       "default": "./dist/multiSource.js"
+    },
+    "./database": {
+      "types": "./dist/database.d.ts",
+      "default": "./dist/database.js"
     }
   },
   "types": "./dist/index.d.ts",
