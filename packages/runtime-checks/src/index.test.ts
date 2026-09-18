@@ -55,6 +55,39 @@ describe("runtime HTTP checks", () => {
     expect(finding?.evidence[0]?.detail).toContain("Missing response header names");
   });
 
+  it("links a complete deployed header policy to the repository header check it verifies", async () => {
+    const result = await responseSecurityHeadersCheck.run(context({
+      headers: {
+        contentSecurityPolicy: "present",
+        strictTransportSecurity: "present",
+        xContentTypeOptions: "present",
+        referrerPolicy: "present"
+      }
+    }));
+    const observations = Array.isArray(result) ? [] : result.observations ?? [];
+    expect(observations).toContainEqual(expect.objectContaining({
+      kind: "verified-control",
+      resolvesCheckIds: ["production.next-security-headers"]
+    }));
+  });
+
+  it("can verify the narrower source header question while still reporting a wider runtime baseline gap", async () => {
+    const result = await responseSecurityHeadersCheck.run(context({
+      headers: {
+        contentSecurityPolicy: "present",
+        strictTransportSecurity: "present",
+        xContentTypeOptions: "present"
+      }
+    }));
+    if (Array.isArray(result)) throw new Error("Expected structured runtime execution.");
+    expect(result.findings).toContainEqual(expect.objectContaining({
+      id: "runtime.response-security-headers:incomplete"
+    }));
+    expect(result.observations).toContainEqual(expect.objectContaining({
+      resolvesCheckIds: ["production.next-security-headers"]
+    }));
+  });
+
   it("flags credentialed reflection of the synthetic external Origin", async () => {
     const result = await cookieCorsBoundaryCheck.run(context({
       headers: {
