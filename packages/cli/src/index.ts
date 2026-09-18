@@ -11,6 +11,7 @@ import { serverSurfaceInventoryCheck } from "@ship-check/checks/inventory";
 import { calibratedPaidEndpointCheck } from "@ship-check/checks/paid";
 import { importAwareSurfaceChecks, replacedSurfaceCheckIds } from "@ship-check/checks/surface";
 import { scanProject, type CheckDefinition } from "@ship-check/core";
+import { combineScanReports } from "@ship-check/core/multiSource";
 import { parseRuntimeTargetUrl, scanRuntimeTarget } from "@ship-check/core/runtime";
 import { costAwareChecks } from "@ship-check/cost-checks";
 import { deepChecksForPacks } from "@ship-check/deep-checks";
@@ -22,6 +23,7 @@ import {
   type AssessmentArea,
   type AssuranceGateId,
   type CheckPack,
+  type ProjectEvidenceSource,
   type ScanReport,
   type Severity
 } from "@ship-check/schemas";
@@ -41,11 +43,17 @@ const areaNames: Record<AssessmentArea, string> = {
 };
 
 function usage(): string {
-  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-source] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--local-semgrep-scan] [--networked-dependency-scan] [--format pretty|json|rack|oos] [--fail-on critical|high|medium|low|never]\n\nProject sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  Exported project: C:\\path\\to\\project.zip\n  Deployment URL: https://example.com\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nRuntime URL checks:\n  Deployment URLs use a bounded, non-mutating GET probe with manual redirect following. Ship Check records transport, selected browser security headers, cookie flags and a synthetic CORS Origin response. It does not retain response bodies or cookie values. Source/database checks remain not assessed when their evidence is unavailable.\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  Server-boundary checks trace a bounded local import graph so auth, webhook verification, paid work, object-level authorisation questions and outbound-request questions can include shared helpers.\n  Production Ready records positive server-surface observations separately from findings and checks selected GitHub Actions supply-chain boundaries.\n  --local-semgrep-scan opts into Ship Check's small pinned local Semgrep ruleset and requires Secure Build. It stays offline, disables Semgrep metrics/version checks and never uses Registry/auto rules. Semgrep itself is not bundled in the alpha desktop; use a compatible local CLI or SHIP_CHECK_SEMGREP_PATH.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.\n\nAccepted exceptions:\n  A tracked .ship-check.json may suppress an exact finding ID only when it also names the matching rule version and a substantive rationale. Suppressed findings remain visible in the report and rule-version changes invalidate old suppressions. Runtime-only URL scans do not load repository suppression configuration.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan ./lovable-export.zip\n  ship-check scan https://example.com\n  ship-check scan . --pack secure-build --local-semgrep-scan\n  ship-check scan . --networked-dependency-scan\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n`;
+  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-source] [--deployment-url url] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--local-semgrep-scan] [--networked-dependency-scan] [--format pretty|json|rack|oos] [--fail-on critical|high|medium|low|never]\n\nProject sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  Exported project: C:\\path\\to\\project.zip\n  Deployment URL only: https://example.com\n  Source + deployment: add --deployment-url https://example.com\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nRuntime URL checks:\n  Deployment URLs use a bounded, non-mutating GET probe with manual redirect following. Ship Check records transport, selected browser security headers, cookie flags and a synthetic CORS Origin response. It does not retain response bodies or cookie values. A URL-only run leaves source/database checks not assessed; --deployment-url combines runtime evidence with the supplied source in one project report.\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  Server-boundary checks trace a bounded local import graph so auth, webhook verification, paid work, object-level authorisation questions and outbound-request questions can include shared helpers.\n  Production Ready records positive server-surface observations separately from findings and checks selected GitHub Actions supply-chain boundaries.\n  --local-semgrep-scan opts into Ship Check's small pinned local Semgrep ruleset and requires Secure Build. It stays offline, disables Semgrep metrics/version checks and never uses Registry/auto rules. Semgrep itself is not bundled in the alpha desktop; use a compatible local CLI or SHIP_CHECK_SEMGREP_PATH.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.\n\nAccepted exceptions:\n  A tracked .ship-check.json may suppress an exact finding ID only when it also names the matching rule version and a substantive rationale. Suppressed findings remain visible in the report and rule-version changes invalidate old suppressions. Runtime-only URL scans do not load repository suppression configuration.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan ./lovable-export.zip\n  ship-check scan https://example.com\n  ship-check scan ./lovable-export.zip --deployment-url https://example.com\n  ship-check scan tomcwxyz/Ship-check --deployment-url https://ship-check.example\n  ship-check scan . --pack secure-build --local-semgrep-scan\n  ship-check scan . --networked-dependency-scan\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n`;
 }
 
 function checkVersionFor(report: ScanReport, checkId: string): string {
   return report.checks.find((check) => check.checkId === checkId)?.checkVersion ?? "1";
+}
+
+function evidenceSourcesFor(report: ScanReport): ProjectEvidenceSource[] {
+  const combined = (report.project as ScanReport["project"] & { evidenceSources?: ProjectEvidenceSource[] }).evidenceSources;
+  if (combined?.length) return combined;
+  return report.project.snapshot?.source ? [report.project.snapshot.source] : [];
 }
 
 function printPretty(report: ScanReport): void {
@@ -53,10 +61,16 @@ function printPretty(report: ScanReport): void {
   const observations = report.observations ?? [];
   const suppressions = report.suppressedFindings ?? [];
   const notAssessed = report.checks.filter((check) => check.status === "not-assessed");
-  const source = report.project.snapshot?.source;
+  const sources = evidenceSourcesFor(report);
   console.log(`Ship Check · ${report.project.path}`);
-  if (source) {
+  if (sources.length === 1) {
+    const source = sources[0]!;
     console.log(`Source: ${source.type} · ${source.provider} · ${source.acquisition} · ${source.executionLocation}`);
+  } else if (sources.length > 1) {
+    console.log("Evidence sources:");
+    for (const source of sources) {
+      console.log(`- ${source.type} · ${source.provider} · ${source.acquisition} · ${source.label}`);
+    }
   }
   console.log(`${report.checks.length} checks · ${report.summary.total} findings · ${suppressions.length} suppressed · ${gaps.length} unverified · ${notAssessed.length} not assessed · ${observations.length} observed · ${report.summary.critical} critical · ${report.summary.high} high · ${report.summary.medium} medium`);
 
@@ -113,7 +127,7 @@ function printPretty(report: ScanReport): void {
   }
 
   if (notAssessed.length > 0) {
-    console.log("\nChecks not assessed with this evidence source");
+    console.log("\nChecks not assessed with available evidence");
     for (const check of notAssessed) {
       console.log(`- ${check.checkId}: missing ${check.missingEvidence.join(", ") || "required evidence"}`);
     }
@@ -199,6 +213,7 @@ async function main(): Promise<void> {
       gate: { type: "string", default: "ship-check" },
       "step-id": { type: "string" },
       ref: { type: "string" },
+      "deployment-url": { type: "string" },
       "local-semgrep-scan": { type: "boolean", default: false },
       "networked-dependency-scan": { type: "boolean", default: false },
       help: { type: "boolean", short: "h" },
@@ -240,16 +255,19 @@ async function main(): Promise<void> {
   }
 
   const sourceValue = positionals[1] ?? ".";
+  const deploymentUrl = values["deployment-url"];
   const sourceChecks = checksForRequestedPacks(requestedPacks, { networkedDependencyScan, localSemgrepScan });
+  const selectedRuntimeChecks = runtimeHttpChecks.filter((check) => requestedPacks.includes(check.pack));
 
   if (isRuntimeUrlSource(sourceValue)) {
+    if (deploymentUrl) throw new Error("Use either a deployment URL as the project source or --deployment-url with source code, not both.");
     if (values.ref) throw new Error("--ref applies to GitHub repository sources, not deployment URLs.");
     if (localSemgrepScan) throw new Error("--local-semgrep-scan requires source files and cannot run against a deployment URL alone.");
     if (networkedDependencyScan) throw new Error("--networked-dependency-scan requires dependency manifests and cannot run against a deployment URL alone.");
     const report = await scanRuntimeTarget(
       sourceValue,
       sourceChecks,
-      runtimeHttpChecks.filter((check) => requestedPacks.includes(check.pack)),
+      selectedRuntimeChecks,
       version
     );
     renderReport(report, values, gateId, gateThreshold, failOn);
@@ -258,12 +276,23 @@ async function main(): Promise<void> {
 
   const source = await prepareRepositorySource(sourceValue, { ref: values.ref });
   try {
-    const report = await scanProject(
+    const sourceReport = await scanProject(
       source.projectPath,
       sourceChecks,
       version,
       source.sourceInput
     );
+    const report: ScanReport = deploymentUrl
+      ? combineScanReports(
+          sourceReport,
+          await scanRuntimeTarget(
+            deploymentUrl,
+            sourceChecks,
+            selectedRuntimeChecks,
+            version
+          )
+        )
+      : sourceReport;
     renderReport(report, values, gateId, gateThreshold, failOn);
   } finally {
     await source.cleanup();
