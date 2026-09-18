@@ -58,6 +58,11 @@ const elements = {
   packGrid: document.querySelector("#pack-grid"),
   localSemgrepScan: document.querySelector("#local-semgrep-scan"),
   networkedDependencyScan: document.querySelector("#networked-dependency-scan"),
+  inspectDatabase: document.querySelector("#inspect-database"),
+  databaseInspectionFields: document.querySelector("#database-inspection-fields"),
+  databaseConnectionString: document.querySelector("#database-connection-string"),
+  databasePlatform: document.querySelector("#database-platform"),
+  databaseTableLimit: document.querySelector("#database-table-limit"),
   runScan: document.querySelector("#run-scan"),
   rerunScan: document.querySelector("#rerun-scan"),
   errorBanner: document.querySelector("#error-banner"),
@@ -100,13 +105,35 @@ function sourceHasFiles() {
   return state.sourceMode !== "runtime";
 }
 
+function databaseTableLimit() {
+  const value = Number(elements.databaseTableLimit?.value || 1000);
+  return Number.isInteger(value) && value >= 1 && value <= 5000 ? value : null;
+}
+
+function databaseInspectionEnabled() {
+  return Boolean(elements.inspectDatabase?.checked);
+}
+
+function databaseInspectionReady() {
+  if (!databaseInspectionEnabled()) return true;
+  return productionReadySelected()
+    && Boolean(elements.databaseConnectionString?.value.trim())
+    && databaseTableLimit() !== null;
+}
+
 function scanOptions() {
+  const databaseInspection = databaseInspectionEnabled();
   return {
     localSemgrepScan:
       sourceHasFiles() && secureBuildSelected() && Boolean(elements.localSemgrepScan?.checked),
     networkedDependencyScan:
       sourceHasFiles() && productionReadySelected() && Boolean(elements.networkedDependencyScan?.checked),
     deploymentUrl: state.sourceMode === "runtime" ? "" : state.deploymentUrl.trim(),
+    databaseInspection,
+    ...(databaseInspection ? {
+      databasePlatform: elements.databasePlatform?.value || "postgres",
+      databaseTableLimit: databaseTableLimit() ?? 1000,
+    } : {}),
   };
 }
 
@@ -149,21 +176,38 @@ function updateDeepScanAvailability() {
   }
 }
 
+function updateDatabaseAvailability() {
+  const enabledByPack = productionReadySelected();
+  if (!enabledByPack && elements.inspectDatabase.checked) {
+    elements.inspectDatabase.checked = false;
+    elements.databaseConnectionString.value = "";
+  }
+  elements.inspectDatabase.disabled = state.scanning || !enabledByPack;
+  elements.databaseInspectionFields.hidden = !elements.inspectDatabase.checked;
+  elements.databaseConnectionString.disabled = state.scanning || !elements.inspectDatabase.checked;
+  elements.databasePlatform.disabled = state.scanning || !elements.inspectDatabase.checked;
+  elements.databaseTableLimit.disabled = state.scanning || !elements.inspectDatabase.checked;
+}
+
 function updateRunAvailability() {
   const ready =
     sourceReady() &&
     Boolean(state.engine?.available) &&
     selectedPacks().length > 0 &&
+    databaseInspectionReady() &&
     !state.scanning;
   elements.runScan.disabled = !ready;
   elements.rerunScan.disabled = state.scanning || !ready;
 }
 
 function scanningLabel() {
-  if (state.sourceMode === "github") return "Checking out & scanning…";
-  if (state.sourceMode === "archive") return "Opening export & scanning…";
-  if (state.sourceMode === "runtime") return "Checking live site…";
+  const database = databaseInspectionEnabled();
+  if (state.sourceMode === "github") return database ? "Checking out source & database…" : "Checking out & scanning…";
+  if (state.sourceMode === "archive") return database ? "Opening export & checking database…" : "Opening export & scanning…";
+  if (state.sourceMode === "runtime") return database ? "Checking live site & database…" : "Checking live site…";
+  if (state.deploymentUrl.trim() && database) return "Checking source, live site & database…";
   if (state.deploymentUrl.trim()) return "Checking source & live site…";
+  if (database) return "Checking source & database…";
   return "Checking…";
 }
 
@@ -183,6 +227,7 @@ function setScanning(scanning) {
     checkbox.disabled = scanning;
   }
   updateDeepScanAvailability();
+  updateDatabaseAvailability();
   updateRunAvailability();
 }
 
@@ -204,17 +249,28 @@ function setArchivePath(archivePath) {
 
 function updateSourceGuidance() {
   const runtimeOnly = state.sourceMode === "runtime";
+  const database = databaseInspectionEnabled();
   elements.deploymentCompanion.hidden = runtimeOnly;
   if (runtimeOnly) {
-    elements.defaultScanNote.querySelector("strong").textContent = "This review uses live runtime evidence only.";
-    elements.defaultScanNote.querySelector("span").textContent = "Source, dependencies, database internals and other unavailable areas stay visibly not assessed.";
-    elements.scanExplainer.querySelector("strong").textContent = "The live check is bounded and non-mutating.";
-    elements.scanExplainer.querySelector("span").textContent = "Ship Check follows a small redirect chain, inspects response metadata and discards response bodies and cookie values.";
+    elements.defaultScanNote.querySelector("strong").textContent = database
+      ? "This review combines live runtime and database metadata evidence."
+      : "This review uses live runtime evidence only.";
+    elements.defaultScanNote.querySelector("span").textContent = database
+      ? "Source and dependency areas stay visibly not assessed; database evidence is limited to the explicit read-only metadata boundary."
+      : "Source, dependencies, database internals and other unavailable areas stay visibly not assessed.";
+    elements.scanExplainer.querySelector("strong").textContent = "The live checks are bounded and non-mutating.";
+    elements.scanExplainer.querySelector("span").textContent = database
+      ? "Ship Check inspects response metadata and fixed database catalogue metadata; it discards response bodies and reads no application rows."
+      : "Ship Check follows a small redirect chain, inspects response metadata and discards response bodies and cookie values.";
   } else {
-    elements.defaultScanNote.querySelector("strong").textContent = "The standard review is ready to run.";
+    elements.defaultScanNote.querySelector("strong").textContent = database
+      ? "Source and live database metadata will be reviewed together."
+      : "The standard review is ready to run.";
     elements.defaultScanNote.querySelector("span").textContent = "Ship Check uses the evidence this source can provide, and marks unavailable evidence as not assessed rather than assuming it is safe.";
-    elements.scanExplainer.querySelector("strong").textContent = "Nothing changes in the project.";
-    elements.scanExplainer.querySelector("span").textContent = "Source inspection is read-only. Live-site checks make bounded HTTP requests only when a deployment URL is included.";
+    elements.scanExplainer.querySelector("strong").textContent = "Nothing changes in the project or database.";
+    elements.scanExplainer.querySelector("span").textContent = database
+      ? "Source inspection is read-only. Database inspection uses a read-only transaction and fixed catalogue queries only."
+      : "Source inspection is read-only. Live-site checks make bounded HTTP requests only when a deployment URL is included.";
   }
 }
 
@@ -231,6 +287,7 @@ function setSourceMode(mode) {
   clearError();
   updateSourceGuidance();
   updateDeepScanAvailability();
+  updateDatabaseAvailability();
   updateRunAvailability();
   if (mode === "github") elements.githubRepository.focus();
   if (mode === "runtime") elements.runtimeUrl.focus();
@@ -269,7 +326,7 @@ function ensureDiagnosticsPanel() {
 
   const copy = document.createElement("p");
   copy.className = "source-help";
-  copy.textContent = "Stored locally for alpha testing. Includes safe project labels, engine/rule versions, selected scan options, evidence-source count, coverage status, suppression/observation counts, timings and check outcomes — never source contents, deployment URL paths/query strings, cookie values, suppression rationales/finding details, observation paths/details, evidence excerpts or matched secret values.";
+  copy.textContent = "Stored locally for alpha testing. Includes safe project labels, engine/rule versions, selected scan options, evidence-source count, coverage status, timings and check outcomes — never source contents, database connection URLs/credentials, deployment URL paths/query strings, cookie values, suppression/finding details, observation details, evidence excerpts or matched secret values.";
   panel.append(copy);
 
   const receipt = document.createElement("pre");
@@ -373,6 +430,9 @@ function sourceMetaLabel(source) {
     github: "GitHub source",
     upload: "exported source",
     url: "live deployment",
+    postgres: "Postgres metadata",
+    supabase: "Supabase metadata",
+    neon: "Neon metadata",
   };
   return labels[source?.provider] || source?.type || "project evidence";
 }
@@ -402,7 +462,8 @@ function renderReport(report, options) {
   const inventory = report.project.inventorySource === "git-tracked" ? "Git tracked" : "filesystem/runtime";
   const semgrepMode = options.localSemgrepScan ? "Semgrep local" : "Semgrep off";
   const dependencyMode = options.networkedDependencyScan ? "OSV network check" : "OSV off";
-  elements.scanMeta.textContent = `${sourceLabel} · ${fileLabel} · ${report.checks.length} checks · ${report.suppressedFindings.length} suppressed · ${report.observations.length} observed · ${report.gaps.length} unverified · ${notAssessed} not assessed · ${semgrepMode} · ${dependencyMode} · ${inventory} · ${when}`;
+  const databaseMode = options.databaseInspection ? `${options.databasePlatform} metadata` : "database live check off";
+  elements.scanMeta.textContent = `${sourceLabel} · ${fileLabel} · ${report.checks.length} checks · ${report.suppressedFindings.length} suppressed · ${report.observations.length} observed · ${report.gaps.length} unverified · ${notAssessed} not assessed · ${databaseMode} · ${semgrepMode} · ${dependencyMode} · ${inventory} · ${when}`;
 
   elements.emptyCopy.textContent = report.findings.length === 0
     ? report.suppressedFindings.length > 0
@@ -463,6 +524,18 @@ async function runScan() {
   }
 
   const options = scanOptions();
+  if (options.databaseInspection && !productionReadySelected()) {
+    showError("Database metadata inspection requires the Production Ready area.");
+    return;
+  }
+  const databaseConnectionString = options.databaseInspection
+    ? elements.databaseConnectionString.value.trim()
+    : "";
+  if (options.databaseInspection && !databaseConnectionString) {
+    showError("Enter a PostgreSQL connection URL for this database inspection.");
+    return;
+  }
+
   const startedAt = performance.now();
   clearError();
   setScanning(true);
@@ -474,9 +547,15 @@ async function runScan() {
         state.githubRef.trim(),
         packs,
         options,
+        databaseConnectionString,
       );
     } else {
-      rawReport = await desktopBridge.scanProject(currentSourceValue(), packs, options);
+      rawReport = await desktopBridge.scanProject(
+        currentSourceValue(),
+        packs,
+        options,
+        databaseConnectionString,
+      );
     }
     const report = assertScanReport(rawReport);
     state.severityFilter = "all";
@@ -490,7 +569,9 @@ async function runScan() {
     recordFailure(error, packs, options, startedAt);
     showError(error instanceof Error ? error.message : String(error));
   } finally {
+    if (options.databaseInspection) elements.databaseConnectionString.value = "";
     setScanning(false);
+    updateRunAvailability();
   }
 }
 
@@ -518,7 +599,18 @@ elements.deploymentUrl.addEventListener("input", (event) => {
   state.deploymentUrl = event.target.value;
 });
 
-for (const input of [elements.githubRepository, elements.githubRef, elements.runtimeUrl, elements.deploymentUrl]) {
+elements.inspectDatabase.addEventListener("change", () => {
+  if (!elements.inspectDatabase.checked) elements.databaseConnectionString.value = "";
+  updateDatabaseAvailability();
+  updateSourceGuidance();
+  updateRunAvailability();
+  if (elements.inspectDatabase.checked) elements.databaseConnectionString.focus();
+});
+
+elements.databaseConnectionString.addEventListener("input", updateRunAvailability);
+elements.databaseTableLimit.addEventListener("input", updateRunAvailability);
+
+for (const input of [elements.githubRepository, elements.githubRef, elements.runtimeUrl, elements.deploymentUrl, elements.databaseConnectionString]) {
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !elements.runScan.disabled) runScan();
   });
@@ -530,6 +622,8 @@ elements.runScan.addEventListener("click", runScan);
 elements.rerunScan.addEventListener("click", runScan);
 elements.packGrid.addEventListener("change", () => {
   updateDeepScanAvailability();
+  updateDatabaseAvailability();
+  updateSourceGuidance();
   updateRunAvailability();
 });
 
@@ -553,5 +647,6 @@ setProjectPath("");
 setArchivePath("");
 setSourceMode("local");
 updateDeepScanAvailability();
+updateDatabaseAvailability();
 restoreDiagnostics();
 refreshEngineStatus();

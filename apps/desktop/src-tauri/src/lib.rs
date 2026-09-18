@@ -6,7 +6,7 @@ use serde::Deserialize;
 use serde_json::Value;
 use tauri::AppHandle;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct GithubScanRequest {
     repository: String,
@@ -18,6 +18,11 @@ struct GithubScanRequest {
     local_semgrep_scan: bool,
     #[serde(default)]
     networked_dependency_scan: bool,
+    #[serde(default)]
+    inspect_database: bool,
+    database_connection_string: Option<String>,
+    database_platform: Option<String>,
+    database_table_limit: Option<u32>,
 }
 
 #[tauri::command]
@@ -77,6 +82,10 @@ async fn scan_github_repository(
                 packs: request.packs,
                 local_semgrep_scan: request.local_semgrep_scan,
                 networked_dependency_scan: request.networked_dependency_scan,
+                inspect_database: request.inspect_database,
+                database_connection_string: request.database_connection_string,
+                database_platform: request.database_platform,
+                database_table_limit: request.database_table_limit,
             },
         )?;
 

@@ -8,9 +8,13 @@ use std::{
 use tauri::{AppHandle, Manager};
 
 const ENGINE_ENV: &str = "SHIP_CHECK_ENGINE_PATH";
+const DESKTOP_DATABASE_ENV: &str = "SHIP_CHECK_DESKTOP_DATABASE_URL";
 const ALLOWED_PACKS: [&str; 3] = ["secure-build", "production-ready", "cost-aware"];
+const ALLOWED_DATABASE_PLATFORMS: [&str; 3] = ["postgres", "supabase", "neon"];
+const DEFAULT_DATABASE_TABLE_LIMIT: u32 = 1000;
+const MAX_DATABASE_TABLE_LIMIT: u32 = 5000;
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanRequest {
     pub project_path: String,
@@ -21,6 +25,11 @@ pub struct ScanRequest {
     pub local_semgrep_scan: bool,
     #[serde(default)]
     pub networked_dependency_scan: bool,
+    #[serde(default)]
+    pub inspect_database: bool,
+    pub database_connection_string: Option<String>,
+    pub database_platform: Option<String>,
+    pub database_table_limit: Option<u32>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -30,6 +39,12 @@ pub struct EngineStatus {
     pub path: Option<String>,
     pub version: Option<String>,
     pub message: String,
+}
+
+struct DatabaseInspection {
+    connection_string: String,
+    platform: String,
+    table_limit: u32,
 }
 
 fn engine_filename() -> &'static str {
@@ -176,6 +191,61 @@ fn validated_packs(packs: &[String]) -> Result<Vec<String>, String> {
     Ok(output)
 }
 
+fn validated_database_inspection(
+    request: &ScanRequest,
+    packs: &[String],
+) -> Result<Option<DatabaseInspection>, String> {
+    let has_database_options = request.database_connection_string.as_ref().is_some_and(|value| !value.trim().is_empty())
+        || request.database_platform.as_ref().is_some_and(|value| !value.trim().is_empty())
+        || request.database_table_limit.is_some();
+
+    if !request.inspect_database {
+        if has_database_options {
+            return Err("Database connection settings require explicit database inspection consent.".to_string());
+        }
+        return Ok(None);
+    }
+
+    if !packs.iter().any(|pack| pack == "production-ready") {
+        return Err("Database metadata inspection requires the Production Ready pack.".to_string());
+    }
+
+    let connection_string = request
+        .database_connection_string
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| "Enter a PostgreSQL connection URL for this database inspection.".to_string())?
+        .to_string();
+    let lower = connection_string.to_ascii_lowercase();
+    if !lower.starts_with("postgres://") && !lower.starts_with("postgresql://") {
+        return Err("Database inspection requires a postgres:// or postgresql:// connection URL.".to_string());
+    }
+
+    let platform = request
+        .database_platform
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("postgres");
+    if !ALLOWED_DATABASE_PLATFORMS.contains(&platform) {
+        return Err(format!("Unknown database platform: {platform}"));
+    }
+
+    let table_limit = request.database_table_limit.unwrap_or(DEFAULT_DATABASE_TABLE_LIMIT);
+    if table_limit == 0 || table_limit > MAX_DATABASE_TABLE_LIMIT {
+        return Err(format!(
+            "Database metadata table limit must be between 1 and {MAX_DATABASE_TABLE_LIMIT}."
+        ));
+    }
+
+    Ok(Some(DatabaseInspection {
+        connection_string,
+        platform: platform.to_string(),
+        table_limit,
+    }))
+}
+
 fn engine_version(engine: &Path) -> Result<String, String> {
     let output = Command::new(engine)
         .arg("--version")
@@ -190,6 +260,13 @@ fn engine_version(engine: &Path) -> Result<String, String> {
         });
     }
     Ok(String::from_utf8_lossy(&output.stdout).trim().to_string())
+}
+
+fn redact_database_connection(message: &str, database: Option<&DatabaseInspection>) -> String {
+    match database {
+        Some(database) => message.replace(&database.connection_string, "[redacted-database-url]"),
+        None => message.to_string(),
+    }
 }
 
 pub fn status(app: &AppHandle) -> EngineStatus {
@@ -222,6 +299,7 @@ pub fn scan(app: &AppHandle, request: ScanRequest) -> Result<Value, String> {
     let source = validated_source(&request.project_path)?;
     let deployment_url = validated_deployment_url(request.deployment_url.as_deref())?;
     let packs = validated_packs(&request.packs)?;
+    let database = validated_database_inspection(&request, &packs)?;
     let runtime_only = looks_like_runtime_url(&source);
 
     if runtime_only && deployment_url.is_some() {
@@ -258,6 +336,17 @@ pub fn scan(app: &AppHandle, request: ScanRequest) -> Result<Value, String> {
     if request.networked_dependency_scan {
         command.arg("--networked-dependency-scan");
     }
+    if let Some(database) = database.as_ref() {
+        command
+            .env(DESKTOP_DATABASE_ENV, &database.connection_string)
+            .arg("--inspect-database")
+            .arg("--database-url-env")
+            .arg(DESKTOP_DATABASE_ENV)
+            .arg("--database-platform")
+            .arg(&database.platform)
+            .arg("--database-table-limit")
+            .arg(database.table_limit.to_string());
+    }
 
     let output = command
         .output()
@@ -268,7 +357,7 @@ pub fn scan(app: &AppHandle, request: ScanRequest) -> Result<Value, String> {
         return Err(if stderr.is_empty() {
             format!("Ship Check engine exited with {}.", output.status)
         } else {
-            stderr
+            redact_database_connection(&stderr, database.as_ref())
         });
     }
 
@@ -282,6 +371,20 @@ pub fn scan(app: &AppHandle, request: ScanRequest) -> Result<Value, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn request() -> ScanRequest {
+        ScanRequest {
+            project_path: "https://example.com".to_string(),
+            deployment_url: None,
+            packs: vec!["production-ready".to_string()],
+            local_semgrep_scan: false,
+            networked_dependency_scan: false,
+            inspect_database: false,
+            database_connection_string: None,
+            database_platform: None,
+            database_table_limit: None,
+        }
+    }
 
     #[test]
     fn defaults_to_all_packs() {
@@ -323,5 +426,41 @@ mod tests {
         let error = validated_deployment_url(Some("ftp://example.com"))
             .expect_err("reject non-http deployment");
         assert!(error.contains("http:// or https://"));
+    }
+
+    #[test]
+    fn database_inspection_is_explicit_and_requires_production_ready() {
+        let mut value = request();
+        value.database_connection_string = Some("postgresql://reader:secret@example.com/app".to_string());
+        let error = validated_database_inspection(&value, &value.packs)
+            .err()
+            .expect("explicit consent");
+        assert!(error.contains("explicit database inspection consent"));
+
+        value.inspect_database = true;
+        value.packs = vec!["secure-build".to_string()];
+        let error = validated_database_inspection(&value, &value.packs)
+            .err()
+            .expect("production ready");
+        assert!(error.contains("Production Ready"));
+    }
+
+    #[test]
+    fn database_inspection_validates_provider_and_bound_without_exposing_secret() {
+        let mut value = request();
+        value.inspect_database = true;
+        value.database_connection_string = Some("postgresql://reader:very-secret@example.com/app".to_string());
+        value.database_platform = Some("supabase".to_string());
+        value.database_table_limit = Some(250);
+        let database = validated_database_inspection(&value, &value.packs)
+            .expect("database")
+            .expect("enabled");
+        assert_eq!(database.platform, "supabase");
+        assert_eq!(database.table_limit, 250);
+        assert!(!redact_database_connection(
+            "failed postgresql://reader:very-secret@example.com/app",
+            Some(&database)
+        )
+        .contains("very-secret"));
     }
 }

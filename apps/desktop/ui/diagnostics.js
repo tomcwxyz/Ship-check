@@ -12,6 +12,7 @@ function redactSensitiveShapes(value) {
     .replace(/\bsk-[A-Za-z0-9_-]{20,}\b/g, "[redacted-openai-key]")
     .replace(/\bgh[pousr]_[A-Za-z0-9]{20,}\b/g, "[redacted-github-token]")
     .replace(/\bAKIA[0-9A-Z]{16}\b/g, "[redacted-aws-key]")
+    .replace(/\bpostgres(?:ql)?:\/\/[^\s"'`]+/gi, "[redacted-database-url]")
     .replace(/https:\/\/[^/@\s]+@github\.com/gi, "https://[redacted]@github.com");
 }
 
@@ -76,10 +77,19 @@ function safeCoverage(entry) {
 }
 
 function safeOptions(options) {
+  const databasePlatform = ["postgres", "supabase", "neon"].includes(options?.databasePlatform)
+    ? options.databasePlatform
+    : "postgres";
+  const requestedLimit = Number(options?.databaseTableLimit);
+  const databaseTableLimit = Number.isInteger(requestedLimit) && requestedLimit >= 1 && requestedLimit <= 5000
+    ? requestedLimit
+    : 1000;
   return {
     localSemgrepScan: Boolean(options?.localSemgrepScan),
     networkedDependencyScan: Boolean(options?.networkedDependencyScan),
     deploymentEvidence: Boolean(options?.deploymentUrl),
+    databaseInspection: Boolean(options?.databaseInspection),
+    ...(options?.databaseInspection ? { databasePlatform, databaseTableLimit } : {}),
   };
 }
 
@@ -164,15 +174,28 @@ export function clearDiagnostics(storage) {
   }
 }
 
+function optionLines(entry) {
+  const lines = [
+    `live deployment evidence: ${entry.options?.deploymentEvidence ? "on" : "off"}`,
+    `database metadata inspection: ${entry.options?.databaseInspection ? "on" : "off"}`,
+  ];
+  if (entry.options?.databaseInspection) {
+    lines.push(`database platform: ${entry.options.databasePlatform} · table limit: ${entry.options.databaseTableLimit}`);
+  }
+  lines.push(
+    `local Semgrep scan: ${entry.options?.localSemgrepScan ? "on" : "off"}`,
+    `dependency network scan: ${entry.options?.networkedDependencyScan ? "on" : "off"}`,
+  );
+  return lines;
+}
+
 export function formatReceipt(entry) {
   if (!entry) return "No scan receipt yet.";
   if (entry.event === "scan-failed") {
     return [
       "Scan failed",
       `${entry.source.kind} · ${entry.source.label}`,
-      `live deployment evidence: ${entry.options?.deploymentEvidence ? "on" : "off"}`,
-      `local Semgrep scan: ${entry.options?.localSemgrepScan ? "on" : "off"}`,
-      `dependency network scan: ${entry.options?.networkedDependencyScan ? "on" : "off"}`,
+      ...optionLines(entry),
       `engine ${entry.toolVersion} · ${entry.elapsedMs} ms`,
       `error: ${entry.error}`,
     ].join("\n");
@@ -189,9 +212,7 @@ export function formatReceipt(entry) {
     "Scan completed",
     `${entry.source.kind} · ${entry.source.label}${entry.source.ref ? ` · ${entry.source.ref}` : ""}`,
     `${entry.source.evidenceSourceCount ?? 1} evidence source${entry.source.evidenceSourceCount === 1 ? "" : "s"} · ${entry.fileCount} files · ${entry.checks.length} checks · ${entry.inventorySource}`,
-    `live deployment evidence: ${entry.options?.deploymentEvidence ? "on" : "off"}`,
-    `local Semgrep scan: ${entry.options?.localSemgrepScan ? "on" : "off"}`,
-    `dependency network scan: ${entry.options?.networkedDependencyScan ? "on" : "off"}`,
+    ...optionLines(entry),
     `${passed} passed · ${findings} with findings · ${suppressedChecks} suppression-only · ${entry.suppressedCount ?? 0} suppressed findings · ${unverified} unverified · ${resolved} resolved by other evidence · ${entry.resolvedCount ?? 0} resolved questions · ${notAssessed} not assessed · ${entry.observedCount ?? 0} observed · ${errors} errors · ${entry.elapsedMs} ms`,
     `engine ${entry.toolVersion}`,
     "",
@@ -210,7 +231,7 @@ export function formatDiagnostics(entries) {
     {
       schemaVersion: "1",
       exportedAt: new Date().toISOString(),
-      note: "Ship Check diagnostics contain scan metadata only: no source contents, suppression rationales/finding details, resolved-question details, observation paths/details, evidence excerpts, deployment URL paths/query strings, cookie values or matched secret values.",
+      note: "Ship Check diagnostics contain scan metadata only: no source contents, suppression rationales/finding details, resolved-question details, observation paths/details, evidence excerpts, deployment URL paths/query strings, database connection URLs/credentials, cookie values or matched secret values.",
       entries,
     },
     null,
