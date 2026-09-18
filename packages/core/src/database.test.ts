@@ -21,7 +21,11 @@ const snapshot = DatabaseMetadataSnapshotSchema.parse({
   inspection: {
     readOnlyTransaction: true,
     fixedMetadataQueriesOnly: true,
-    rowDataRead: false
+    rowDataRead: false,
+    tableLimit: 1000,
+    tablesTruncated: false,
+    inspectorSuperuser: false,
+    inspectorBypassRls: false
   },
   tables: [{
     schema: "public",
@@ -90,6 +94,8 @@ describe("database metadata scan runner", () => {
     expect(serialized).not.toContain("sensitive_case_notes");
     expect(serialized).not.toContain("policyCount");
     expect(serialized).not.toContain("grants");
+    expect(serialized).not.toContain("tableLimit");
+    expect(serialized).not.toContain("inspectorSuperuser");
   });
 
   it("rejects a metadata snapshot that does not carry a database evidence source", () => {
@@ -101,5 +107,13 @@ describe("database metadata scan runner", () => {
         capabilities: ["source-files"]
       }
     })).toThrow(/database evidence source|database-metadata/);
+  });
+
+  it("rejects table metadata that exceeds its declared bounded inventory", () => {
+    expect(() => DatabaseMetadataSnapshotSchema.parse({
+      ...snapshot,
+      inspection: { ...snapshot.inspection, tableLimit: 1 },
+      tables: [snapshot.tables[0], { ...snapshot.tables[0], name: "another_table" }]
+    })).toThrow(/declared inspection limit/);
   });
 });

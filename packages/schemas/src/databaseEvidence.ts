@@ -42,7 +42,11 @@ export const DatabaseMetadataSnapshotSchema = z.object({
   inspection: z.object({
     readOnlyTransaction: z.literal(true),
     fixedMetadataQueriesOnly: z.literal(true),
-    rowDataRead: z.literal(false)
+    rowDataRead: z.literal(false),
+    tableLimit: z.number().int().positive().max(5000),
+    tablesTruncated: z.boolean(),
+    inspectorSuperuser: z.boolean(),
+    inspectorBypassRls: z.boolean()
   }).strict(),
   tables: z.array(PostgresTableMetadataSchema),
   acquiredAt: z.string().datetime()
@@ -52,6 +56,9 @@ export const DatabaseMetadataSnapshotSchema = z.object({
   }
   if (!snapshot.source.capabilities.includes("database-metadata")) {
     ctx.addIssue({ code: "custom", message: "Database metadata evidence must declare the database-metadata capability.", path: ["source", "capabilities"] });
+  }
+  if (snapshot.tables.length > snapshot.inspection.tableLimit) {
+    ctx.addIssue({ code: "custom", message: "Database metadata tables cannot exceed the declared inspection limit.", path: ["tables"] });
   }
 });
 export type DatabaseMetadataSnapshot = z.infer<typeof DatabaseMetadataSnapshotSchema>;

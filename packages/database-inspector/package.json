@@ -1,0 +1,24 @@
+{
+  "name": "@ship-check/database-inspector",
+  "version": "0.0.0-alpha.1",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ship-check/schemas": "workspace:*",
+    "pg": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/pg": "8.23.1"
+  }
+}
