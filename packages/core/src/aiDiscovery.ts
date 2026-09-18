@@ -44,7 +44,7 @@ export type CruxDiscoveryReport = {
   limitations: string[];
 };
 
-const sourceFile = /\.(?:[cm]?[jt]sx?|json|md|ya?ml)$/i;
+const sourceFile = /\.(?:[cm]?[jt]sx?|json|ya?ml)$/i;
 const modelCallPatterns: Array<{ regex: RegExp; label: string; technology: string }> = [
   { regex: /\bgenerateText\s*\(/, label: "Vercel AI SDK text generation", technology: "ai" },
   { regex: /\bgenerateObject\s*\(/, label: "Vercel AI SDK structured generation", technology: "ai" },
@@ -52,6 +52,8 @@ const modelCallPatterns: Array<{ regex: RegExp; label: string; technology: strin
   { regex: /\.chat\.completions\.create\s*\(/, label: "OpenAI-compatible chat completion", technology: "openai-compatible" },
   { regex: /\.responses\.create\s*\(/, label: "OpenAI responses call", technology: "openai" },
   { regex: /\.messages\.create\s*\(/, label: "Anthropic messages call", technology: "anthropic" },
+  { regex: /\.llm\.generateStructured\s*\(/, label: "Structured generation through the project LLM provider", technology: "llm-provider" },
+  { regex: /\.llm\.generateText\s*\(/, label: "Text generation through the project LLM provider", technology: "llm-provider" },
 ];
 
 const lineNumber = (text: string, offset: number) => text.slice(0, offset).split("\n").length;
@@ -62,11 +64,20 @@ const pushUnique = (signals: CruxDiscoverySignal[], signal: CruxDiscoverySignal)
   if (!signals.some((existing) => existing.id === signal.id)) signals.push(signal);
 };
 
-const workflowFromText = (text: string): { hint: string; label: string; offset: number } | null => {
+const workflowFromEvidence = (
+  file: string,
+  text: string,
+): { hint: string; label: string; offset: number } | null => {
   const exact = /\bsource\.extract\b/.exec(text);
   if (exact) return { hint: "source.extract", label: "Recommendation extraction", offset: exact.index };
+
   const recommendation = /\b(?:recommendations?\.extract|extract\.recommendations?)\b/i.exec(text);
   if (recommendation) return { hint: "recommendation.extract", label: "Recommendation extraction", offset: recommendation.index };
+
+  if (/\/api\/chat-search\/route\.[cm]?[jt]sx?$/i.test(file)) {
+    return { hint: "chat.search", label: "Chat search", offset: 0 };
+  }
+
   return null;
 };
 
@@ -105,7 +116,7 @@ export async function discoverAIProject(
     const text = await context.readText(file);
     if (!text) continue;
 
-    const workflow = workflowFromText(text);
+    const workflow = workflowFromEvidence(file, text);
     if (workflow) {
       const line = lineNumber(text, workflow.offset);
       pushUnique(signals, {
@@ -136,7 +147,7 @@ export async function discoverAIProject(
       const match = pattern.regex.exec(text);
       if (!match) continue;
       const line = lineNumber(text, match.index);
-      const localWorkflow = workflowFromText(text);
+      const localWorkflow = workflowFromEvidence(file, text);
       pushUnique(signals, {
         id: idFor("model-call", file, line),
         kind: "model_call",
