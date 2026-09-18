@@ -114,7 +114,7 @@ export const ObservationSchema = z.object({
   title: z.string().min(1),
   summary: z.string().min(1),
   evidence: z.array(EvidenceSchema).min(1),
-  resolvesCheckIds: z.array(z.string().min(1)).default([])
+  resolvesCheckIds: z.array(z.string().min(1)).optional()
 });
 export type Observation = z.infer<typeof ObservationSchema>;
 
