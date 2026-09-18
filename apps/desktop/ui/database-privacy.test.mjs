@@ -22,8 +22,8 @@ const report = {
   checks: [],
 };
 
-test("database diagnostics retain consent metadata but never the connection string", () => {
-  const entry = createSuccessDiagnostic({
+test("database diagnostics retain consent metadata but never the connection string", async () => {
+  const entry = await createSuccessDiagnostic({
     report,
     sourceMode: "runtime",
     sourceValue: "https://example.com/app",

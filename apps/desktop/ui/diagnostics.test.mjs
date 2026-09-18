@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   appendDiagnostic,
+  compareWithPreviousDiagnostics,
   createFailureDiagnostic,
   createSuccessDiagnostic,
   formatDiagnostics,
@@ -29,8 +30,28 @@ const suppressedRationale = "Accepted temporarily because this exact scheduler i
 const report = {
   generatedAt: "2026-09-04T19:45:00.000Z",
   tool: { version: "0.0.0-alpha.7" },
-  project: { gitRepository: true, inventorySource: "git-tracked", fileCount: 94 },
+  project: {
+    gitRepository: true,
+    inventorySource: "git-tracked",
+    fileCount: 94,
+    snapshot: {
+      inventory: {
+        fingerprint: {
+          algorithm: "sha256",
+          scope: "source-inventory-v1",
+          value: "a".repeat(64),
+          completeness: "complete",
+          entryCount: 94,
+          hashedEntryCount: 94,
+          skippedEntryCount: 0,
+        },
+      },
+    },
+  },
   summary: { total: 1, suppressed: 1, critical: 0, high: 1, medium: 0, low: 0, info: 0 },
+  findings: [
+    { id: "secure.secret-pattern:src/private.ts:2:OpenAI-style API key" },
+  ],
   suppressedFindings: [{
     finding: {
       id: "cost.vercel-cron-frequency:0:/api/private",
@@ -96,8 +117,8 @@ test("runtime source labels retain only the host, not path or query strings", ()
   assert.equal(safeSourceLabel("runtime", "https://example.com:8443/app"), "example.com:8443");
 });
 
-test("successful diagnostics keep scan consent, counts and rule versions but not suppressed or observed details", () => {
-  const entry = createSuccessDiagnostic({
+test("successful diagnostics keep scan consent, counts and rule versions but not suppressed or observed details", async () => {
+  const entry = await createSuccessDiagnostic({
     report,
     sourceMode: "local",
     sourceValue: "C:\\Users\\tom\\signals",
@@ -108,6 +129,13 @@ test("successful diagnostics keep scan consent, counts and rule versions but not
   });
 
   assert.equal(entry.source.label, "signals");
+  assert.match(entry.source.identity, /^[a-f0-9]{64}$/);
+  assert.equal(entry.source.fingerprint.value, "a".repeat(64));
+  assert.equal(entry.source.fingerprint.completeness, "complete");
+  assert.equal(entry.findingIdentities.length, 1);
+  assert.equal(entry.gapIdentities.length, 1);
+  assert.match(entry.findingIdentities[0], /^[a-f0-9]{64}$/);
+  assert.match(entry.gapIdentities[0], /^[a-f0-9]{64}$/);
   assert.equal(entry.fileCount, 94);
   assert.equal(entry.inventorySource, "git-tracked");
   assert.equal(entry.elapsedMs, 124);
@@ -135,6 +163,9 @@ test("successful diagnostics keep scan consent, counts and rule versions but not
   assert.doesNotMatch(JSON.stringify(entry), /app\/api\/private\/route\.ts/);
   assert.doesNotMatch(JSON.stringify(entry), /Server request surfaces discovered/);
   assert.doesNotMatch(JSON.stringify(entry), /token=secret/);
+  assert.doesNotMatch(JSON.stringify(entry), /C:\\Users\\tom\\signals/);
+  assert.doesNotMatch(JSON.stringify(entry), /secure\.secret-pattern:src\/private\.ts/);
+  assert.doesNotMatch(JSON.stringify(entry), /production\.next-security-headers:next\.config\.ts/);
   assert.match(formatReceipt(entry), /94 files · 4 checks · git-tracked/);
   assert.match(formatReceipt(entry), /live deployment evidence: on/);
   assert.match(formatReceipt(entry), /local Semgrep scan: on/);
@@ -145,7 +176,7 @@ test("successful diagnostics keep scan consent, counts and rule versions but not
   assert.match(formatReceipt(entry), /not-assessed\s+runtime/);
 });
 
-test("resolved question diagnostics keep counts but not resolved-gap details", () => {
+test("resolved question diagnostics keep counts but not resolved-gap details", async () => {
   const privateResolutionSummary = "Private resolution detail that must not be stored.";
   const resolvedReport = {
     ...report,
@@ -165,7 +196,7 @@ test("resolved question diagnostics keep counts but not resolved-gap details", (
       : check),
   };
 
-  const entry = createSuccessDiagnostic({
+  const entry = await createSuccessDiagnostic({
     report: resolvedReport,
     sourceMode: "local",
     sourceValue: "/home/tom/signals",
@@ -184,8 +215,8 @@ test("resolved question diagnostics keep counts but not resolved-gap details", (
   assert.match(formatReceipt(entry), /production\.next-security-headers@1 · 0 findings · 0 suppressed · 0 gaps · 1 resolved gaps/);
 });
 
-test("deep and deployment scan consent defaults off in diagnostic metadata", () => {
-  const entry = createSuccessDiagnostic({
+test("deep and deployment scan consent defaults off in diagnostic metadata", async () => {
+  const entry = await createSuccessDiagnostic({
     report,
     sourceMode: "local",
     sourceValue: "/home/tom/signals",
@@ -199,6 +230,153 @@ test("deep and deployment scan consent defaults off in diagnostic metadata", () 
   assert.match(formatReceipt(entry), /live deployment evidence: off/);
   assert.match(formatReceipt(entry), /local Semgrep scan: off/);
   assert.match(formatReceipt(entry), /dependency network scan: off/);
+});
+
+test("comparable scans report new, persistent and resolved findings and gaps without raw IDs", async () => {
+  const baselineReport = {
+    ...report,
+    findings: [
+      { id: "secure.secret-pattern:src/persistent.ts:2:key" },
+      { id: "secure.wildcard-cors:src/resolved.ts" },
+    ],
+    gaps: [
+      { id: "production.next-security-headers:next.config.ts" },
+      { id: "secure.webhook-signature-verification:app/api/old/route.ts" },
+    ],
+  };
+  const currentReport = {
+    ...report,
+    project: {
+      ...report.project,
+      snapshot: {
+        inventory: {
+          fingerprint: {
+            ...report.project.snapshot.inventory.fingerprint,
+            value: "b".repeat(64),
+          },
+        },
+      },
+    },
+    findings: [
+      { id: "secure.secret-pattern:src/persistent.ts:2:key" },
+      { id: "secure.paid-endpoint-abuse-control:app/api/new/route.ts" },
+    ],
+    gaps: [
+      { id: "production.next-security-headers:next.config.ts" },
+      { id: "secure.vercel-cron-auth:app/api/cron/route.ts" },
+    ],
+  };
+
+  const baseline = await createSuccessDiagnostic({
+    report: baselineReport,
+    sourceMode: "local",
+    sourceValue: "/home/tom/project",
+    packs: ["secure-build", "production-ready", "cost-aware"],
+    elapsedMs: 10,
+  });
+  const current = await createSuccessDiagnostic({
+    report: currentReport,
+    sourceMode: "local",
+    sourceValue: "/home/tom/project",
+    packs: ["secure-build", "production-ready", "cost-aware"],
+    elapsedMs: 12,
+  });
+
+  const comparison = compareWithPreviousDiagnostics([baseline], current);
+
+  assert.deepEqual(comparison.findings, { introduced: 1, persistent: 1, resolved: 1 });
+  assert.deepEqual(comparison.gaps, { introduced: 1, persistent: 1, resolved: 1 });
+  assert.equal(comparison.snapshot, "changed");
+  assert.equal(comparison.baselineTimestamp, baseline.timestamp);
+  assert.doesNotMatch(JSON.stringify(comparison), /persistent\.ts|resolved\.ts|new\/route|next\.config/);
+});
+
+test("equal partial source fingerprints stay uncertain rather than claiming identical snapshots", async () => {
+  const partialReport = {
+    ...report,
+    project: {
+      ...report.project,
+      snapshot: {
+        inventory: {
+          fingerprint: {
+            ...report.project.snapshot.inventory.fingerprint,
+            completeness: "partial",
+            hashedEntryCount: 93,
+            skippedEntryCount: 1,
+          },
+        },
+      },
+    },
+  };
+  const baseline = await createSuccessDiagnostic({
+    report: partialReport,
+    sourceMode: "archive",
+    sourceValue: "/tmp/project.zip",
+    packs: ["production-ready"],
+    elapsedMs: 5,
+  });
+  const current = await createSuccessDiagnostic({
+    report: partialReport,
+    sourceMode: "archive",
+    sourceValue: "/tmp/project.zip",
+    packs: ["production-ready"],
+    elapsedMs: 6,
+  });
+
+  const comparison = compareWithPreviousDiagnostics([baseline], current);
+  assert.equal(comparison.snapshot, "uncertain");
+});
+
+test("different rule sets are not treated as comparable history", async () => {
+  const baseline = await createSuccessDiagnostic({
+    report,
+    sourceMode: "local",
+    sourceValue: "/home/tom/project",
+    packs: ["secure-build", "production-ready", "cost-aware"],
+    elapsedMs: 5,
+  });
+  const current = await createSuccessDiagnostic({
+    report: {
+      ...report,
+      checks: report.checks.map((check) => check.checkId === "secure.secret-pattern"
+        ? { ...check, checkVersion: "2" }
+        : check),
+    },
+    sourceMode: "local",
+    sourceValue: "/home/tom/project",
+    packs: ["secure-build", "production-ready", "cost-aware"],
+    elapsedMs: 6,
+  });
+
+  assert.equal(compareWithPreviousDiagnostics([baseline], current), null);
+});
+
+test("runtime project identity ignores query strings but distinguishes paths", async () => {
+  const first = await createSuccessDiagnostic({
+    report,
+    sourceMode: "runtime",
+    sourceValue: "https://example.com/app-a?token=secret-one",
+    packs: ["production-ready"],
+    elapsedMs: 5,
+  });
+  const samePath = await createSuccessDiagnostic({
+    report,
+    sourceMode: "runtime",
+    sourceValue: "https://example.com/app-a?token=secret-two",
+    packs: ["production-ready"],
+    elapsedMs: 6,
+  });
+  const otherPath = await createSuccessDiagnostic({
+    report,
+    sourceMode: "runtime",
+    sourceValue: "https://example.com/app-b?token=secret-three",
+    packs: ["production-ready"],
+    elapsedMs: 7,
+  });
+
+  assert.equal(first.source.identity, samePath.source.identity);
+  assert.notEqual(first.source.identity, otherPath.source.identity);
+  assert.doesNotMatch(JSON.stringify(first), /secret-one|\/app-a/);
 });
 
 test("failure diagnostics redact common secret shapes", () => {
@@ -234,10 +412,12 @@ test("diagnostic history is capped to the newest 100 entries", () => {
   assert.match(formatDiagnostics(entries), /observation paths\/details/);
   assert.match(formatDiagnostics(entries), /source contents/);
   assert.match(formatDiagnostics(entries), /deployment URL paths\/query strings/);
+  assert.match(formatDiagnostics(entries), /raw finding\/gap IDs/);
+  assert.match(formatDiagnostics(entries), /SHA-256 digests/);
 });
 
-test('diagnostics retain resolved commit and scanner version without finding details', () => {
-  const entry = createSuccessDiagnostic({ report: {...report, project:{...report.project,commit:'a'.repeat(40)},checks:[{checkId:'secure.secret-pattern',scannerVersion:'8.30.1',status:'passed',findingCount:0,durationMs:1}]}, sourceMode:'github',sourceValue:'owner/repo',packs:[],elapsedMs:1 });
+test('diagnostics retain resolved commit and scanner version without finding details', async () => {
+  const entry = await createSuccessDiagnostic({ report: {...report, project:{...report.project,commit:'a'.repeat(40)},checks:[{checkId:'secure.secret-pattern',scannerVersion:'8.30.1',status:'passed',findingCount:0,durationMs:1}]}, sourceMode:'github',sourceValue:'owner/repo',packs:[],elapsedMs:1 });
   assert.equal(entry.source.commit, 'a'.repeat(40));
   assert.equal(entry.checks[0].scannerVersion, '8.30.1');
   assert.equal(entry.findings, undefined);
