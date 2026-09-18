@@ -329,7 +329,7 @@ function ensureDiagnosticsPanel() {
 
   const copy = document.createElement("p");
   copy.className = "source-help";
-  copy.textContent = "Stored locally for alpha testing. Includes safe project labels, engine/rule versions, selected scan options, evidence-source count, coverage status, timings and check outcomes — never source contents, database connection URLs/credentials, deployment URL paths/query strings, cookie values, suppression/finding details, observation details, evidence excerpts or matched secret values.";
+  copy.textContent = "Stored locally for alpha testing. Includes safe project labels, engine/rule versions, selected scan options, evidence-source count, coverage status, timings, check outcomes and opaque SHA-256 identities used for local regression comparison — never source contents, raw local paths, raw finding/gap IDs, database connection URLs/credentials, deployment query strings, cookie values, finding details, observation details, evidence excerpts or matched secret values.";
   panel.append(copy);
 
   const receipt = document.createElement("pre");
@@ -375,6 +375,7 @@ function ensureDiagnosticsPanel() {
   clearButton.addEventListener("click", () => {
     clearDiagnostics(window.localStorage);
     renderDiagnostics(null, 0);
+    renderHistoryComparison(null);
   });
 }
 
