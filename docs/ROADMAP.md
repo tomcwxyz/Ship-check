@@ -210,7 +210,7 @@ Goal: stop treating `repository` as the only useful unit of inspection without w
 ### Still to do
 
 - [ ] Add bounded tar/archive formats only if real hosted-builder/export journeys require them; ZIP is the current first-class export path.
-- [ ] Extend execution provenance to CI-provided and managed-hosted runners when those execution modes land.
+- [x] Extend execution provenance to CI-provided source: the GitHub Action records `acquisition: ci`, `executionLocation: ci-runner` and `ci-context`; managed-hosted provenance remains future work.
 - [x] Define bounded source fingerprinting for comparable history without retaining source content: `source-inventory-v1` records only an aggregate SHA-256 digest plus completeness/count metadata, and partial fingerprints never claim identical snapshots.
 - [ ] Add explicit parity tests across future local, CI and managed execution locations rather than assuming equivalent results.
 
@@ -222,7 +222,7 @@ Goal: create useful Cloud Ship Check without requiring source code to enter Ship
 - [ ] Optional report sync from local CLI/desktop with user-selectable data boundary: metadata only, structured findings, or bounded evidence.
 - [ ] Project timeline showing newly introduced, persistent, resolved and accepted findings/gaps across comparable scans.
 - [ ] GitHub App for repository/project association, webhook triggers and PR/release status surfaces.
-- [ ] Ship Check CI runner/Action using the canonical engine inside the repository owner's CI environment.
+- [x] Ship Check GitHub Action using the canonical engine inside the repository owner's CI runner, with source remaining in the caller checkout, explicit CI provenance, bounded step-summary metadata and a portable JSON report retained in the caller workspace.
 - [ ] PR change summaries that distinguish new findings, newly exposed surfaces, resolved controls and still-unverified boundaries.
 - [ ] Team review state for accepted exceptions, verification notes and evidence history without turning Ship Check into a generic issue tracker.
 - [ ] Keep metadata-only organisational assurance output available as the narrowest cloud sync mode.
