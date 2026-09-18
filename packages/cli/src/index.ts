@@ -11,9 +11,11 @@ import { serverSurfaceInventoryCheck } from "@ship-check/checks/inventory";
 import { calibratedPaidEndpointCheck } from "@ship-check/checks/paid";
 import { importAwareSurfaceChecks, replacedSurfaceCheckIds } from "@ship-check/checks/surface";
 import { scanProject, type CheckDefinition } from "@ship-check/core";
+import { parseRuntimeTargetUrl, scanRuntimeTarget } from "@ship-check/core/runtime";
 import { costAwareChecks } from "@ship-check/cost-checks";
 import { deepChecksForPacks } from "@ship-check/deep-checks";
 import { semgrepLocalCheck } from "@ship-check/deep-checks/semgrep";
+import { runtimeHttpChecks } from "@ship-check/runtime-checks";
 import {
   AssuranceGateIdSchema,
   CheckPackSchema,
@@ -23,9 +25,9 @@ import {
   type ScanReport,
   type Severity
 } from "@ship-check/schemas";
-import { prepareRepositorySource } from "./repositorySource.js";
+import { parseGithubRepository, prepareRepositorySource } from "./repositorySource.js";
 
-const version = "0.0.0-alpha.6";
+const version = "0.0.0-alpha.7";
 const severityRank: Record<Severity, number> = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 const areaNames: Record<AssessmentArea, string> = {
   secrets: "Secrets",
@@ -39,7 +41,7 @@ const areaNames: Record<AssessmentArea, string> = {
 };
 
 function usage(): string {
-  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-or-github-repo] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--local-semgrep-scan] [--networked-dependency-scan] [--format pretty|json|rack|oos] [--fail-on critical|high|medium|low|never]\n\nRepository sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  Server-boundary checks trace a bounded local import graph so auth, webhook verification, paid work, object-level authorisation questions and outbound-request questions can include shared helpers.\n  Production Ready records positive server-surface observations separately from findings and checks selected GitHub Actions supply-chain boundaries.\n  --local-semgrep-scan opts into Ship Check's small pinned local Semgrep ruleset and requires Secure Build. It stays offline, disables Semgrep metrics/version checks and never uses Registry/auto rules. Semgrep itself is not bundled in the alpha desktop; use a compatible local CLI or SHIP_CHECK_SEMGREP_PATH.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.\n\nAccepted exceptions:\n  A tracked .ship-check.json may suppress an exact finding ID only when it also names the matching rule version and a substantive rationale. Suppressed findings remain visible in the report and rule-version changes invalidate old suppressions.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan . --pack secure-build --local-semgrep-scan\n  ship-check scan . --networked-dependency-scan\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n`;
+  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-source] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--local-semgrep-scan] [--networked-dependency-scan] [--format pretty|json|rack|oos] [--fail-on critical|high|medium|low|never]\n\nProject sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  Exported project: C:\\path\\to\\project.zip\n  Deployment URL: https://example.com\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nRuntime URL checks:\n  Deployment URLs use a bounded, non-mutating GET probe with manual redirect following. Ship Check records transport, selected browser security headers, cookie flags and a synthetic CORS Origin response. It does not retain response bodies or cookie values. Source/database checks remain not assessed when their evidence is unavailable.\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  Server-boundary checks trace a bounded local import graph so auth, webhook verification, paid work, object-level authorisation questions and outbound-request questions can include shared helpers.\n  Production Ready records positive server-surface observations separately from findings and checks selected GitHub Actions supply-chain boundaries.\n  --local-semgrep-scan opts into Ship Check's small pinned local Semgrep ruleset and requires Secure Build. It stays offline, disables Semgrep metrics/version checks and never uses Registry/auto rules. Semgrep itself is not bundled in the alpha desktop; use a compatible local CLI or SHIP_CHECK_SEMGREP_PATH.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.\n\nAccepted exceptions:\n  A tracked .ship-check.json may suppress an exact finding ID only when it also names the matching rule version and a substantive rationale. Suppressed findings remain visible in the report and rule-version changes invalidate old suppressions. Runtime-only URL scans do not load repository suppression configuration.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan ./lovable-export.zip\n  ship-check scan https://example.com\n  ship-check scan . --pack secure-build --local-semgrep-scan\n  ship-check scan . --networked-dependency-scan\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n`;
 }
 
 function checkVersionFor(report: ScanReport, checkId: string): string {
@@ -50,11 +52,16 @@ function printPretty(report: ScanReport): void {
   const gaps = report.gaps ?? [];
   const observations = report.observations ?? [];
   const suppressions = report.suppressedFindings ?? [];
+  const notAssessed = report.checks.filter((check) => check.status === "not-assessed");
+  const source = report.project.snapshot?.source;
   console.log(`Ship Check · ${report.project.path}`);
-  console.log(`${report.checks.length} checks · ${report.summary.total} findings · ${suppressions.length} suppressed · ${gaps.length} unverified · ${observations.length} observed · ${report.summary.critical} critical · ${report.summary.high} high · ${report.summary.medium} medium`);
+  if (source) {
+    console.log(`Source: ${source.type} · ${source.provider} · ${source.acquisition} · ${source.executionLocation}`);
+  }
+  console.log(`${report.checks.length} checks · ${report.summary.total} findings · ${suppressions.length} suppressed · ${gaps.length} unverified · ${notAssessed.length} not assessed · ${observations.length} observed · ${report.summary.critical} critical · ${report.summary.high} high · ${report.summary.medium} medium`);
 
   if (report.findings.length === 0) {
-    console.log("\nNo active findings in assessed areas. This does not mean the repository has been fully assessed or has no accepted exceptions.");
+    console.log("\nNo active findings in assessed areas. This does not mean the project has been fully assessed or has no accepted exceptions.");
   } else {
     for (const finding of report.findings) {
       console.log(`\n[${finding.severity.toUpperCase()}] ${finding.title}`);
@@ -83,12 +90,13 @@ function printPretty(report: ScanReport): void {
   }
 
   if (observations.length > 0) {
-    console.log("\nObserved repository surfaces");
+    console.log("\nObserved evidence");
     for (const observation of observations) {
       console.log(`- ${observation.title} [${areaNames[observation.area]}]`);
       console.log(`  ${observation.summary}`);
       const first = observation.evidence[0];
       if (first?.path) console.log(`  Example: ${first.path} — ${first.detail}`);
+      else if (first) console.log(`  Evidence: ${first.detail}`);
     }
   }
 
@@ -99,7 +107,15 @@ function printPretty(report: ScanReport): void {
       console.log(`- ${assessmentGap.title} [${areaNames[assessmentGap.area]}]`);
       console.log(`  ${assessmentGap.summary}`);
       if (evidence.path) console.log(`  Evidence: ${evidence.path}${evidence.line ? `:${evidence.line}` : ""} — ${evidence.detail}`);
+      else console.log(`  Evidence: ${evidence.detail}`);
       console.log(`  Verify: ${assessmentGap.verify}`);
+    }
+  }
+
+  if (notAssessed.length > 0) {
+    console.log("\nChecks not assessed with this evidence source");
+    for (const check of notAssessed) {
+      console.log(`- ${check.checkId}: missing ${check.missingEvidence.join(", ") || "required evidence"}`);
     }
   }
 
@@ -110,7 +126,7 @@ function printPretty(report: ScanReport): void {
     }
   }
 
-  console.log("\nShip Check reports repository evidence, not security or compliance certification.");
+  console.log("\nShip Check reports bounded project evidence, not security or compliance certification.");
 }
 
 function checksForRequestedPacks(
@@ -136,6 +152,41 @@ function checksForRequestedPacks(
     ...deepChecksForPacks(packs, { networkedDependencyScan: options.networkedDependencyScan }),
     ...(packs.includes("secure-build") && options.localSemgrepScan ? [semgrepLocalCheck] : [])
   ];
+}
+
+function isRuntimeUrlSource(value: string): boolean {
+  if (parseGithubRepository(value)) return false;
+  return parseRuntimeTargetUrl(value) !== null;
+}
+
+function renderReport(
+  report: ScanReport,
+  values: Record<string, string | boolean | string[] | undefined>,
+  gateId: AssuranceGateId,
+  gateThreshold: Severity,
+  failOn: string
+): void {
+  if (values.format === "json") {
+    console.log(JSON.stringify(report, null, 2));
+  } else if (values.format === "rack") {
+    if (!values["step-id"]) throw new Error("--format rack requires --step-id.");
+    const gate = evaluateAssuranceGate(report, { gateId, threshold: gateThreshold });
+    console.log(JSON.stringify(toRackStepResult(String(values["step-id"]), gate), null, 2));
+    if (gate.outcome === "fail") process.exitCode = 2;
+    else if (gate.outcome === "incomplete") process.exitCode = 3;
+  } else if (values.format === "oos") {
+    const gate = evaluateAssuranceGate(report, { gateId, threshold: gateThreshold });
+    console.log(JSON.stringify(toOrganisationalAssuranceSummary(report, gate), null, 2));
+  } else {
+    printPretty(report);
+  }
+
+  if (values.format !== "rack" && failOn !== "never") {
+    const threshold = severityRank[failOn as Severity];
+    if (report.findings.some((finding) => severityRank[finding.severity] >= threshold)) {
+      process.exitCode = 2;
+    }
+  }
 }
 
 async function main(): Promise<void> {
@@ -188,36 +239,32 @@ async function main(): Promise<void> {
     throw new Error("--networked-dependency-scan requires the production-ready pack because OSV findings belong to Production Ready.");
   }
 
-  const source = await prepareRepositorySource(positionals[1] ?? ".", { ref: values.ref });
+  const sourceValue = positionals[1] ?? ".";
+  const sourceChecks = checksForRequestedPacks(requestedPacks, { networkedDependencyScan, localSemgrepScan });
+
+  if (isRuntimeUrlSource(sourceValue)) {
+    if (values.ref) throw new Error("--ref applies to GitHub repository sources, not deployment URLs.");
+    if (localSemgrepScan) throw new Error("--local-semgrep-scan requires source files and cannot run against a deployment URL alone.");
+    if (networkedDependencyScan) throw new Error("--networked-dependency-scan requires dependency manifests and cannot run against a deployment URL alone.");
+    const report = await scanRuntimeTarget(
+      sourceValue,
+      sourceChecks,
+      runtimeHttpChecks.filter((check) => requestedPacks.includes(check.pack)),
+      version
+    );
+    renderReport(report, values, gateId, gateThreshold, failOn);
+    return;
+  }
+
+  const source = await prepareRepositorySource(sourceValue, { ref: values.ref });
   try {
     const report = await scanProject(
       source.projectPath,
-      checksForRequestedPacks(requestedPacks, { networkedDependencyScan, localSemgrepScan }),
+      sourceChecks,
       version,
       source.sourceInput
     );
-
-    if (values.format === "json") {
-      console.log(JSON.stringify(report, null, 2));
-    } else if (values.format === "rack") {
-      if (!values["step-id"]) throw new Error("--format rack requires --step-id.");
-      const gate = evaluateAssuranceGate(report, { gateId, threshold: gateThreshold });
-      console.log(JSON.stringify(toRackStepResult(values["step-id"], gate), null, 2));
-      if (gate.outcome === "fail") process.exitCode = 2;
-      else if (gate.outcome === "incomplete") process.exitCode = 3;
-    } else if (values.format === "oos") {
-      const gate = evaluateAssuranceGate(report, { gateId, threshold: gateThreshold });
-      console.log(JSON.stringify(toOrganisationalAssuranceSummary(report, gate), null, 2));
-    } else {
-      printPretty(report);
-    }
-
-    if (values.format !== "rack" && failOn !== "never") {
-      const threshold = severityRank[failOn as Severity];
-      if (report.findings.some((finding) => severityRank[finding.severity] >= threshold)) {
-        process.exitCode = 2;
-      }
-    }
+    renderReport(report, values, gateId, gateThreshold, failOn);
   } finally {
     await source.cleanup();
   }
