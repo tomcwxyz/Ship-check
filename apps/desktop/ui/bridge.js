@@ -6,10 +6,9 @@ function invokeCommand(command, args) {
   return invoke(command, args);
 }
 
-function scanRequest(projectPath, packs, options = {}, databaseConnectionString = "") {
+function commonScanRequest(packs, options = {}, databaseConnectionString = "") {
   const databaseInspection = Boolean(options.databaseInspection);
   return {
-    projectPath,
     deploymentUrl: options.deploymentUrl?.trim() || null,
     packs,
     localSemgrepScan: Boolean(options.localSemgrepScan),
@@ -36,7 +35,10 @@ export const desktopBridge = {
 
   scanProject(projectPath, packs, options = {}, databaseConnectionString = "") {
     return invokeCommand("scan_project", {
-      request: scanRequest(projectPath, packs, options, databaseConnectionString),
+      request: {
+        projectPath,
+        ...commonScanRequest(packs, options, databaseConnectionString),
+      },
     });
   },
 
@@ -45,8 +47,7 @@ export const desktopBridge = {
       request: {
         repository,
         gitRef: gitRef || null,
-        ...scanRequest("", packs, options, databaseConnectionString),
-        projectPath: undefined,
+        ...commonScanRequest(packs, options, databaseConnectionString),
       },
     });
   },
