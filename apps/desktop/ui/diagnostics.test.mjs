@@ -28,7 +28,7 @@ function memoryStorage() {
 const suppressedRationale = "Accepted temporarily because this exact scheduler is measured and deliberately lightweight.";
 const report = {
   generatedAt: "2026-09-04T19:45:00.000Z",
-  tool: { version: "0.0.0-alpha.6" },
+  tool: { version: "0.0.0-alpha.7" },
   project: { gitRepository: true, inventorySource: "git-tracked", fileCount: 94 },
   summary: { total: 1, suppressed: 1, critical: 0, high: 1, medium: 0, low: 0, info: 0 },
   suppressedFindings: [{
@@ -85,9 +85,15 @@ const report = {
   ],
 };
 
-test("local source labels do not retain the full machine path", () => {
+test("local and archive source labels do not retain the full machine path", () => {
   assert.equal(safeSourceLabel("local", "C:\\Users\\tom\\signals"), "signals");
   assert.equal(safeSourceLabel("local", "/home/tom/signals"), "signals");
+  assert.equal(safeSourceLabel("archive", "C:\\Users\\tom\\lovable-export.zip"), "lovable-export.zip");
+});
+
+test("runtime source labels retain only the host, not path or query strings", () => {
+  assert.equal(safeSourceLabel("runtime", "https://example.com/private?token=secret"), "example.com");
+  assert.equal(safeSourceLabel("runtime", "https://example.com:8443/app"), "example.com:8443");
 });
 
 test("successful diagnostics keep scan consent, counts and rule versions but not suppressed or observed details", () => {
@@ -97,7 +103,7 @@ test("successful diagnostics keep scan consent, counts and rule versions but not
     sourceValue: "C:\\Users\\tom\\signals",
     gitRef: "",
     packs: ["secure-build", "production-ready", "cost-aware"],
-    options: { localSemgrepScan: true, networkedDependencyScan: true },
+    options: { localSemgrepScan: true, networkedDependencyScan: true, deploymentUrl: "https://example.com/private?token=secret" },
     elapsedMs: 123.6,
   });
 
@@ -107,8 +113,10 @@ test("successful diagnostics keep scan consent, counts and rule versions but not
   assert.equal(entry.elapsedMs, 124);
   assert.equal(entry.options.localSemgrepScan, true);
   assert.equal(entry.options.networkedDependencyScan, true);
+  assert.equal(entry.options.deploymentEvidence, true);
   assert.equal(entry.suppressedCount, 1);
   assert.equal(entry.unverifiedCount, 1);
+  assert.equal(entry.notAssessedCount, 0);
   assert.equal(entry.observedCount, 1);
   assert.equal(entry.coverage.length, 2);
   assert.equal(entry.checks[1].gapCount, 1);
@@ -124,16 +132,18 @@ test("successful diagnostics keep scan consent, counts and rule versions but not
   assert.doesNotMatch(JSON.stringify(entry), /Private suppressed detail/);
   assert.doesNotMatch(JSON.stringify(entry), /app\/api\/private\/route\.ts/);
   assert.doesNotMatch(JSON.stringify(entry), /Server request surfaces discovered/);
+  assert.doesNotMatch(JSON.stringify(entry), /token=secret/);
   assert.match(formatReceipt(entry), /94 files · 4 checks · git-tracked/);
+  assert.match(formatReceipt(entry), /live deployment evidence: on/);
   assert.match(formatReceipt(entry), /local Semgrep scan: on/);
   assert.match(formatReceipt(entry), /dependency network scan: on/);
   assert.match(formatReceipt(entry), /1 suppressed findings/);
   assert.match(formatReceipt(entry), /cost\.vercel-cron-frequency@2/);
-  assert.match(formatReceipt(entry), /1 unverified · 1 observed/);
+  assert.match(formatReceipt(entry), /1 unverified · 0 not assessed · 1 observed/);
   assert.match(formatReceipt(entry), /not-assessed\s+runtime/);
 });
 
-test("deep scan consent defaults off in diagnostic metadata", () => {
+test("deep and deployment scan consent defaults off in diagnostic metadata", () => {
   const entry = createSuccessDiagnostic({
     report,
     sourceMode: "local",
@@ -144,6 +154,8 @@ test("deep scan consent defaults off in diagnostic metadata", () => {
   });
   assert.equal(entry.options.localSemgrepScan, false);
   assert.equal(entry.options.networkedDependencyScan, false);
+  assert.equal(entry.options.deploymentEvidence, false);
+  assert.match(formatReceipt(entry), /live deployment evidence: off/);
   assert.match(formatReceipt(entry), /local Semgrep scan: off/);
   assert.match(formatReceipt(entry), /dependency network scan: off/);
 });
@@ -157,7 +169,7 @@ test("failure diagnostics redact common secret shapes", () => {
     packs: ["secure-build"],
     options: { localSemgrepScan: true, networkedDependencyScan: false },
     elapsedMs: 50,
-    engineVersion: "0.0.0-alpha.6",
+    engineVersion: "0.0.0-alpha.7",
     error: `clone failed with ${secret}`,
   });
 
@@ -179,6 +191,7 @@ test("diagnostic history is capped to the newest 100 entries", () => {
   assert.match(formatDiagnostics(entries), /suppression rationales\/finding details/);
   assert.match(formatDiagnostics(entries), /observation paths\/details/);
   assert.match(formatDiagnostics(entries), /source contents/);
+  assert.match(formatDiagnostics(entries), /deployment URL paths\/query strings/);
 });
 
 test('diagnostics retain resolved commit and scanner version without finding details', () => {

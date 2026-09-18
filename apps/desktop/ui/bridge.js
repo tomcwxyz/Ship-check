@@ -11,6 +11,10 @@ export const desktopBridge = {
     return invokeCommand("choose_project");
   },
 
+  chooseProjectArchive() {
+    return invokeCommand("choose_project_archive");
+  },
+
   engineStatus() {
     return invokeCommand("engine_status");
   },
@@ -19,6 +23,7 @@ export const desktopBridge = {
     return invokeCommand("scan_project", {
       request: {
         projectPath,
+        deploymentUrl: options.deploymentUrl?.trim() || null,
         packs,
         localSemgrepScan: Boolean(options.localSemgrepScan),
         networkedDependencyScan: Boolean(options.networkedDependencyScan),
@@ -31,6 +36,7 @@ export const desktopBridge = {
       request: {
         repository,
         gitRef: gitRef || null,
+        deploymentUrl: options.deploymentUrl?.trim() || null,
         packs,
         localSemgrepScan: Boolean(options.localSemgrepScan),
         networkedDependencyScan: Boolean(options.networkedDependencyScan),

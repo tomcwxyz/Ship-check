@@ -34,8 +34,19 @@ function githubLabel(value) {
   return "github-repository";
 }
 
+function runtimeLabel(value) {
+  try {
+    const url = new URL(String(value ?? ""));
+    return url.port ? `${url.hostname}:${url.port}` : url.hostname;
+  } catch {
+    return "live-site";
+  }
+}
+
 export function safeSourceLabel(sourceMode, value) {
-  return sourceMode === "github" ? githubLabel(value) : localLeaf(value);
+  if (sourceMode === "github") return githubLabel(value);
+  if (sourceMode === "runtime") return runtimeLabel(value);
+  return localLeaf(value);
 }
 
 function safeCheck(check) {
@@ -49,6 +60,7 @@ function safeCheck(check) {
     suppressedCount: check.suppressedCount ?? 0,
     gapCount: check.gapCount ?? 0,
     observationCount: check.observationCount ?? 0,
+    missingEvidence: Array.isArray(check.missingEvidence) ? [...check.missingEvidence] : [],
     durationMs: check.durationMs,
     ...(check.error ? { error: redactSensitiveShapes(check.error) } : {}),
   };
@@ -66,6 +78,7 @@ function safeOptions(options) {
   return {
     localSemgrepScan: Boolean(options?.localSemgrepScan),
     networkedDependencyScan: Boolean(options?.networkedDependencyScan),
+    deploymentEvidence: Boolean(options?.deploymentUrl),
   };
 }
 
@@ -80,6 +93,11 @@ export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRe
       label: safeSourceLabel(sourceMode, sourceValue),
       ...(typeof report?.project?.commit === "string" ? { commit: report.project.commit } : {}),
       ...(sourceMode === "github" && gitRef ? { ref: truncate(gitRef, 200) } : {}),
+      evidenceSourceCount: Array.isArray(report?.project?.evidenceSources)
+        ? report.project.evidenceSources.length
+        : report?.project?.snapshot?.source
+          ? 1
+          : 0,
     },
     inventorySource:
       report.project?.inventorySource ?? (report.project?.gitRepository ? "git-tracked" : "filesystem"),
@@ -91,6 +109,7 @@ export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRe
     suppressedCount: report.suppressedFindings?.length ?? report.summary?.suppressed ?? 0,
     unverifiedCount: report.gaps?.length ?? 0,
     observedCount: report.observations?.length ?? 0,
+    notAssessedCount: report.checks?.filter((check) => check.status === "not-assessed").length ?? 0,
     coverage: (report.coverage ?? []).map(safeCoverage),
     checks: report.checks.map(safeCheck),
   };
@@ -149,6 +168,7 @@ export function formatReceipt(entry) {
     return [
       "Scan failed",
       `${entry.source.kind} · ${entry.source.label}`,
+      `live deployment evidence: ${entry.options?.deploymentEvidence ? "on" : "off"}`,
       `local Semgrep scan: ${entry.options?.localSemgrepScan ? "on" : "off"}`,
       `dependency network scan: ${entry.options?.networkedDependencyScan ? "on" : "off"}`,
       `engine ${entry.toolVersion} · ${entry.elapsedMs} ms`,
@@ -160,18 +180,20 @@ export function formatReceipt(entry) {
   const findings = entry.checks.filter((check) => check.status === "findings").length;
   const suppressedChecks = entry.checks.filter((check) => check.status === "suppressed").length;
   const unverified = entry.checks.filter((check) => check.status === "unverified").length;
+  const notAssessed = entry.checks.filter((check) => check.status === "not-assessed").length;
   const errors = entry.checks.filter((check) => check.status === "error").length;
   const lines = [
     "Scan completed",
     `${entry.source.kind} · ${entry.source.label}${entry.source.ref ? ` · ${entry.source.ref}` : ""}`,
-    `${entry.fileCount} files · ${entry.checks.length} checks · ${entry.inventorySource}`,
+    `${entry.source.evidenceSourceCount ?? 1} evidence source${entry.source.evidenceSourceCount === 1 ? "" : "s"} · ${entry.fileCount} files · ${entry.checks.length} checks · ${entry.inventorySource}`,
+    `live deployment evidence: ${entry.options?.deploymentEvidence ? "on" : "off"}`,
     `local Semgrep scan: ${entry.options?.localSemgrepScan ? "on" : "off"}`,
     `dependency network scan: ${entry.options?.networkedDependencyScan ? "on" : "off"}`,
-    `${passed} passed · ${findings} with findings · ${suppressedChecks} suppression-only · ${entry.suppressedCount ?? 0} suppressed findings · ${unverified} unverified · ${entry.observedCount ?? 0} observed · ${errors} errors · ${entry.elapsedMs} ms`,
+    `${passed} passed · ${findings} with findings · ${suppressedChecks} suppression-only · ${entry.suppressedCount ?? 0} suppressed findings · ${unverified} unverified · ${notAssessed} not assessed · ${entry.observedCount ?? 0} observed · ${errors} errors · ${entry.elapsedMs} ms`,
     `engine ${entry.toolVersion}`,
     "",
     ...entry.checks.map(
-      (check) => `${check.status.padEnd(10)} ${check.checkId}@${check.checkVersion ?? "1"} · ${check.findingCount} findings · ${check.suppressedCount ?? 0} suppressed · ${check.gapCount ?? 0} gaps · ${check.observationCount ?? 0} observed · ${check.durationMs} ms`,
+      (check) => `${check.status.padEnd(12)} ${check.checkId}@${check.checkVersion ?? "1"} · ${check.findingCount} findings · ${check.suppressedCount ?? 0} suppressed · ${check.gapCount ?? 0} gaps · ${check.observationCount ?? 0} observed · ${check.durationMs} ms${check.missingEvidence?.length ? ` · missing ${check.missingEvidence.join(",")}` : ""}`,
     ),
   ];
   if (entry.coverage?.length) {
@@ -185,7 +207,7 @@ export function formatDiagnostics(entries) {
     {
       schemaVersion: "1",
       exportedAt: new Date().toISOString(),
-      note: "Ship Check diagnostics contain scan metadata only: no source contents, suppression rationales/finding details, observation paths/details, evidence excerpts or matched secret values.",
+      note: "Ship Check diagnostics contain scan metadata only: no source contents, suppression rationales/finding details, observation paths/details, evidence excerpts, deployment URL paths/query strings, cookie values or matched secret values.",
       entries,
     },
     null,
