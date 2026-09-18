@@ -10,6 +10,10 @@
     "./multiSource": {
       "types": "./dist/multiSource.d.ts",
       "default": "./dist/multiSource.js"
+    },
+    "./databaseEvidence": {
+      "types": "./dist/databaseEvidence.d.ts",
+      "default": "./dist/databaseEvidence.js"
     }
   },
   "types": "./dist/index.d.ts",
