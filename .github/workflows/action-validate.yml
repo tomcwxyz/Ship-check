@@ -1,0 +1,62 @@
+name: Action validate
+
+on:
+  pull_request:
+    paths:
+      - "action.yml"
+      - "scripts/github-action.mjs"
+      - "packages/cli/**"
+      - "packages/core/**"
+      - "packages/schemas/**"
+      - ".github/workflows/action-validate.yml"
+  push:
+    branches: [main]
+    paths:
+      - "action.yml"
+      - "scripts/github-action.mjs"
+      - "packages/cli/**"
+      - "packages/core/**"
+      - "packages/schemas/**"
+      - ".github/workflows/action-validate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  action:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run local Ship Check action
+        id: ship-check
+        uses: ./
+        with:
+          fail-on: never
+          report-path: .ship-check-ci/report.json
+
+      - name: Verify CI provenance and report boundary
+        env:
+          REPORT_PATH: ${{ steps.ship-check.outputs.report-path }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+
+          const report = JSON.parse(await readFile(process.env.REPORT_PATH, "utf8"));
+          const source = report.project?.snapshot?.source;
+          const fingerprint = report.project?.snapshot?.inventory?.fingerprint;
+
+          assert.equal(source?.provider, "github");
+          assert.equal(source?.acquisition, "ci");
+          assert.equal(source?.executionLocation, "ci-runner");
+          assert.equal(source?.ephemeral, true);
+          assert.ok(source?.capabilities?.includes("ci-context"));
+          assert.equal(report.project?.path, process.env.GITHUB_REPOSITORY);
+          assert.match(fingerprint?.value ?? "", /^[a-f0-9]{64}$/);
+          assert.ok(["complete", "partial"].includes(fingerprint?.completeness));
+
+          const serialised = JSON.stringify(report);
+          assert.equal(serialised.includes(process.env.GITHUB_WORKSPACE), false);
+          NODE

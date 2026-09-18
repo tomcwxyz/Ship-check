@@ -29,7 +29,11 @@ import {
   type Severity
 } from "@ship-check/schemas";
 import { resolveDatabaseInspection, scanConfiguredDatabase } from "./databaseInspection.js";
-import { parseGithubRepository, prepareRepositorySource } from "./repositorySource.js";
+import {
+  parseGithubRepository,
+  prepareRepositorySource,
+  sourceExecutionContextFromEnvironment
+} from "./repositorySource.js";
 
 const version = "0.0.0-alpha.7";
 const severityRank: Record<Severity, number> = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
@@ -302,7 +306,10 @@ async function main(): Promise<void> {
     return;
   }
 
-  const source = await prepareRepositorySource(sourceValue, { ref: values.ref });
+  const source = await prepareRepositorySource(sourceValue, {
+    ref: values.ref,
+    executionContext: sourceExecutionContextFromEnvironment()
+  });
   try {
     const sourceReport = await scanProject(
       source.projectPath,
