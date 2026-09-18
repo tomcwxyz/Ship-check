@@ -8,6 +8,13 @@ import { prepareArchiveSource } from "./archiveSource.js";
 
 const execFileAsync = promisify(execFile);
 
+export type SourceExecutionContext = {
+  id?: string;
+  provider: string;
+  label: string;
+  ref?: string;
+};
+
 export type PreparedRepositorySource = {
   kind: "local" | "github" | "archive";
   projectPath: string;
@@ -97,25 +104,70 @@ async function localDirectory(value: string): Promise<string | null> {
   }
 }
 
+export function sourceExecutionContextFromEnvironment(
+  environment: NodeJS.ProcessEnv = process.env,
+): SourceExecutionContext | undefined {
+  if (environment.SHIP_CHECK_EXECUTION_LOCATION !== "ci-runner") return undefined;
+
+  const provider = environment.SHIP_CHECK_SOURCE_PROVIDER?.trim();
+  const label = environment.SHIP_CHECK_SOURCE_LABEL?.trim();
+  const ref = environment.SHIP_CHECK_SOURCE_REF?.trim();
+  const id = environment.SHIP_CHECK_SOURCE_ID?.trim();
+
+  if (!provider || !label) {
+    throw new Error(
+      "CI source provenance requires SHIP_CHECK_SOURCE_PROVIDER and SHIP_CHECK_SOURCE_LABEL.",
+    );
+  }
+  if (!/^[a-z][a-z0-9-]*$/.test(provider)) {
+    throw new Error("SHIP_CHECK_SOURCE_PROVIDER must be a stable lowercase provider ID.");
+  }
+  for (const [name, value] of [["SHIP_CHECK_SOURCE_LABEL", label], ["SHIP_CHECK_SOURCE_REF", ref], ["SHIP_CHECK_SOURCE_ID", id]] as const) {
+    if (value && (value.length > 500 || /[\r\n\0]/.test(value))) {
+      throw new Error(`${name} contains an unsafe or excessively long value.`);
+    }
+  }
+
+  return {
+    ...(id ? { id } : {}),
+    provider,
+    label,
+    ...(ref ? { ref } : {}),
+  };
+}
+
 export async function prepareRepositorySource(
   input: string,
-  options: { ref?: string } = {},
+  options: { ref?: string; executionContext?: SourceExecutionContext } = {},
 ): Promise<PreparedRepositorySource> {
   const local = await localDirectory(input);
   if (local) {
+    const executionContext = options.executionContext;
     return {
       kind: "local",
       projectPath: local,
-      displayName: local,
-      sourceInput: {
-        type: "source",
-        provider: "local",
-        label: local,
-        acquisition: "local",
-        executionLocation: "user-device",
-        capabilities: ["source-files"],
-        ephemeral: false
-      },
+      displayName: executionContext?.label ?? local,
+      sourceInput: executionContext
+        ? {
+            ...(executionContext.id ? { id: executionContext.id } : {}),
+            type: "source",
+            provider: executionContext.provider,
+            label: executionContext.label,
+            acquisition: "ci",
+            executionLocation: "ci-runner",
+            capabilities: ["source-files", "ci-context"],
+            ephemeral: true,
+            ...(executionContext.ref ? { ref: executionContext.ref } : {})
+          }
+        : {
+            type: "source",
+            provider: "local",
+            label: local,
+            acquisition: "local",
+            executionLocation: "user-device",
+            capabilities: ["source-files"],
+            ephemeral: false
+          },
       cleanup: async () => {},
     };
   }
