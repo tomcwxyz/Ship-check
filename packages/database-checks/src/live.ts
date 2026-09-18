@@ -36,6 +36,7 @@ function metadataGap(input: {
   checkId: string;
   title: string;
   summary: string;
+  detail: string;
   verify: string;
 }): AssessmentGap {
   return {
@@ -45,10 +46,7 @@ function metadataGap(input: {
     area: "database",
     title: input.title,
     summary: input.summary,
-    evidence: [{
-      kind: "configuration",
-      detail: "The bounded database metadata inventory reached its configured table limit."
-    }],
+    evidence: [{ kind: "configuration", detail: input.detail }],
     verify: input.verify
   };
 }
@@ -87,9 +85,10 @@ export const databaseInspectionBoundaryCheck: DatabaseCheckDefinition = {
   version: "1",
   pack: "production-ready",
   title: "Database inspection boundary",
-  description: "Records that Ship Check received a fixed-query, read-only metadata snapshot with no row data.",
+  description: "Records that Ship Check received a fixed-query, read-only metadata snapshot with no row data and checks whether the inspection credential is narrower than superuser/BYPASSRLS scope.",
   coverage: [{ area: "database", status: "partial" }],
   async run(context) {
+    const elevated = context.metadata.inspection.inspectorSuperuser || context.metadata.inspection.inspectorBypassRls;
     return {
       observations: [verifiedObservation({
         id: `${this.id}:bounded`,
@@ -100,7 +99,17 @@ export const databaseInspectionBoundaryCheck: DatabaseCheckDefinition = {
           kind: "configuration",
           detail: `Inspection contract: read-only transaction = ${context.metadata.inspection.readOnlyTransaction}; fixed metadata queries only = ${context.metadata.inspection.fixedMetadataQueriesOnly}; row data read = ${context.metadata.inspection.rowDataRead}; table limit = ${context.metadata.inspection.tableLimit}; inventory truncated = ${context.metadata.inspection.tablesTruncated}.`
         }]
-      })]
+      })],
+      ...(elevated ? {
+        gaps: [metadataGap({
+          id: `${this.id}:elevated-inspector-credential`,
+          checkId: this.id,
+          title: "Database inspector credential is broader than necessary",
+          summary: "The connection used for metadata inspection has Postgres superuser or BYPASSRLS authority. Ship Check still used a read-only transaction and fixed metadata queries, but a narrower inspection credential would reduce the trust placed in the local inspection path.",
+          detail: `Inspector privilege flags only: superuser = ${context.metadata.inspection.inspectorSuperuser}; BYPASSRLS = ${context.metadata.inspection.inspectorBypassRls}. The role name is not retained.`,
+          verify: "Create or use a dedicated login that can connect and read the required system-catalog metadata without superuser or BYPASSRLS, then rerun the database inspection."
+        })]
+      } : {})
     };
   }
 };
@@ -130,6 +139,7 @@ export const supabaseLiveAccessCheck: DatabaseCheckDefinition = {
             checkId: this.id,
             title: "Database access inventory is incomplete",
             summary: "Ship Check confirmed one or more RLS concerns in the bounded metadata it inspected, but the table inventory was truncated, so additional client-granted tables may not have been assessed.",
+            detail: "The bounded database metadata inventory reached its configured table limit.",
             verify: "Rerun the database metadata inspection with a larger bounded table limit or a narrower database scope before treating the live access review as complete."
           })]
         } : {})
@@ -143,6 +153,7 @@ export const supabaseLiveAccessCheck: DatabaseCheckDefinition = {
           checkId: this.id,
           title: "Database access inventory is incomplete",
           summary: `Ship Check inspected the first ${context.metadata.inspection.tableLimit} eligible database tables without finding an RLS/grant concern, but the inventory was truncated. It therefore cannot verify the complete Supabase client-role boundary.`,
+          detail: "The bounded database metadata inventory reached its configured table limit.",
           verify: "Rerun the database metadata inspection with a larger bounded table limit or a narrower database scope before relying on this access-control result."
         })]
       };
