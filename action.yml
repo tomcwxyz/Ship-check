@@ -1,0 +1,93 @@
+name: Ship Check
+description: Run Ship Check inside the caller's GitHub Actions runner without sending source to Ship Check infrastructure.
+author: The Good Ship
+
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  path:
+    description: Repository-relative project directory to scan.
+    required: false
+    default: "."
+  packs:
+    description: Comma- or space-separated packs: secure-build, production-ready, cost-aware.
+    required: false
+    default: "secure-build,production-ready,cost-aware"
+  fail-on:
+    description: Fail the action when an active finding reaches this severity. Use never to report only.
+    required: false
+    default: "high"
+  report-path:
+    description: Repository-relative path for the JSON report.
+    required: false
+    default: ".ship-check/report.json"
+  deployment-url:
+    description: Optional deployed URL to add bounded runtime evidence to the source review.
+    required: false
+    default: ""
+  networked-dependency-scan:
+    description: Opt into the OSV networked dependency check. Requires production-ready.
+    required: false
+    default: "false"
+
+outputs:
+  report-path:
+    description: Repository-relative path to the generated JSON report.
+    value: ${{ steps.scan.outputs.report-path }}
+  exit-code:
+    description: Ship Check threshold exit code before the action gate is applied.
+    value: ${{ steps.scan.outputs.exit-code }}
+  finding-count:
+    description: Number of active findings in the report.
+    value: ${{ steps.scan.outputs.finding-count }}
+  unverified-count:
+    description: Number of active unanswered controls in the report.
+    value: ${{ steps.scan.outputs.unverified-count }}
+  snapshot-completeness:
+    description: complete, partial or unknown source fingerprint state.
+    value: ${{ steps.scan.outputs.snapshot-completeness }}
+
+runs:
+  using: composite
+  steps:
+    - name: Set up pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 10.15.0
+        run_install: false
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22.12.0"
+
+    - name: Prepare Ship Check
+      shell: bash
+      run: |
+        pnpm --dir "$GITHUB_ACTION_PATH" install --frozen-lockfile
+        pnpm --dir "$GITHUB_ACTION_PATH" build
+
+    - name: Run Ship Check
+      id: scan
+      shell: bash
+      env:
+        INPUT_PATH: ${{ inputs.path }}
+        INPUT_PACKS: ${{ inputs.packs }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_REPORT_PATH: ${{ inputs.report-path }}
+        INPUT_DEPLOYMENT_URL: ${{ inputs.deployment-url }}
+        INPUT_NETWORKED_DEPENDENCY_SCAN: ${{ inputs.networked-dependency-scan }}
+      run: node "$GITHUB_ACTION_PATH/scripts/github-action.mjs"
+
+    - name: Apply Ship Check gate
+      shell: bash
+      env:
+        SHIP_CHECK_EXIT_CODE: ${{ steps.scan.outputs.exit-code }}
+      run: |
+        code="${SHIP_CHECK_EXIT_CODE:-1}"
+        if [ "$code" -ne 0 ]; then
+          echo "Ship Check crossed the configured CI threshold (exit code $code)." >&2
+          exit "$code"
+        fi
