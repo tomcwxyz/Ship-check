@@ -38,7 +38,9 @@ jobs:
             .source.provider == "ship-check" and
             ([.signals[].kind] | index("ai_sdk")) != null and
             ([.signals[].kind] | index("model_call")) != null and
-            ([.signals[] | select(.workflow_hint == "source.extract")] | length) > 0 and
+            ([.signals[] | select(.workflow_hint == "source.extract" and .kind == "model_call" and (.evidence[0].path | startswith("src/")))] | length) > 0 and
+            ([.signals[] | select(.workflow_hint == "chat.search" and .kind == "model_call" and (.evidence[0].path | startswith("src/")))] | length) > 0 and
+            ([.signals[].evidence[].path // "" | select(endswith(".md"))] | length) == 0 and
             (has("purpose") | not) and
             (has("people_affected") | not) and
             (has("authority") | not)
