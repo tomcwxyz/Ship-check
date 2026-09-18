@@ -18,6 +18,10 @@
     "./database": {
       "types": "./dist/database.d.ts",
       "default": "./dist/database.js"
+    },
+    "./ai-discovery": {
+      "types": "./dist/aiDiscovery.d.ts",
+      "default": "./dist/aiDiscovery.js"
     }
   },
   "types": "./dist/index.d.ts",
