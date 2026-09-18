@@ -18,7 +18,8 @@ function verifiedObservation(
   pack: "secure-build" | "production-ready",
   title: string,
   summary: string,
-  detail: string
+  detail: string,
+  resolvesCheckIds: string[] = []
 ): Observation {
   return {
     id: `${checkId}:verified`,
@@ -28,7 +29,8 @@ function verifiedObservation(
     kind: "verified-control",
     title,
     summary,
-    evidence: runtimeEvidence(detail)
+    evidence: runtimeEvidence(detail),
+    resolvesCheckIds
   };
 }
 
@@ -110,6 +112,12 @@ export const responseSecurityHeadersCheck: RuntimeCheckDefinition = {
     }
 
     const missing = expected.filter(([, present]) => !present).map(([name]) => name);
+    const corePolicyHeaders = [
+      ["Content-Security-Policy", Boolean(headers.contentSecurityPolicy)],
+      ["Strict-Transport-Security", Boolean(headers.strictTransportSecurity)],
+      ["X-Content-Type-Options", Boolean(headers.xContentTypeOptions)]
+    ].filter(([, present]) => present).map(([name]) => String(name));
+
     if (missing.length === 0) {
       return {
         observations: [verifiedObservation(
@@ -117,12 +125,25 @@ export const responseSecurityHeadersCheck: RuntimeCheckDefinition = {
           "production-ready",
           "Baseline browser security headers observed",
           "The deployed response included the bounded browser security header set checked by Ship Check.",
-          "CSP, X-Content-Type-Options, Referrer-Policy and applicable HSTS evidence were present."
+          "CSP, X-Content-Type-Options, Referrer-Policy and applicable HSTS evidence were present.",
+          ["production.next-security-headers"]
         )]
       };
     }
 
+    const observations = corePolicyHeaders.length > 0
+      ? [verifiedObservation(
+          "runtime.response-security-headers",
+          "production-ready",
+          "Core security-header policy observed at runtime",
+          "The deployed response proves that a core browser security-header policy exists even though the wider Ship Check runtime baseline is incomplete.",
+          `Observed core header names: ${corePolicyHeaders.join(", ")}. Header values were not retained in this observation.`,
+          ["production.next-security-headers"]
+        )]
+      : [];
+
     return {
+      observations,
       findings: [{
         id: "runtime.response-security-headers:incomplete",
         checkId: "runtime.response-security-headers",

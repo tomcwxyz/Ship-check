@@ -1,12 +1,16 @@
 import {
   type AssessmentArea,
+  type AssessmentGap,
+  type CheckResult,
   type CoverageEntry,
   type Finding,
+  type Observation,
   type ScanReport
 } from "@ship-check/schemas";
 import {
   MultiSourceScanReportSchema,
-  type MultiSourceScanReport
+  type MultiSourceScanReport,
+  type ResolvedAssessmentGap
 } from "@ship-check/schemas/multiSource";
 
 const areas: AssessmentArea[] = [
@@ -66,6 +70,71 @@ function summarise(findings: Finding[], suppressed: number): ScanReport["summary
   return summary;
 }
 
+function resolversForGap(gap: AssessmentGap, observations: Observation[]): Observation[] {
+  return observations.filter((observation) =>
+    observation.kind === "verified-control" &&
+    observation.pack === gap.pack &&
+    (observation.resolvesCheckIds ?? []).includes(gap.checkId)
+  );
+}
+
+function reconcileGaps(
+  gaps: AssessmentGap[],
+  observations: Observation[]
+): { active: AssessmentGap[]; resolved: ResolvedAssessmentGap[] } {
+  const active: AssessmentGap[] = [];
+  const resolved: ResolvedAssessmentGap[] = [];
+
+  for (const gap of gaps) {
+    const resolvers = resolversForGap(gap, observations);
+    if (resolvers.length === 0) {
+      active.push(gap);
+      continue;
+    }
+
+    const resolvedByObservationIds = [...new Set(resolvers.map((observation) => observation.id))].sort();
+    const resolvedByCheckIds = [...new Set(resolvers.map((observation) => observation.checkId))].sort();
+    resolved.push({
+      gap,
+      resolvedByObservationIds,
+      resolvedByCheckIds,
+      summary: `${resolvedByObservationIds.length} verified observation${resolvedByObservationIds.length === 1 ? "" : "s"} from another project evidence source resolved this previously unverified control.`
+    });
+  }
+
+  return {
+    active: active.sort((a, b) => `${a.area}:${a.id}`.localeCompare(`${b.area}:${b.id}`)),
+    resolved: resolved.sort((a, b) => `${a.gap.area}:${a.gap.id}`.localeCompare(`${b.gap.area}:${b.gap.id}`))
+  };
+}
+
+function reconcileChecks(
+  checks: CheckResult[],
+  activeGaps: AssessmentGap[],
+  resolvedGaps: ResolvedAssessmentGap[]
+): CheckResult[] {
+  return checks.map((check) => {
+    const gapCount = activeGaps.filter((gap) => gap.checkId === check.checkId).length;
+    const resolvedGapCount = resolvedGaps.filter((entry) => entry.gap.checkId === check.checkId).length;
+    let status = check.status;
+
+    if (check.status === "unverified") {
+      if (gapCount > 0) status = "unverified";
+      else if (check.findingCount > 0) status = "findings";
+      else if ((check.suppressedCount ?? 0) > 0) status = "suppressed";
+      else if (resolvedGapCount > 0) status = "resolved";
+      else status = "passed";
+    }
+
+    return {
+      ...check,
+      status,
+      gapCount,
+      resolvedGapCount
+    };
+  });
+}
+
 export function combineScanReports(
   primary: ScanReport,
   ...additional: ScanReport[]
@@ -86,17 +155,18 @@ export function combineScanReports(
     throw new Error("Combined project reports need at least two distinct evidence sources with recorded provenance.");
   }
 
-  const checks = uniqueBy(reports.flatMap((report) => report.checks), (check) => check.checkId);
+  const rawChecks = uniqueBy(reports.flatMap((report) => report.checks), (check) => check.checkId);
   const findings = uniqueBy(reports.flatMap((report) => report.findings), (finding) => finding.id)
     .sort((a, b) => `${a.severity}:${a.id}`.localeCompare(`${b.severity}:${b.id}`));
   const suppressedFindings = uniqueBy(
     reports.flatMap((report) => report.suppressedFindings ?? []),
     (entry) => entry.finding.id
   ).sort((a, b) => a.finding.id.localeCompare(b.finding.id));
-  const gaps = uniqueBy(reports.flatMap((report) => report.gaps ?? []), (gap) => gap.id)
-    .sort((a, b) => `${a.area}:${a.id}`.localeCompare(`${b.area}:${b.id}`));
+  const rawGaps = uniqueBy(reports.flatMap((report) => report.gaps ?? []), (gap) => gap.id);
   const observations = uniqueBy(reports.flatMap((report) => report.observations ?? []), (observation) => observation.id)
     .sort((a, b) => `${a.area}:${a.id}`.localeCompare(`${b.area}:${b.id}`));
+  const gapReconciliation = reconcileGaps(rawGaps, observations);
+  const checks = reconcileChecks(rawChecks, gapReconciliation.active, gapReconciliation.resolved);
 
   return MultiSourceScanReportSchema.parse({
     ...primary,
@@ -108,7 +178,8 @@ export function combineScanReports(
     checks,
     findings,
     suppressedFindings,
-    gaps,
+    gaps: gapReconciliation.active,
+    resolvedGaps: gapReconciliation.resolved,
     observations,
     coverage: mergeCoverage(reports),
     summary: summarise(findings, suppressedFindings.length),

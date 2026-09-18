@@ -113,7 +113,8 @@ export const ObservationSchema = z.object({
   kind: ObservationKindSchema,
   title: z.string().min(1),
   summary: z.string().min(1),
-  evidence: z.array(EvidenceSchema).min(1)
+  evidence: z.array(EvidenceSchema).min(1),
+  resolvesCheckIds: z.array(z.string().min(1)).optional()
 });
 export type Observation = z.infer<typeof ObservationSchema>;
 
@@ -131,11 +132,12 @@ export const CheckResultSchema = z.object({
   checkVersion: CheckVersionSchema.default("1"),
   pack: CheckPackSchema,
   principles: z.array(PracticePrincipleIdSchema).default([]),
-  status: z.enum(["passed", "findings", "suppressed", "unverified", "not-assessed", "not-applicable", "error"]),
+  status: z.enum(["passed", "findings", "suppressed", "unverified", "resolved", "not-assessed", "not-applicable", "error"]),
   missingEvidence: z.array(ProjectEvidenceCapabilitySchema).default([]),
   findingCount: z.number().int().nonnegative(),
   suppressedCount: z.number().int().nonnegative().default(0),
   gapCount: z.number().int().nonnegative().default(0),
+  resolvedGapCount: z.number().int().nonnegative().optional(),
   observationCount: z.number().int().nonnegative().default(0),
   durationMs: z.number().nonnegative(),
   error: z.string().optional()
