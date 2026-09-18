@@ -41,6 +41,8 @@ jobs:
             ([.signals[] | select(.workflow_hint == "source.extract" and .kind == "model_call" and (.evidence[0].path | startswith("src/")))] | length) > 0 and
             ([.signals[] | select(.workflow_hint == "chat.search" and .kind == "model_call" and (.evidence[0].path | startswith("src/")))] | length) > 0 and
             ([.signals[].evidence[].path // "" | select(endswith(".md"))] | length) == 0 and
+            ([.signals[].evidence[].path // "" | select(test("(^|/)(tests?|__tests__|fixtures?)(/|$)|\\.(test|spec)\\."))] | length) == 0 and
+            (.signals | length) <= 12 and
             (has("purpose") | not) and
             (has("people_affected") | not) and
             (has("authority") | not)
