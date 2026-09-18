@@ -45,7 +45,7 @@ export type CruxDiscoveryReport = {
   limitations: string[];
 };
 
-const sourceFile = /\.(?:[cm]?[jt]sx?|json|ya?ml)$/i;
+const sourceFile = /\.(?:[cm]?[jt]sx?|py|json|ya?ml)$/i;
 const modelCallPatterns: Array<{ regex: RegExp; label: string; technology: string }> = [
   { regex: /\bgenerateText\s*\(\s*\{/, label: "Vercel AI SDK text generation", technology: "ai" },
   { regex: /\bgenerateObject\s*\(\s*\{/, label: "Vercel AI SDK structured generation", technology: "ai" },
@@ -77,6 +77,21 @@ const workflowFromEvidence = (
 
   if (/\/api\/chat-search\/route\.[cm]?[jt]sx?$/i.test(file)) {
     return { hint: "chat.search", label: "Chat search", offset: 0 };
+  }
+
+  const semanticSegments = new Set([
+    "ask", "chat", "agent", "extract", "extraction", "search",
+    "summarize", "summarise", "classify", "recommend", "recommendation", "review",
+  ]);
+  const segments = file
+    .split("/")
+    .map((segment) => segment.replace(/\.[^.]+$/, "").toLowerCase());
+  const semantic = segments.find((segment) => semanticSegments.has(segment));
+  if (semantic) {
+    const label = semantic
+      .replace(/[-_.]+/g, " ")
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    return { hint: semantic, label, offset: 0 };
   }
 
   return null;
@@ -146,7 +161,8 @@ export async function discoverAIProject(
     (item) =>
       sourceFile.test(item) &&
       !/(?:^|\/)(?:tests?|__tests__|fixtures?)(?:\/|$)/i.test(item) &&
-      !/\.(?:test|spec)\.[cm]?[jt]sx?$/i.test(item),
+      !/\.(?:test|spec)\.[cm]?[jt]sx?$/i.test(item) &&
+      !/(?:^|\/)(?:test_[^/]+|[^/]+_test)\.py$/i.test(item),
   )) {
     const text = await context.readText(file);
     if (!text) continue;
@@ -162,6 +178,24 @@ export async function discoverAIProject(
         workflow_hint: workflow.hint,
         candidate_label: workflow.label,
         evidence: [{ path: file, line, detail: `A named workflow/job boundary ${workflow.hint} is present in source evidence.` }],
+      });
+    }
+
+    const sdkProviderMatch = /(?:from\s+(anthropic|openai)\s+import\b|import\s+(anthropic|openai)\b)/i.exec(text);
+    if (sdkProviderMatch) {
+      const technology = (sdkProviderMatch[1] ?? sdkProviderMatch[2] ?? "ai-provider").toLowerCase();
+      const line = lineNumber(text, sdkProviderMatch.index);
+      const localWorkflow = workflowFromEvidence(file, text);
+      pushUnique(signals, {
+        id: idFor("ai-provider", file, line),
+        kind: "ai_provider",
+        label: `${technology.charAt(0).toUpperCase() + technology.slice(1)} SDK`,
+        confidence: "high",
+        technology,
+        ...(localWorkflow
+          ? { workflow_hint: localWorkflow.hint, candidate_label: localWorkflow.label, scope_hint: "use" as const }
+          : { scope_hint: "shared" as const }),
+        evidence: [{ path: file, line, detail: `${technology} SDK import detected.` }],
       });
     }
 
