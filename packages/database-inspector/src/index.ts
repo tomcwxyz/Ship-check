@@ -138,7 +138,9 @@ function defaultClientFactory(connectionString: string): PostgresInspectorClient
     connectionTimeoutMillis: CONNECTION_TIMEOUT_MS
   });
   return {
-    connect: () => client.connect(),
+    connect: async () => {
+      await client.connect();
+    },
     query: async <Row extends Record<string, unknown>>(text: string, values?: unknown[]) => {
       const result = await client.query(text, values);
       return { rows: result.rows as Row[] };
