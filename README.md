@@ -137,6 +137,27 @@ JSON remains the complete portable report:
 ```bash
 pnpm ship-check -- scan ./my-project --format json > ship-check-report.json
 ```
+## GitHub Actions
+
+Ship Check can run inside the repository owner's GitHub Actions runner using the same canonical engine:
+
+```yaml
+permissions:
+  contents: read
+
+steps:
+  - uses: actions/checkout@v4
+  - uses: tomcwxyz/Ship-check@<pinned-ref>
+    with:
+      fail-on: high
+```
+
+The Action records the checked-out source as `github · ci · ci-runner`, writes the JSON report into the caller workspace, and does not upload source to Ship Check infrastructure. During the alpha, pin an exact reviewed commit or release tag rather than following a mutable branch.
+
+The OSV dependency network check remains opt-in. Report artifact upload is also a separate explicit choice because the full report can contain bounded evidence and repair guidance.
+
+See [`docs/CI.md`](./docs/CI.md) for inputs, outputs and the trust boundary.
+
 
 ## Ecosystem use
 
