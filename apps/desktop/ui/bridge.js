@@ -6,6 +6,21 @@ function invokeCommand(command, args) {
   return invoke(command, args);
 }
 
+function scanRequest(projectPath, packs, options = {}, databaseConnectionString = "") {
+  const databaseInspection = Boolean(options.databaseInspection);
+  return {
+    projectPath,
+    deploymentUrl: options.deploymentUrl?.trim() || null,
+    packs,
+    localSemgrepScan: Boolean(options.localSemgrepScan),
+    networkedDependencyScan: Boolean(options.networkedDependencyScan),
+    inspectDatabase: databaseInspection,
+    databaseConnectionString: databaseInspection ? databaseConnectionString.trim() || null : null,
+    databasePlatform: databaseInspection ? options.databasePlatform || "postgres" : null,
+    databaseTableLimit: databaseInspection ? Number(options.databaseTableLimit || 1000) : null,
+  };
+}
+
 export const desktopBridge = {
   chooseProject() {
     return invokeCommand("choose_project");
@@ -19,27 +34,19 @@ export const desktopBridge = {
     return invokeCommand("engine_status");
   },
 
-  scanProject(projectPath, packs, options = {}) {
+  scanProject(projectPath, packs, options = {}, databaseConnectionString = "") {
     return invokeCommand("scan_project", {
-      request: {
-        projectPath,
-        deploymentUrl: options.deploymentUrl?.trim() || null,
-        packs,
-        localSemgrepScan: Boolean(options.localSemgrepScan),
-        networkedDependencyScan: Boolean(options.networkedDependencyScan),
-      },
+      request: scanRequest(projectPath, packs, options, databaseConnectionString),
     });
   },
 
-  scanGithubRepository(repository, gitRef, packs, options = {}) {
+  scanGithubRepository(repository, gitRef, packs, options = {}, databaseConnectionString = "") {
     return invokeCommand("scan_github_repository", {
       request: {
         repository,
         gitRef: gitRef || null,
-        deploymentUrl: options.deploymentUrl?.trim() || null,
-        packs,
-        localSemgrepScan: Boolean(options.localSemgrepScan),
-        networkedDependencyScan: Boolean(options.networkedDependencyScan),
+        ...scanRequest("", packs, options, databaseConnectionString),
+        projectPath: undefined,
       },
     });
   },
