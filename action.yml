@@ -12,7 +12,7 @@ inputs:
     required: false
     default: "."
   packs:
-    description: Comma- or space-separated packs: secure-build, production-ready, cost-aware.
+    description: "Comma- or space-separated packs: secure-build, production-ready, cost-aware."
     required: false
     default: "secure-build,production-ready,cost-aware"
   fail-on:
