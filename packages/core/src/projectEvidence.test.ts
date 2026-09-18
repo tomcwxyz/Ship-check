@@ -1,9 +1,12 @@
+import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import { afterEach, describe, expect, it } from "vitest";
 import { createProjectContext, scanProject, type CheckDefinition } from "./index.js";
 
+const execFileAsync = promisify(execFile);
 const temporaryRoots: string[] = [];
 
 async function temporaryProject(): Promise<string> {
@@ -33,6 +36,70 @@ describe("project evidence provenance", () => {
       ephemeral: false
     });
     expect(context.snapshot.inventory).toMatchObject({ source: "filesystem", fileCount: 1 });
+  });
+
+
+  it("produces a stable complete fingerprint and changes it when source content changes", async () => {
+    const root = await temporaryProject();
+
+    const first = await createProjectContext(root);
+    const second = await createProjectContext(root);
+
+    expect(first.snapshot.inventory.fingerprint).toMatchObject({
+      algorithm: "sha256",
+      scope: "source-inventory-v1",
+      completeness: "complete",
+      entryCount: 1,
+      hashedEntryCount: 1,
+      skippedEntryCount: 0
+    });
+    expect(second.snapshot.inventory.fingerprint?.value).toBe(first.snapshot.inventory.fingerprint?.value);
+
+    await fs.writeFile(path.join(root, "package.json"), '{"name":"changed"}\n');
+    const changed = await createProjectContext(root);
+
+    expect(changed.snapshot.inventory.fingerprint?.value).not.toBe(first.snapshot.inventory.fingerprint?.value);
+  });
+
+  it("marks the fingerprint partial when an inventory entry exceeds the hashing bound", async () => {
+    const root = await temporaryProject();
+    const largePath = path.join(root, "large.bin");
+    await fs.writeFile(largePath, "");
+    await fs.truncate(largePath, 16 * 1024 * 1024 + 1);
+
+    const context = await createProjectContext(root);
+
+    expect(context.snapshot.inventory.fingerprint).toMatchObject({
+      completeness: "partial",
+      entryCount: 2,
+      hashedEntryCount: 1,
+      skippedEntryCount: 1
+    });
+  });
+
+  it("does not follow a tracked symlink when checks request file text", async () => {
+    if (process.platform === "win32") return;
+
+    const root = await temporaryProject();
+    const outsideRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ship-check-outside-source-test-"));
+    temporaryRoots.push(outsideRoot);
+    const outsideFile = path.join(outsideRoot, "secret.txt");
+    await fs.writeFile(outsideFile, "should-not-be-read\n");
+    await fs.symlink(outsideFile, path.join(root, "linked-secret.txt"));
+
+    await execFileAsync("git", ["-C", root, "init"]);
+    await execFileAsync("git", ["-C", root, "add", "package.json", "linked-secret.txt"]);
+
+    const context = await createProjectContext(root);
+
+    expect(context.files).toContain("linked-secret.txt");
+    expect(await context.readText("linked-secret.txt")).toBeNull();
+    expect(context.snapshot.inventory.fingerprint).toMatchObject({
+      completeness: "complete",
+      entryCount: 2,
+      hashedEntryCount: 2,
+      skippedEntryCount: 0
+    });
   });
 
   it("records an uploaded hosted-builder export without changing the checking engine", async () => {
