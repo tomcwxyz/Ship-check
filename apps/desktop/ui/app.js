@@ -11,8 +11,10 @@ import {
 import {
   appendDiagnostic,
   clearDiagnostics,
+  compareWithPreviousDiagnostics,
   createFailureDiagnostic,
   createSuccessDiagnostic,
+  formatComparison,
   formatDiagnostics,
   formatReceipt,
   readDiagnostics,
@@ -76,6 +78,7 @@ const elements = {
   unverifiedPanel: document.querySelector("#unverified-panel"),
   unverifiedList: document.querySelector("#unverified-list"),
   scanMeta: document.querySelector("#scan-meta"),
+  historySummary: null,
   severityFilters: document.querySelector("#severity-filters"),
   findingsList: document.querySelector("#findings-list"),
   emptyState: document.querySelector("#empty-state"),
@@ -382,13 +385,39 @@ function renderDiagnostics(entry, count) {
   elements.scanReceipt.textContent = formatReceipt(entry);
 }
 
+function ensureHistorySummary() {
+  if (elements.historySummary) return elements.historySummary;
+  const summary = document.createElement("p");
+  summary.className = "source-help";
+  summary.hidden = true;
+  elements.scanMeta.insertAdjacentElement("afterend", summary);
+  elements.historySummary = summary;
+  return summary;
+}
+
+function renderHistoryComparison(comparison) {
+  const summary = ensureHistorySummary();
+  if (!comparison) {
+    summary.textContent = "No comparable local scan yet. The next scan with the same project identity and rule set can show what changed.";
+    summary.hidden = false;
+    return;
+  }
+  const baseline = new Date(comparison.baselineTimestamp);
+  const when = Number.isNaN(baseline.getTime())
+    ? "the previous comparable scan"
+    : baseline.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
+  summary.textContent = `Since ${when}: ${formatComparison(comparison)}.`;
+  summary.hidden = false;
+}
+
 function restoreDiagnostics() {
   const entries = readDiagnostics(window.localStorage);
   renderDiagnostics(entries.at(-1) ?? null, entries.length);
 }
 
-function recordSuccess(report, packs, options, startedAt) {
-  const entry = createSuccessDiagnostic({
+async function recordSuccess(report, packs, options, startedAt) {
+  const previousEntries = readDiagnostics(window.localStorage);
+  const entry = await createSuccessDiagnostic({
     report,
     sourceMode: state.sourceMode,
     sourceValue: currentSourceValue(),
@@ -397,8 +426,12 @@ function recordSuccess(report, packs, options, startedAt) {
     options,
     elapsedMs: performance.now() - startedAt,
   });
+  const comparison = compareWithPreviousDiagnostics(previousEntries, entry);
+  if (comparison) entry.comparison = comparison;
   const entries = appendDiagnostic(window.localStorage, entry);
   renderDiagnostics(entry, entries.length);
+  renderHistoryComparison(comparison);
+  return entry;
 }
 
 function recordFailure(error, packs, options, startedAt) {
@@ -563,7 +596,7 @@ async function runScan() {
       button.classList.toggle("is-active", button.dataset.severity === "all");
     }
     renderReport(report, options);
-    recordSuccess(report, packs, options, startedAt);
+    await recordSuccess(report, packs, options, startedAt);
     elements.results.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
     recordFailure(error, packs, options, startedAt);
