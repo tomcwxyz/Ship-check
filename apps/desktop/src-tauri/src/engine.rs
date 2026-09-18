@@ -432,12 +432,16 @@ mod tests {
     fn database_inspection_is_explicit_and_requires_production_ready() {
         let mut value = request();
         value.database_connection_string = Some("postgresql://reader:secret@example.com/app".to_string());
-        let error = validated_database_inspection(&value, &value.packs).expect_err("explicit consent");
+        let error = validated_database_inspection(&value, &value.packs)
+            .err()
+            .expect("explicit consent");
         assert!(error.contains("explicit database inspection consent"));
 
         value.inspect_database = true;
         value.packs = vec!["secure-build".to_string()];
-        let error = validated_database_inspection(&value, &value.packs).expect_err("production ready");
+        let error = validated_database_inspection(&value, &value.packs)
+            .err()
+            .expect("production ready");
         assert!(error.contains("Production Ready"));
     }
 
