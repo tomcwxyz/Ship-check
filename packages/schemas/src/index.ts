@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { ProjectEvidenceCapabilitySchema, ProjectEvidenceSourceSchema } from "./projectEvidence.js";
+import {
+  ProjectEvidenceCapabilitySchema,
+  ProjectEvidenceSourceSchema,
+  ProjectSnapshotFingerprintSchema
+} from "./projectEvidence.js";
 
 export * from "./projectEvidence.js";
 
@@ -154,7 +158,8 @@ export const ProjectSnapshotSchema = z.object({
   inventory: z.object({
     source: InventorySourceSchema,
     fileCount: z.number().int().nonnegative(),
-    commit: z.string().regex(/^[a-f0-9]{40,64}$/).optional()
+    commit: z.string().regex(/^[a-f0-9]{40,64}$/).optional(),
+    fingerprint: ProjectSnapshotFingerprintSchema.optional()
   }).strict()
 }).strict();
 export type ProjectSnapshot = z.infer<typeof ProjectSnapshotSchema>;
