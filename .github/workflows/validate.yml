@@ -7,7 +7,10 @@ on:
       - "apps/**"
       - "test-fixtures/**"
       - "package.json"
+      - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
+      - "action.yml"
+      - "scripts/github-action.mjs"
       - "tsconfig.base.json"
       - "turbo.json"
       - ".github/workflows/validate.yml"
@@ -20,7 +23,10 @@ on:
       - "apps/**"
       - "test-fixtures/**"
       - "package.json"
+      - "pnpm-lock.yaml"
       - "pnpm-workspace.yaml"
+      - "action.yml"
+      - "scripts/github-action.mjs"
       - "tsconfig.base.json"
       - "turbo.json"
       - ".github/workflows/validate.yml"
@@ -50,7 +56,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-      - run: pnpm install
+      - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
