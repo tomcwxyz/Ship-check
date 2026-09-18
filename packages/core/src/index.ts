@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -19,6 +20,7 @@ import {
   type ProjectEvidenceSource,
   type ProjectEvidenceSourceInput,
   type ProjectSnapshot,
+  type ProjectSnapshotFingerprint,
   type ScanReport,
   type ShipCheckConfig
 } from "@ship-check/schemas";
@@ -26,6 +28,8 @@ import { createProjectSnapshot, resolveProjectEvidenceSource } from "./projectEv
 
 const execFileAsync = promisify(execFile);
 const MAX_TEXT_BYTES = 512 * 1024;
+const MAX_FINGERPRINT_FILE_BYTES = 16 * 1024 * 1024;
+const MAX_FINGERPRINT_TOTAL_BYTES = 128 * 1024 * 1024;
 const DEFAULT_CHECK_VERSION: CheckVersion = "1";
 const CONFIG_PATH = ".ship-check.json";
 const ignoredDirectories = new Set([".git", ".next", ".turbo", "build", "coverage", "dist", "node_modules", "target"]);
@@ -149,6 +153,84 @@ async function walkFiles(root: string, current = root): Promise<string[]> {
   return output.sort();
 }
 
+function isWithinRoot(realRoot: string, candidate: string): boolean {
+  return candidate === realRoot || candidate.startsWith(`${realRoot}${path.sep}`);
+}
+
+async function fingerprintSourceInventory(
+  root: string,
+  realRoot: string,
+  files: string[]
+): Promise<ProjectSnapshotFingerprint> {
+  const aggregate = createHash("sha256");
+  let hashedEntryCount = 0;
+  let skippedEntryCount = 0;
+  let hashedBytes = 0;
+
+  for (const relativePath of [...files].sort()) {
+    const safeRelative = normalise(relativePath);
+    const absolute = path.resolve(root, safeRelative);
+
+    if (absolute !== root && !absolute.startsWith(`${root}${path.sep}`)) {
+      aggregate.update(`skipped\0${safeRelative}\0outside-root\n`);
+      skippedEntryCount += 1;
+      continue;
+    }
+
+    try {
+      const stat = await fs.lstat(absolute);
+
+      if (stat.isSymbolicLink()) {
+        const target = await fs.readlink(absolute);
+        aggregate.update(`link\0${safeRelative}\0${target}\n`);
+        hashedEntryCount += 1;
+        continue;
+      }
+
+      if (!stat.isFile()) {
+        aggregate.update(`skipped\0${safeRelative}\0unsupported-entry\n`);
+        skippedEntryCount += 1;
+        continue;
+      }
+
+      if (
+        stat.size > MAX_FINGERPRINT_FILE_BYTES ||
+        hashedBytes + stat.size > MAX_FINGERPRINT_TOTAL_BYTES
+      ) {
+        aggregate.update(`skipped\0${safeRelative}\0size:${stat.size}\n`);
+        skippedEntryCount += 1;
+        continue;
+      }
+
+      const realAbsolute = await fs.realpath(absolute);
+      if (!isWithinRoot(realRoot, realAbsolute)) {
+        aggregate.update(`skipped\0${safeRelative}\0outside-real-root\n`);
+        skippedEntryCount += 1;
+        continue;
+      }
+
+      const buffer = await fs.readFile(absolute);
+      const contentDigest = createHash("sha256").update(buffer).digest("hex");
+      aggregate.update(`file\0${safeRelative}\0${buffer.length}\0${contentDigest}\n`);
+      hashedBytes += buffer.length;
+      hashedEntryCount += 1;
+    } catch {
+      aggregate.update(`skipped\0${safeRelative}\0unreadable\n`);
+      skippedEntryCount += 1;
+    }
+  }
+
+  return {
+    algorithm: "sha256",
+    scope: "source-inventory-v1",
+    value: aggregate.digest("hex"),
+    completeness: skippedEntryCount === 0 ? "complete" : "partial",
+    entryCount: files.length,
+    hashedEntryCount,
+    skippedEntryCount
+  };
+}
+
 export async function createProjectContext(
   projectPath: string,
   sourceInput?: ProjectEvidenceSourceInput
@@ -156,6 +238,7 @@ export async function createProjectContext(
   const root = path.resolve(projectPath);
   const stat = await fs.stat(root);
   if (!stat.isDirectory()) throw new Error(`Ship Check needs a project directory: ${root}`);
+  const realRoot = await fs.realpath(root);
 
   const tracked = await gitTrackedFiles(root);
   const gitRepository = tracked !== null;
@@ -181,11 +264,13 @@ export async function createProjectContext(
   }
 
   const source = resolveProjectEvidenceSource({ root, gitRepository, input: sourceInput });
+  const fingerprint = await fingerprintSourceInventory(root, realRoot, files);
   const snapshot = createProjectSnapshot({
     source,
     inventorySource,
     fileCount: files.length,
-    ...(commit ? { commit } : {})
+    ...(commit ? { commit } : {}),
+    fingerprint
   });
   const fileSet = new Set(files);
   const trackedSet = gitRepository ? new Set(tracked) : null;
@@ -211,8 +296,10 @@ export async function createProjectContext(
       const absolute = path.resolve(root, safeRelative);
       if (absolute !== root && !absolute.startsWith(`${root}${path.sep}`)) return null;
       try {
-        const stat = await fs.stat(absolute);
-        if (stat.size > MAX_TEXT_BYTES) return null;
+        const stat = await fs.lstat(absolute);
+        if (!stat.isFile() || stat.size > MAX_TEXT_BYTES) return null;
+        const realAbsolute = await fs.realpath(absolute);
+        if (!isWithinRoot(realRoot, realAbsolute)) return null;
         const buffer = await fs.readFile(absolute);
         if (buffer.includes(0)) return null;
         return buffer.toString("utf8");
