@@ -53,7 +53,15 @@ export function safeSourceLabel(sourceMode, value) {
 
 function sourceIdentityValue(sourceMode, value) {
   if (sourceMode === "github") return `github:${githubLabel(value).toLowerCase()}`;
-  if (sourceMode === "runtime") return `runtime:${runtimeLabel(value).toLowerCase()}`;
+  if (sourceMode === "runtime") {
+    try {
+      const url = new URL(String(value ?? ""));
+      const pathname = url.pathname.replace(/\/+$/, "") || "/";
+      return `runtime:${url.protocol}//${url.host.toLowerCase()}${pathname}`;
+    } catch {
+      return "runtime:live-site";
+    }
+  }
   return `${sourceMode}:${String(value ?? "").replace(/\\/g, "/").replace(/\/+$/, "")}`;
 }
 
