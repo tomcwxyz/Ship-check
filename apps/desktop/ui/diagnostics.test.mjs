@@ -327,6 +327,58 @@ test("equal partial source fingerprints stay uncertain rather than claiming iden
   assert.equal(comparison.snapshot, "uncertain");
 });
 
+test("different rule sets are not treated as comparable history", async () => {
+  const baseline = await createSuccessDiagnostic({
+    report,
+    sourceMode: "local",
+    sourceValue: "/home/tom/project",
+    packs: ["secure-build", "production-ready", "cost-aware"],
+    elapsedMs: 5,
+  });
+  const current = await createSuccessDiagnostic({
+    report: {
+      ...report,
+      checks: report.checks.map((check) => check.checkId === "secure.secret-pattern"
+        ? { ...check, checkVersion: "2" }
+        : check),
+    },
+    sourceMode: "local",
+    sourceValue: "/home/tom/project",
+    packs: ["secure-build", "production-ready", "cost-aware"],
+    elapsedMs: 6,
+  });
+
+  assert.equal(compareWithPreviousDiagnostics([baseline], current), null);
+});
+
+test("runtime project identity ignores query strings but distinguishes paths", async () => {
+  const first = await createSuccessDiagnostic({
+    report,
+    sourceMode: "runtime",
+    sourceValue: "https://example.com/app-a?token=secret-one",
+    packs: ["production-ready"],
+    elapsedMs: 5,
+  });
+  const samePath = await createSuccessDiagnostic({
+    report,
+    sourceMode: "runtime",
+    sourceValue: "https://example.com/app-a?token=secret-two",
+    packs: ["production-ready"],
+    elapsedMs: 6,
+  });
+  const otherPath = await createSuccessDiagnostic({
+    report,
+    sourceMode: "runtime",
+    sourceValue: "https://example.com/app-b?token=secret-three",
+    packs: ["production-ready"],
+    elapsedMs: 7,
+  });
+
+  assert.equal(first.source.identity, samePath.source.identity);
+  assert.notEqual(first.source.identity, otherPath.source.identity);
+  assert.doesNotMatch(JSON.stringify(first), /secret-one|\/app-a/);
+});
+
 test("failure diagnostics redact common secret shapes", () => {
   const secret = "sk-abcdefghijklmnopqrstuvwxyz1234567890";
   const entry = createFailureDiagnostic({
