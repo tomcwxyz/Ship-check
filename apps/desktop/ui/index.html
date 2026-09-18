@@ -30,14 +30,14 @@
           <p class="eyebrow">Before it ships</p>
           <h1 id="hero-title">Check what could go wrong — and what still needs checking.</h1>
           <p class="hero-copy">
-            Choose a local project or GitHub repository. Ship Check reviews the source, shows what needs attention and is explicit about what the code cannot prove.
+            Give Ship Check the project evidence you have: a folder, GitHub repository, exported project or live site. Add the live deployment to source code when you want both views in one review.
           </p>
           <div class="privacy-note">
             <span aria-hidden="true">●</span>
-            Normal scans stay local. GitHub scans use a temporary local checkout and remove it afterwards.
+            Source scans stay on this machine. Live-site checks make bounded HTTP requests and do not retain response bodies or cookie values.
           </div>
           <div class="inspection-strip" aria-label="Ship Check principles">
-            <span><b>01</b> Repository evidence</span>
+            <span><b>01</b> Evidence, wherever it lives</span>
             <span><b>02</b> Uncertainty shown</span>
             <span><b>03</b> No safety score</span>
           </div>
@@ -51,16 +51,18 @@
             </div>
           </div>
 
-          <div class="source-switch" id="source-switch" aria-label="Repository source">
-            <button class="source-option is-active" type="button" data-source="local">Local folder</button>
-            <button class="source-option" type="button" data-source="github">GitHub repo</button>
+          <div class="source-switch" id="source-switch" aria-label="Project evidence source">
+            <button class="source-option is-active" type="button" data-source="local">Folder</button>
+            <button class="source-option" type="button" data-source="github">GitHub</button>
+            <button class="source-option" type="button" data-source="archive">Project ZIP</button>
+            <button class="source-option" type="button" data-source="runtime">Live site</button>
           </div>
 
           <div id="local-source" class="source-panel">
             <div class="project-path" id="project-path" data-empty="true">
               <span class="project-path-label">Project</span>
               <span class="project-path-value" id="project-path-value">No folder chosen yet</span>
-              <button class="button button-secondary" id="choose-project" type="button">Choose project</button>
+              <button class="button button-secondary" id="choose-project" type="button">Choose folder</button>
             </div>
           </div>
 
@@ -80,9 +82,41 @@
             </p>
           </div>
 
-          <div class="default-scan-note">
+          <div id="archive-source" class="source-panel" hidden>
+            <div class="project-path" id="archive-path" data-empty="true">
+              <span class="project-path-label">Export</span>
+              <span class="project-path-value" id="archive-path-value">No project ZIP chosen yet</span>
+              <button class="button button-secondary" id="choose-archive" type="button">Choose ZIP</button>
+            </div>
+            <p class="source-help">
+              Useful for projects exported from hosted builders such as Lovable. The ZIP is extracted into a bounded temporary workspace, checked locally and removed afterwards.
+            </p>
+          </div>
+
+          <div id="runtime-source" class="source-panel github-source" hidden>
+            <label class="repo-field">
+              <span>Live deployment URL</span>
+              <input id="runtime-url" type="url" autocomplete="off" spellcheck="false" placeholder="https://your-project.example" />
+            </label>
+            <p class="source-help">
+              Ship Check makes a bounded, non-mutating request to the site and checks transport, selected browser-security headers, visible cookie flags and CORS behaviour. Source and database areas remain explicitly not assessed.
+            </p>
+          </div>
+
+          <div class="deployment-companion" id="deployment-companion">
+            <div>
+              <strong>Also check the live deployment?</strong>
+              <span>Add a URL to combine source evidence with what the deployed app actually returns.</span>
+            </div>
+            <label class="repo-field deployment-field">
+              <span>Live URL <small>optional</small></span>
+              <input id="deployment-url" type="url" autocomplete="off" spellcheck="false" placeholder="https://your-project.example" />
+            </label>
+          </div>
+
+          <div class="default-scan-note" id="default-scan-note">
             <strong>The standard review is ready to run.</strong>
-            <span>It checks the applicable security, production and cost boundaries locally, including bundled secret scanning.</span>
+            <span>Ship Check uses the evidence this source can provide, and marks unavailable evidence as not assessed rather than assuming it is safe.</span>
           </div>
 
           <details class="advanced-checks">
@@ -102,14 +136,14 @@
                 <input type="checkbox" value="production-ready" checked />
                 <span>
                   <strong>Production readiness</strong>
-                  <small>Dependency evidence, build/release workflow boundaries and repository-visible server surfaces.</small>
+                  <small>Dependency evidence, build/release workflow boundaries and repository-visible or runtime controls.</small>
                 </span>
               </label>
               <label class="pack-card">
                 <input type="checkbox" value="cost-aware" checked />
                 <span>
                   <strong>Cost boundaries</strong>
-                  <small>Scheduled and repeating work that can create avoidable compute, database or paid-service usage.</small>
+                  <small>Scheduled and repeating work that can create avoidable compute, database or paid-service usage when source evidence is available.</small>
                 </span>
               </label>
             </fieldset>
@@ -142,9 +176,9 @@
           </details>
 
           <div class="scan-actions">
-            <div class="scan-explainer">
-              <strong>Nothing changes in the repository.</strong>
-              <span>Normal checks and bundled secret scanning stay local. The OSV package check uses the network only when you enable it above.</span>
+            <div class="scan-explainer" id="scan-explainer">
+              <strong>Nothing changes in the project.</strong>
+              <span>Source inspection is read-only. Live-site checks make bounded HTTP requests only when a deployment URL is included.</span>
             </div>
             <button class="button button-primary" id="run-scan" type="button" disabled>
               Run Ship Check
@@ -189,7 +223,7 @@
             <div class="coverage-heading">
               <div>
                 <p class="section-kicker">Still to establish</p>
-                <h3 id="unverified-title">Questions the code cannot answer</h3>
+                <h3 id="unverified-title">Questions the available evidence cannot answer</h3>
               </div>
               <p>These are things worth verifying before relying on the app. They are not confirmed defects.</p>
             </div>
@@ -213,7 +247,7 @@
                 <p class="section-kicker">Context</p>
                 <h3 id="observations-title">What Ship Check noticed about the project</h3>
               </div>
-              <p>These observations explain the shape of the application. They are not safety claims.</p>
+              <p>These observations explain the shape of the application and its available evidence. They are not safety claims.</p>
             </div>
             <div class="observations-list" id="observations-list"></div>
           </section>
@@ -233,7 +267,7 @@
 
       <footer class="footer">
         <span>Ship Check alpha</span>
-        <span>Repository evidence, not certification.</span>
+        <span>Bounded project evidence, not certification.</span>
       </footer>
     </div>
 
