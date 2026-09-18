@@ -14,6 +14,7 @@
     "@ship-check/core": "workspace:*",
     "@ship-check/cost-checks": "workspace:*",
     "@ship-check/deep-checks": "workspace:*",
+    "@ship-check/runtime-checks": "workspace:*",
     "@ship-check/schemas": "workspace:*",
     "yauzl": "3.4.0"
   },
