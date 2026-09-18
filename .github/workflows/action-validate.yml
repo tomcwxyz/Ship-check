@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "action.yml"
+      - "pnpm-lock.yaml"
       - "scripts/github-action.mjs"
       - "packages/cli/**"
       - "packages/core/**"
@@ -13,6 +14,7 @@ on:
     branches: [main]
     paths:
       - "action.yml"
+      - "pnpm-lock.yaml"
       - "scripts/github-action.mjs"
       - "packages/cli/**"
       - "packages/core/**"

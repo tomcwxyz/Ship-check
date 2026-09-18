@@ -8,6 +8,7 @@ on:
       - "scripts/alpha8-corpus.mjs"
       - "scripts/install-deep-scanners.cjs"
       - "package.json"
+      - "pnpm-lock.yaml"
       - ".github/workflows/alpha8-public-corpus.yml"
   workflow_dispatch:
 
@@ -31,7 +32,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: pnpm install
+      - run: pnpm install --frozen-lockfile
       - name: Install pinned local secret scanner
         run: node scripts/install-deep-scanners.cjs --gitleaks-only
       - name: Run public calibration corpus
