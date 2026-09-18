@@ -19,9 +19,11 @@ test('front door carries the evidence contract rather than the old tick motif', 
 
   assert.doesNotMatch(index, />\s*✓\s*</);
   assert.match(index, /class="inspection-strip"/);
-  assert.match(index, /Repository evidence/);
+  assert.match(index, /Evidence, wherever it lives/);
   assert.match(index, /Uncertainty shown/);
   assert.match(index, /No safety score/);
+  assert.match(index, /data-source="archive"/);
+  assert.match(index, /data-source="runtime"/);
 });
 
 test('brand interaction layer preserves visible focus and reduced motion', () => {
