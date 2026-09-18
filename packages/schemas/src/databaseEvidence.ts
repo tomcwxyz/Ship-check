@@ -44,7 +44,9 @@ export const DatabaseMetadataSnapshotSchema = z.object({
     fixedMetadataQueriesOnly: z.literal(true),
     rowDataRead: z.literal(false),
     tableLimit: z.number().int().positive().max(5000),
-    tablesTruncated: z.boolean()
+    tablesTruncated: z.boolean(),
+    inspectorSuperuser: z.boolean(),
+    inspectorBypassRls: z.boolean()
   }).strict(),
   tables: z.array(PostgresTableMetadataSchema),
   acquiredAt: z.string().datetime()
