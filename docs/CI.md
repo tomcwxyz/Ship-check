@@ -32,7 +32,7 @@ jobs:
 
 During the alpha, pin the Action to an exact Ship Check commit or release tag you have reviewed rather than following a mutable branch.
 
-The current repository does not yet carry a `pnpm-lock.yaml`, so this first alpha Action resolves Ship Check's declared package ranges when it prepares the tool in the runner. That is a known supply-chain/reproducibility limitation. Before pilot/stable CI use, the Action should move to a locked or prebuilt distribution so an exact Action ref also fixes its dependency graph.
+The Action installs Ship Check with the repository's committed `pnpm-lock.yaml` and `--frozen-lockfile`, so an exact Action revision also fixes the dependency graph used to prepare the tool in the runner. A future prebuilt Action can reduce setup time further without weakening that provenance.
 
 The default run:
 
