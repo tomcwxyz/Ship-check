@@ -7,3 +7,5 @@ The workflow must demonstrate that `ship-check discover-ai tomcwxyz/open-recs-lo
 Retry after separating build output from the discovery JSON capture.
 
 Executable-evidence pass: docs are no longer treated as primary technical signals; source.extract and chat.search must be found from `src/`.
+
+High-signal pass: test/spec/e2e evidence excluded, call patterns require executable call syntax, semantic duplicates coalesced, and Open Recs discovery must stay at 12 signals or fewer.
