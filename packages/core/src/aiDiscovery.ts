@@ -83,10 +83,14 @@ const workflowFromEvidence = (
     "ask", "chat", "agent", "extract", "extraction", "search",
     "summarize", "summarise", "classify", "recommend", "recommendation", "review",
   ]);
+  const hasAIBoundary =
+    /\bgenerate(?:Text|Object)\s*\(\s*\{|\bstreamText\s*\(\s*\{|\.(?:messages|responses)\.create\s*\(|\.chat\.completions\.create\s*\(|\.llm\.generate(?:Structured|Text)\s*\(|(?:from\s+(?:anthropic|openai)\s+import\b|import\s+(?:anthropic|openai)\b)/i.test(text);
   const segments = file
     .split("/")
     .map((segment) => segment.replace(/\.[^.]+$/, "").toLowerCase());
-  const semantic = segments.find((segment) => semanticSegments.has(segment));
+  const semantic = hasAIBoundary
+    ? segments.find((segment) => semanticSegments.has(segment))
+    : undefined;
   if (semantic) {
     const label = semantic
       .replace(/[-_.]+/g, " ")
