@@ -29,13 +29,13 @@ function fakeClient(options: {
         throw new Error("connection postgres://reader:very-secret@example.neon.tech/app failed");
       }
       if (text === postgresInspectorSql.verifyReadOnly) {
-        return { rows: [{ transaction_read_only: options.readOnly ?? "on" }] as Row[] };
+        return { rows: [{ transaction_read_only: options.readOnly ?? "on" }] as unknown as Row[] };
       }
       if (text === postgresInspectorSql.inspectorRole) {
         return { rows: [{
           inspector_superuser: options.superuser ?? false,
           inspector_bypass_rls: options.bypassRls ?? false
-        }] as Row[] };
+        }] as unknown as Row[] };
       }
       if (text === postgresInspectorSql.tables) {
         return { rows: (options.tables ?? [{
@@ -44,7 +44,7 @@ function fakeClient(options: {
           rls_enabled: true,
           force_rls: false,
           policy_count: 2
-        }]) as Row[] };
+        }]) as unknown as Row[] };
       }
       if (text === postgresInspectorSql.clientGrants) {
         return { rows: (options.grants ?? [{
@@ -52,7 +52,7 @@ function fakeClient(options: {
           table_name: "profiles",
           role_name: "authenticated",
           privilege_type: "SELECT"
-        }]) as Row[] };
+        }]) as unknown as Row[] };
       }
       return { rows: [] as Row[] };
     },
