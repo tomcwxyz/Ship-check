@@ -14,8 +14,8 @@ Ship Check is an assurance tool, not a clean-bill-of-health generator. The roadm
 
 A scan should distinguish four things clearly:
 
-1. **Finding** — repository evidence supports a concrete concern.
-2. **Observed** — useful repository-visible architecture/evidence was discovered; this is neither a concern nor proof that the surface is safe.
+1. **Finding** — project evidence supports a concrete concern.
+2. **Observed** — useful project-visible architecture/evidence was discovered; this is neither a concern nor proof that the surface is safe.
 3. **Unverified** — Ship Check found a relevant control or boundary but cannot establish it from the evidence available.
 4. **Coverage** — the bounded areas Ship Check did or did not assess.
 
@@ -144,22 +144,46 @@ The shared principle vocabulary remains small and neutral. Honey is provenance/i
 
 Goal: add meaningful data-boundary assurance without turning Ship Check into a database administration tool.
 
-- [ ] Postgres Core source checks: migrations/schema provenance, privileged connection use, unsafe SQL construction, destructive operations and serverless connection/pooling patterns.
-- [ ] Supabase enrichments: service-role boundaries, client/server credential separation, RLS evidence and migration/configuration patterns.
-- [ ] Neon enrichments: privileged connection boundaries, branching/migration expectations and serverless connection configuration.
-- [ ] Optional separate read-only database inspector with explicit user consent and least-privilege credentials.
-- [ ] Keep repository evidence and live database evidence distinct in reports.
+### Landed
+
+- [x] Postgres source evidence for migration/schema provenance, explicitly privileged connection names, destructive migration operations and existing bounded unsafe-SQL detection.
+- [x] Supabase source enrichments for legacy service-role/current secret-key boundaries, recognised public client keys, versioned RLS/policy evidence and Supabase migration/configuration signals.
+- [x] Neon source evidence for HTTP helper, `Pool` and explicit `Client` lifecycle/cleanup patterns without imposing a blanket pooling rule.
+- [x] Optional local read-only Postgres metadata inspector with explicit user consent, fixed system-catalog queries, no application-row reads, rollback/cleanup and bounded table inventory.
+- [x] Database connection URLs stay out of command arguments, reports and diagnostics; desktop credentials are session-only and passed to the bundled engine through a child-process environment variable.
+- [x] Record whether the inspection credential is superuser / `BYPASSRLS` without retaining the role name; elevated inspector credentials remain an evidence gap rather than a silent pass.
+- [x] Treat truncated metadata inventory as incomplete evidence so a bounded scan cannot become false reassurance.
+- [x] Supabase live metadata checks correlate `anon` / `authenticated` table grants with live RLS state and can resolve the matching source RLS uncertainty when the complete bounded evidence establishes the same control.
+- [x] Keep source and live database evidence distinct in report provenance; raw database metadata snapshots are not persisted wholesale into the canonical report.
+
+### Still to do
+
+- [ ] Interpret or test Supabase policy expressions beyond the current “RLS enabled + grant boundary” evidence.
+- [ ] Add Neon-specific branching/deployment expectations and stronger provider-specific live assurance where they can be established defensibly.
+- [ ] Broaden generic Postgres role/grant evidence without turning the inspector into an administration or arbitrary-query surface.
+- [ ] Dogfood the live inspector across representative Supabase, Neon and plain Postgres projects using dedicated least-privilege credentials.
+
+See [`DATABASE_INSPECTION.md`](./DATABASE_INSPECTION.md) for the current trust boundary and limitations.
 
 ## Alpha 1.8 — opt-in runtime verification
 
-Goal: verify controls that source inspection cannot establish, while keeping runtime activity bounded and non-destructive. This line also becomes the first proof that Ship Check can work from a project evidence source other than a repository.
+Goal: verify controls that source inspection cannot establish, while keeping runtime activity bounded and non-destructive. This line also proves that Ship Check can work from project evidence other than a repository.
 
-- [ ] Explicit user-provided deployment URL and consent boundary.
-- [ ] Safe HTTP checks for HTTPS redirects, representative response security headers, cookie flags, basic CORS behaviour and obvious error disclosure.
-- [ ] Declared-route smoke checks that do not mutate data or attempt exploit payloads.
-- [ ] Clearly label runtime evidence with target URL, time and check provenance.
-- [ ] Let runtime evidence resolve an `unverified` repository control where the evidence actually matches the same boundary.
-- [ ] Allow a **URL-only project check** that clearly marks Source, Database and other unavailable evidence areas as not assessed rather than presenting a weak scan as complete assurance.
+### Landed
+
+- [x] Explicit user-provided deployment URL with a visible runtime evidence boundary in CLI and desktop.
+- [x] Bounded non-mutating HTTP acquisition with manual redirect following, selected browser security headers, visible cookie flags and synthetic-origin CORS evidence; response bodies and cookie values are not retained.
+- [x] Clearly label runtime evidence with deployment source/provenance and acquisition time.
+- [x] Let runtime verified-control observations resolve an `unverified` source control only through an explicit matching check ID.
+- [x] Preserve resolved source questions as evidence records rather than silently deleting their history; desktop explains when another evidence source established the control.
+- [x] Allow a **URL-only project check** that marks Source, Database and other unavailable evidence as not assessed.
+- [x] Allow source + deployment + database evidence to be combined in the same canonical report without losing per-source provenance.
+
+### Still to do
+
+- [ ] Add carefully bounded error-disclosure evidence where it can be checked without retaining response bodies or sensitive content.
+- [ ] Add declared-route smoke checks that do not mutate data or attempt exploit payloads.
+- [ ] Extend source/runtime correlation beyond the first explicit security-header relationship only where the evidence really verifies the same control.
 
 ## Alpha 2 — pilot hardening and stronger packs
 
@@ -174,13 +198,21 @@ Goal: verify controls that source inspection cannot establish, while keeping run
 
 Goal: stop treating `repository` as the only useful unit of inspection without weakening the canonical engine or evidence model.
 
-- [ ] Introduce a versioned `ProjectEvidenceSource` / `ProjectSnapshot` contract with explicit source type, provider, acquisition time, provenance and evidence capabilities.
-- [ ] Refactor local-folder and transient-GitHub inputs behind the same source adapter boundary without changing existing CLI behaviour.
-- [ ] Add **uploaded project archive** support for bounded ZIP/tar source snapshots, including archive traversal protection, extraction limits and explicit retention behaviour.
-- [ ] Record whether a source is local, CI-provided, uploaded, platform-provided or managed-hosted in the canonical report provenance.
-- [ ] Let checks declare evidence requirements/capabilities so unavailable evidence becomes `not assessed` or `unverified` rather than a false pass.
-- [ ] Preserve deterministic engine parity: the same project snapshot and ruleset should produce equivalent results regardless of whether execution happens locally, in CI or in a managed worker.
-- [ ] Define source fingerprinting that supports comparable scan history without retaining source content.
+### Landed
+
+- [x] Versioned `ProjectEvidenceSource` / `ProjectSnapshot` contracts with explicit source type, provider, acquisition, execution location and evidence capabilities.
+- [x] Refactor local-folder and transient-GitHub inputs behind the same source/provenance boundary without changing the canonical checking engine.
+- [x] Add bounded **project ZIP** snapshots with traversal protection, symlink/special-entry rejection, expansion/file limits, ephemeral extraction and explicit uploaded-snapshot provenance.
+- [x] Record current local, transient-GitHub, uploaded, runtime and database evidence acquisition/provenance in canonical reports.
+- [x] Let checks declare evidence requirements/capabilities so unavailable evidence becomes `not assessed` rather than a false pass.
+- [x] Reuse the same canonical engine across CLI and desktop acquisition routes rather than introducing platform-specific scanner implementations.
+
+### Still to do
+
+- [ ] Add bounded tar/archive formats only if real hosted-builder/export journeys require them; ZIP is the current first-class export path.
+- [ ] Extend execution provenance to CI-provided and managed-hosted runners when those execution modes land.
+- [ ] Define source/project fingerprinting for comparable scan history without retaining source content.
+- [ ] Add explicit parity tests across future local, CI and managed execution locations rather than assuming equivalent results.
 
 ## Alpha 2.2 — cloud control plane, history and CI
 
@@ -221,22 +253,36 @@ Goal: provide the convenience of zero-install cloud scanning while preserving a 
 
 Goal: let people use Ship Check even when their normal development surface is not a local folder or Git repository.
 
-- [ ] Add a provider-adapter contract for hosted builders rather than platform-specific scanner forks.
-- [ ] Treat **Lovable** as the first reference journey: connect source directly where a supported read-only integration exists; otherwise offer connected GitHub, exported-project upload, or URL-only runtime checking as clear alternatives.
-- [ ] Do not assume private/platform APIs exist. Each adapter must advertise its actual evidence capabilities and degrade honestly when only deployment/runtime evidence is available.
+### Landed foundations
+
+- [x] A hosted-builder export can already enter Ship Check as a bounded Project ZIP rather than being forced through Git.
+- [x] The Lovable reference journey has usable fallback routes today: connected GitHub source, exported project ZIP and URL-only deployment evidence; direct provider source access remains conditional on a supported read-only integration.
+- [x] Desktop acquisition UX is expressed as user intent — **Folder, GitHub, Project ZIP, Live site** — rather than requiring every user to understand Git internals.
+- [x] Local multi-source projects can combine source, deployment and database evidence and resolve explicitly matched uncertainties without losing provenance.
+
+### Still to do
+
+- [ ] Add a provider-adapter contract for direct hosted-builder integrations rather than platform-specific scanner forks.
+- [ ] Do not assume private/platform APIs exist. Each future adapter must advertise its actual evidence capabilities and degrade honestly when only export/runtime evidence is available.
 - [ ] Explore Replit, Bolt, v0 and similar hosted-builder adapters using the same contract after the Lovable journey is validated.
-- [ ] Show the acquisition route to the user in plain language: for example `Lovable → GitHub source`, `Lovable export → uploaded snapshot`, or `Lovable deployment → runtime evidence`.
-- [ ] Support multi-source projects so source, runtime and database evidence can corroborate or resolve one another without losing provenance.
-- [ ] Design the cloud project-connect UX around user intent (`Connect a project`, `Upload a project`, `Check a live site`, `Run locally`) rather than requiring users to understand Git terminology.
+- [ ] Show direct-provider acquisition routes in plain language when connectors exist, for example `Lovable → provider source`; current GitHub/export/runtime routes already retain their own provenance.
+- [ ] Carry the same intent-led project-connect UX into the future cloud control plane.
 
 ## Alpha 2.5 — multi-source assurance
 
 Goal: move from repeated scans towards a durable, evidence-backed assurance record for a project.
 
-- [ ] Correlate source, runtime, database and platform evidence against the same bounded control where that relationship is defensible.
-- [ ] Allow stronger evidence to resolve an earlier `unverified` state while preserving the earlier evidence and provenance in history.
+### Landed foundations
+
+- [x] Correlate bounded source ↔ runtime and source ↔ database controls where an explicit `resolvesCheckIds` relationship states that the evidence verifies the same question.
+- [x] Allow stronger evidence to resolve an earlier `unverified` state while preserving the resolved question as a first-class report record.
+- [x] RACK/OOS gate regression tests ensure resolved uncertainty disappears from the active gap set without hiding separate active findings or missing evidence.
+
+### Still to do
+
+- [ ] Add platform-evidence correlation and more cross-source relationships only where they are defensible.
 - [ ] Keep contradictory evidence visible rather than automatically choosing one source as truth.
-- [ ] Surface project-level attention: what changed, what was resolved, what remains unknown and what has become newly relevant.
+- [ ] Surface project-level attention across history: what changed, what was resolved, what remains unknown and what has become newly relevant.
 - [ ] Add scheduled and event-triggered checks with change-aware scope rather than blindly rescanning all evidence sources on every event.
 - [ ] Provide team/portfolio views across projects using counts, change and coverage rather than an invented assurance score.
 
