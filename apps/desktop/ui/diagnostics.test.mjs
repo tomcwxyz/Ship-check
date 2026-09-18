@@ -116,10 +116,12 @@ test("successful diagnostics keep scan consent, counts and rule versions but not
   assert.equal(entry.options.deploymentEvidence, true);
   assert.equal(entry.suppressedCount, 1);
   assert.equal(entry.unverifiedCount, 1);
+  assert.equal(entry.resolvedCount, 0);
   assert.equal(entry.notAssessedCount, 0);
   assert.equal(entry.observedCount, 1);
   assert.equal(entry.coverage.length, 2);
   assert.equal(entry.checks[1].gapCount, 1);
+  assert.equal(entry.checks[1].resolvedGapCount, 0);
   assert.equal(entry.checks[2].observationCount, 1);
   assert.equal(entry.checks[2].checkVersion, "2");
   assert.equal(entry.checks[3].checkVersion, "2");
@@ -139,8 +141,47 @@ test("successful diagnostics keep scan consent, counts and rule versions but not
   assert.match(formatReceipt(entry), /dependency network scan: on/);
   assert.match(formatReceipt(entry), /1 suppressed findings/);
   assert.match(formatReceipt(entry), /cost\.vercel-cron-frequency@2/);
-  assert.match(formatReceipt(entry), /1 unverified · 0 not assessed · 1 observed/);
+  assert.match(formatReceipt(entry), /1 unverified · 0 resolved by other evidence · 0 resolved questions · 0 not assessed · 1 observed/);
   assert.match(formatReceipt(entry), /not-assessed\s+runtime/);
+});
+
+test("resolved question diagnostics keep counts but not resolved-gap details", () => {
+  const privateResolutionSummary = "Private resolution detail that must not be stored.";
+  const resolvedReport = {
+    ...report,
+    gaps: [],
+    resolvedGaps: [{
+      gap: {
+        ...report.gaps[0],
+        summary: "Private source question detail.",
+        verify: "Private checking instructions.",
+      },
+      resolvedByObservationIds: ["runtime.response-security-headers:verified"],
+      resolvedByCheckIds: ["runtime.response-security-headers"],
+      summary: privateResolutionSummary,
+    }],
+    checks: report.checks.map((check) => check.checkId === "production.next-security-headers"
+      ? { ...check, status: "resolved", gapCount: 0, resolvedGapCount: 1 }
+      : check),
+  };
+
+  const entry = createSuccessDiagnostic({
+    report: resolvedReport,
+    sourceMode: "local",
+    sourceValue: "/home/tom/signals",
+    packs: ["production-ready"],
+    options: { deploymentUrl: "https://example.com" },
+    elapsedMs: 40,
+  });
+
+  assert.equal(entry.resolvedCount, 1);
+  assert.equal(entry.unverifiedCount, 0);
+  assert.equal(entry.checks.find((check) => check.checkId === "production.next-security-headers").resolvedGapCount, 1);
+  assert.doesNotMatch(JSON.stringify(entry), new RegExp(privateResolutionSummary));
+  assert.doesNotMatch(JSON.stringify(entry), /Private source question detail/);
+  assert.doesNotMatch(JSON.stringify(entry), /Private checking instructions/);
+  assert.match(formatReceipt(entry), /1 resolved by other evidence · 1 resolved questions/);
+  assert.match(formatReceipt(entry), /production\.next-security-headers@1 · 0 findings · 0 suppressed · 0 gaps · 1 resolved gaps/);
 });
 
 test("deep and deployment scan consent defaults off in diagnostic metadata", () => {
@@ -189,6 +230,7 @@ test("diagnostic history is capped to the newest 100 entries", () => {
   assert.equal(entries[0].timestamp, "5");
   assert.equal(entries.at(-1).timestamp, "104");
   assert.match(formatDiagnostics(entries), /suppression rationales\/finding details/);
+  assert.match(formatDiagnostics(entries), /resolved-question details/);
   assert.match(formatDiagnostics(entries), /observation paths\/details/);
   assert.match(formatDiagnostics(entries), /source contents/);
   assert.match(formatDiagnostics(entries), /deployment URL paths\/query strings/);

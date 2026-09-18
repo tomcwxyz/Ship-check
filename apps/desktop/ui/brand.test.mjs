@@ -26,6 +26,14 @@ test('front door carries the evidence contract rather than the old tick motif', 
   assert.match(index, /data-source="runtime"/);
 });
 
+test('cross-source resolution stays explicit in the review language', () => {
+  const components = read('components.js');
+
+  assert.match(components, /Established by other evidence/);
+  assert.match(components, /Answers source question/);
+  assert.match(components, /Source question established/);
+});
+
 test('brand interaction layer preserves visible focus and reduced motion', () => {
   const alpha8 = read('alpha8.css');
 

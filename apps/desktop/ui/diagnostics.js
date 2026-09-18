@@ -59,6 +59,7 @@ function safeCheck(check) {
     findingCount: check.findingCount,
     suppressedCount: check.suppressedCount ?? 0,
     gapCount: check.gapCount ?? 0,
+    resolvedGapCount: check.resolvedGapCount ?? 0,
     observationCount: check.observationCount ?? 0,
     missingEvidence: Array.isArray(check.missingEvidence) ? [...check.missingEvidence] : [],
     durationMs: check.durationMs,
@@ -108,6 +109,7 @@ export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRe
     summary: { ...report.summary },
     suppressedCount: report.suppressedFindings?.length ?? report.summary?.suppressed ?? 0,
     unverifiedCount: report.gaps?.length ?? 0,
+    resolvedCount: report.resolvedGaps?.length ?? 0,
     observedCount: report.observations?.length ?? 0,
     notAssessedCount: report.checks?.filter((check) => check.status === "not-assessed").length ?? 0,
     coverage: (report.coverage ?? []).map(safeCoverage),
@@ -180,6 +182,7 @@ export function formatReceipt(entry) {
   const findings = entry.checks.filter((check) => check.status === "findings").length;
   const suppressedChecks = entry.checks.filter((check) => check.status === "suppressed").length;
   const unverified = entry.checks.filter((check) => check.status === "unverified").length;
+  const resolved = entry.checks.filter((check) => check.status === "resolved").length;
   const notAssessed = entry.checks.filter((check) => check.status === "not-assessed").length;
   const errors = entry.checks.filter((check) => check.status === "error").length;
   const lines = [
@@ -189,11 +192,11 @@ export function formatReceipt(entry) {
     `live deployment evidence: ${entry.options?.deploymentEvidence ? "on" : "off"}`,
     `local Semgrep scan: ${entry.options?.localSemgrepScan ? "on" : "off"}`,
     `dependency network scan: ${entry.options?.networkedDependencyScan ? "on" : "off"}`,
-    `${passed} passed · ${findings} with findings · ${suppressedChecks} suppression-only · ${entry.suppressedCount ?? 0} suppressed findings · ${unverified} unverified · ${notAssessed} not assessed · ${entry.observedCount ?? 0} observed · ${errors} errors · ${entry.elapsedMs} ms`,
+    `${passed} passed · ${findings} with findings · ${suppressedChecks} suppression-only · ${entry.suppressedCount ?? 0} suppressed findings · ${unverified} unverified · ${resolved} resolved by other evidence · ${entry.resolvedCount ?? 0} resolved questions · ${notAssessed} not assessed · ${entry.observedCount ?? 0} observed · ${errors} errors · ${entry.elapsedMs} ms`,
     `engine ${entry.toolVersion}`,
     "",
     ...entry.checks.map(
-      (check) => `${check.status.padEnd(12)} ${check.checkId}@${check.checkVersion ?? "1"} · ${check.findingCount} findings · ${check.suppressedCount ?? 0} suppressed · ${check.gapCount ?? 0} gaps · ${check.observationCount ?? 0} observed · ${check.durationMs} ms${check.missingEvidence?.length ? ` · missing ${check.missingEvidence.join(",")}` : ""}`,
+      (check) => `${check.status.padEnd(12)} ${check.checkId}@${check.checkVersion ?? "1"} · ${check.findingCount} findings · ${check.suppressedCount ?? 0} suppressed · ${check.gapCount ?? 0} gaps · ${check.resolvedGapCount ?? 0} resolved gaps · ${check.observationCount ?? 0} observed · ${check.durationMs} ms${check.missingEvidence?.length ? ` · missing ${check.missingEvidence.join(",")}` : ""}`,
     ),
   ];
   if (entry.coverage?.length) {
@@ -207,7 +210,7 @@ export function formatDiagnostics(entries) {
     {
       schemaVersion: "1",
       exportedAt: new Date().toISOString(),
-      note: "Ship Check diagnostics contain scan metadata only: no source contents, suppression rationales/finding details, observation paths/details, evidence excerpts, deployment URL paths/query strings, cookie values or matched secret values.",
+      note: "Ship Check diagnostics contain scan metadata only: no source contents, suppression rationales/finding details, resolved-question details, observation paths/details, evidence excerpts, deployment URL paths/query strings, cookie values or matched secret values.",
       entries,
     },
     null,

@@ -68,9 +68,25 @@ export function renderSummary(container, report) {
   card.append(element("p", "", summary.detail));
   if (summary.optional) card.append(element("p", "", summary.optional));
   if (report.summary.suppressed) card.append(element("p", "", `${report.summary.suppressed} accepted exceptions remain in this project.`));
+  if (report.resolvedGaps?.length) {
+    card.append(element(
+      "p",
+      "",
+      `${report.resolvedGaps.length} previously unanswered question${report.resolvedGaps.length === 1 ? " was" : "s were"} established by another evidence source in this review.`,
+    ));
+  }
   const details = element("details", "review-technical");
   details.append(element("summary", "", "See individual checks"));
-  const labels = { passed: "Nothing found by this check", "not-applicable": "Does not apply", findings: "Needs review", unverified: "Could not verify", error: "Could not complete", suppressed: "Accepted exception" };
+  const labels = {
+    passed: "Nothing found by this check",
+    "not-applicable": "Does not apply",
+    findings: "Needs review",
+    unverified: "Could not verify",
+    resolved: "Established by other evidence",
+    error: "Could not complete",
+    suppressed: "Accepted exception",
+    "not-assessed": "Not assessed with this evidence",
+  };
   for (const check of report.checks) details.append(element("p", "", `${check.checkId}: ${labels[check.status] ?? check.status}`));
   card.append(details);
   container.append(card);
@@ -110,6 +126,13 @@ export function renderObservations(panel, container, observations = []) {
     const article = element("article", "observation-card");
     const badges = element("div", "finding-badges");
     badges.append(element("span", "observation-badge", observation.kind === "verified-control" ? "Verified" : "Observed"));
+    if (observation.resolvesCheckIds?.length) {
+      badges.append(element(
+        "span",
+        "observation-badge",
+        observation.resolvesCheckIds.length === 1 ? "Answers source question" : `Answers ${observation.resolvesCheckIds.length} source questions`,
+      ));
+    }
     badges.append(element("span", "pack-badge", packNames[observation.pack] || observation.pack));
     badges.append(element("span", "confidence-badge", areaNames[observation.area] || observation.area));
     article.append(badges);
@@ -120,6 +143,13 @@ export function renderObservations(panel, container, observations = []) {
     for (const evidence of observation.evidence || []) evidenceList.append(evidenceItem(evidence));
     const details = element("details", "review-technical");
     details.append(element("summary", "", "Show technical evidence"), evidenceList);
+    if (observation.resolvesCheckIds?.length) {
+      details.append(labelledValue(
+        "Source question established",
+        observation.resolvesCheckIds.join(", "),
+        "gap-verify",
+      ));
+    }
     article.append(details);
     container.append(article);
   }
