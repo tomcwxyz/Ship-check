@@ -1,6 +1,7 @@
 const STORAGE_KEY = "ship-check.diagnostics.v1";
 const MAX_ENTRIES = 100;
 const MAX_ERROR_LENGTH = 500;
+const HASH_RE = /^[a-f0-9]{64}$/;
 
 function truncate(value, limit = MAX_ERROR_LENGTH) {
   const text = String(value ?? "");
@@ -50,6 +51,137 @@ export function safeSourceLabel(sourceMode, value) {
   return localLeaf(value);
 }
 
+function sourceIdentityValue(sourceMode, value) {
+  if (sourceMode === "github") return `github:${githubLabel(value).toLowerCase()}`;
+  if (sourceMode === "runtime") return `runtime:${runtimeLabel(value).toLowerCase()}`;
+  return `${sourceMode}:${String(value ?? "").replace(/\\/g, "/").replace(/\/+$/, "")}`;
+}
+
+async function opaqueDigest(value) {
+  try {
+    const subtle = globalThis.crypto?.subtle;
+    if (!subtle) return null;
+    const bytes = new TextEncoder().encode(String(value ?? ""));
+    const digest = await subtle.digest("SHA-256", bytes);
+    return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return null;
+  }
+}
+
+async function opaqueIdentities(items) {
+  const hashes = await Promise.all(
+    (Array.isArray(items) ? items : []).map((item) => opaqueDigest(item?.id)),
+  );
+  return hashes.filter((value) => typeof value === "string" && HASH_RE.test(value)).sort();
+}
+
+function safeFingerprint(report) {
+  const fingerprint = report?.project?.snapshot?.inventory?.fingerprint;
+  if (
+    !fingerprint ||
+    fingerprint.algorithm !== "sha256" ||
+    fingerprint.scope !== "source-inventory-v1" ||
+    !HASH_RE.test(fingerprint.value)
+  ) {
+    return null;
+  }
+  return {
+    algorithm: "sha256",
+    scope: "source-inventory-v1",
+    value: fingerprint.value,
+    completeness: fingerprint.completeness === "complete" ? "complete" : "partial",
+    entryCount: Math.max(0, Number(fingerprint.entryCount) || 0),
+    hashedEntryCount: Math.max(0, Number(fingerprint.hashedEntryCount) || 0),
+    skippedEntryCount: Math.max(0, Number(fingerprint.skippedEntryCount) || 0),
+  };
+}
+
+function checkSignature(entry) {
+  return (entry?.checks ?? [])
+    .map((check) => `${check.checkId}@${check.checkVersion ?? "1"}`)
+    .sort()
+    .join("|");
+}
+
+function samePacks(left, right) {
+  return [...(left?.packs ?? [])].sort().join("|") === [...(right?.packs ?? [])].sort().join("|");
+}
+
+function setComparison(currentValues, previousValues) {
+  const current = new Set(currentValues ?? []);
+  const previous = new Set(previousValues ?? []);
+  let introduced = 0;
+  let persistent = 0;
+  let resolved = 0;
+  for (const value of current) {
+    if (previous.has(value)) persistent += 1;
+    else introduced += 1;
+  }
+  for (const value of previous) {
+    if (!current.has(value)) resolved += 1;
+  }
+  return { introduced, persistent, resolved };
+}
+
+function snapshotComparison(current, previous) {
+  const currentFingerprint = current?.source?.fingerprint;
+  const previousFingerprint = previous?.source?.fingerprint;
+  if (!currentFingerprint || !previousFingerprint) return "unknown";
+  if (currentFingerprint.value !== previousFingerprint.value) return "changed";
+  if (
+    currentFingerprint.completeness === "complete" &&
+    previousFingerprint.completeness === "complete"
+  ) {
+    return "unchanged";
+  }
+  return "uncertain";
+}
+
+export function compareWithPreviousDiagnostics(entries, current) {
+  if (
+    current?.event !== "scan-completed" ||
+    !current?.source?.identity ||
+    !Array.isArray(current.findingIdentities) ||
+    !Array.isArray(current.gapIdentities)
+  ) {
+    return null;
+  }
+
+  const currentChecks = checkSignature(current);
+  const previous = [...(entries ?? [])].reverse().find((entry) =>
+    entry?.event === "scan-completed" &&
+    entry?.source?.identity === current.source.identity &&
+    samePacks(entry, current) &&
+    checkSignature(entry) === currentChecks &&
+    Array.isArray(entry.findingIdentities) &&
+    Array.isArray(entry.gapIdentities)
+  );
+  if (!previous) return null;
+
+  return {
+    baselineTimestamp: previous.timestamp,
+    snapshot: snapshotComparison(current, previous),
+    findings: setComparison(current.findingIdentities, previous.findingIdentities),
+    gaps: setComparison(current.gapIdentities, previous.gapIdentities),
+  };
+}
+
+export function formatComparison(comparison) {
+  if (!comparison) return "";
+  const snapshotLabels = {
+    unchanged: "same complete source snapshot",
+    changed: "source snapshot changed",
+    uncertain: "source fingerprint matched but is partial",
+    unknown: "source snapshot comparison unavailable",
+  };
+  return [
+    `${comparison.findings.introduced} new · ${comparison.findings.persistent} persistent · ${comparison.findings.resolved} resolved findings`,
+    `${comparison.gaps.introduced} new · ${comparison.gaps.persistent} persistent · ${comparison.gaps.resolved} resolved unanswered questions`,
+    snapshotLabels[comparison.snapshot] ?? snapshotLabels.unknown,
+  ].join(" · ");
+}
+
 function safeCheck(check) {
   return {
     checkId: check.checkId,
@@ -93,7 +225,13 @@ function safeOptions(options) {
   };
 }
 
-export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRef, packs, options, elapsedMs }) {
+export async function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRef, packs, options, elapsedMs }) {
+  const [sourceIdentity, findingIdentities, gapIdentities] = await Promise.all([
+    opaqueDigest(sourceIdentityValue(sourceMode, sourceValue)),
+    opaqueIdentities(report?.findings),
+    opaqueIdentities(report?.gaps),
+  ]);
+  const fingerprint = safeFingerprint(report);
   return {
     schemaVersion: "1",
     event: "scan-completed",
@@ -102,6 +240,8 @@ export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRe
     source: {
       kind: sourceMode,
       label: safeSourceLabel(sourceMode, sourceValue),
+      ...(sourceIdentity ? { identity: sourceIdentity } : {}),
+      ...(fingerprint ? { fingerprint } : {}),
       ...(typeof report?.project?.commit === "string" ? { commit: report.project.commit } : {}),
       ...(sourceMode === "github" && gitRef ? { ref: truncate(gitRef, 200) } : {}),
       evidenceSourceCount: Array.isArray(report?.project?.evidenceSources)
@@ -124,6 +264,8 @@ export function createSuccessDiagnostic({ report, sourceMode, sourceValue, gitRe
     notAssessedCount: report.checks?.filter((check) => check.status === "not-assessed").length ?? 0,
     coverage: (report.coverage ?? []).map(safeCoverage),
     checks: report.checks.map(safeCheck),
+    findingIdentities,
+    gapIdentities,
   };
 }
 
@@ -220,6 +362,9 @@ export function formatReceipt(entry) {
       (check) => `${check.status.padEnd(12)} ${check.checkId}@${check.checkVersion ?? "1"} · ${check.findingCount} findings · ${check.suppressedCount ?? 0} suppressed · ${check.gapCount ?? 0} gaps · ${check.resolvedGapCount ?? 0} resolved gaps · ${check.observationCount ?? 0} observed · ${check.durationMs} ms${check.missingEvidence?.length ? ` · missing ${check.missingEvidence.join(",")}` : ""}`,
     ),
   ];
+  if (entry.comparison) {
+    lines.push("", "since previous comparable scan", formatComparison(entry.comparison));
+  }
   if (entry.coverage?.length) {
     lines.push("", "coverage", ...entry.coverage.map((item) => `${item.status.padEnd(12)} ${item.area} · ${item.checkCount} checks`));
   }
@@ -231,7 +376,7 @@ export function formatDiagnostics(entries) {
     {
       schemaVersion: "1",
       exportedAt: new Date().toISOString(),
-      note: "Ship Check diagnostics contain scan metadata only: no source contents, suppression rationales/finding details, resolved-question details, observation paths/details, evidence excerpts, deployment URL paths/query strings, database connection URLs/credentials, cookie values or matched secret values.",
+      note: "Ship Check diagnostics contain scan metadata only: no source contents, raw finding/gap IDs, suppression rationales/finding details, resolved-question details, observation paths/details, evidence excerpts, local source paths, deployment URL paths/query strings, database connection URLs/credentials, cookie values or matched secret values. Regression identities and source locators are stored only as SHA-256 digests.",
       entries,
     },
     null,
