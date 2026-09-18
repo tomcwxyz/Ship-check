@@ -33,7 +33,8 @@ describe("discoverAIProject", () => {
     expect(report.signals.some((signal) => signal.kind === "ai_sdk")).toBe(true);
     expect(report.signals.some((signal) => signal.kind === "model_call")).toBe(true);
     expect(report.signals.some((signal) => signal.workflow_hint === "source.extract")).toBe(true);
-    expect(JSON.stringify(report)).not.toContain("organisational purpose");
+    expect((report as unknown as Record<string, unknown>).purpose).toBeUndefined();
+    expect(report.signals.every((signal) => !("purpose" in signal))).toBe(true);
     expect(report.limitations.join(" ")).toContain("cannot establish organisational purpose");
   });
 
