@@ -6,14 +6,16 @@ import {
   supabaseLiveAccessCheck
 } from "./live.js";
 
-function context(tables: Array<{
+type TableInput = {
   schema: string;
   name: string;
   rlsEnabled: boolean;
   forceRls?: boolean;
   policyCount?: number;
   grants?: Array<{ role: "anon" | "authenticated" | "service_role"; privileges: Array<"SELECT" | "INSERT" | "UPDATE" | "DELETE" | "TRUNCATE" | "REFERENCES" | "TRIGGER"> }>;
-}>): DatabaseContext {
+};
+
+function context(tables: TableInput[], options: { truncated?: boolean; tableLimit?: number } = {}): DatabaseContext {
   const metadata = DatabaseMetadataSnapshotSchema.parse({
     schemaVersion: "0.1",
     source: {
@@ -33,7 +35,9 @@ function context(tables: Array<{
     inspection: {
       readOnlyTransaction: true,
       fixedMetadataQueriesOnly: true,
-      rowDataRead: false
+      rowDataRead: false,
+      tableLimit: options.tableLimit ?? 1000,
+      tablesTruncated: options.truncated ?? false
     },
     tables: tables.map((table) => ({
       schema: table.schema,
@@ -61,6 +65,7 @@ describe("live database evidence", () => {
       kind: "verified-control"
     }));
     expect(JSON.stringify(structuredResult)).toContain("row data read = false");
+    expect(JSON.stringify(structuredResult)).toContain("inventory truncated = false");
   });
 
   it("surfaces a client-readable public table with RLS disabled", async () => {
@@ -121,6 +126,35 @@ describe("live database evidence", () => {
     expect(result.observations).toContainEqual(expect.objectContaining({
       id: "database.supabase-live-access:no-client-grants",
       resolvesCheckIds: ["database.supabase-rls-provenance"]
+    }));
+  });
+
+  it("does not resolve the source question when the bounded table inventory is truncated", async () => {
+    const result = structured(await supabaseLiveAccessCheck.run(context([{
+      schema: "public",
+      name: "profiles",
+      rlsEnabled: true,
+      policyCount: 2,
+      grants: [{ role: "authenticated", privileges: ["SELECT"] }]
+    }], { truncated: true, tableLimit: 1 })));
+
+    expect(result.observations ?? []).toEqual([]);
+    expect(result.gaps).toContainEqual(expect.objectContaining({
+      id: "database.supabase-live-access:table-inventory-truncated"
+    }));
+  });
+
+  it("keeps confirmed concerns visible even when the remaining inventory is truncated", async () => {
+    const result = structured(await supabaseLiveAccessCheck.run(context([{
+      schema: "public",
+      name: "profiles",
+      rlsEnabled: false,
+      grants: [{ role: "anon", privileges: ["SELECT"] }]
+    }], { truncated: true, tableLimit: 1 })));
+
+    expect(result.findings).toHaveLength(1);
+    expect(result.gaps).toContainEqual(expect.objectContaining({
+      id: "database.supabase-live-access:table-inventory-truncated"
     }));
   });
 });
