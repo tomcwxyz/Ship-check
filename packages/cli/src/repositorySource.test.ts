@@ -75,6 +75,14 @@ describe("CI source provenance", () => {
     })).toThrow(/requires SHIP_CHECK_SOURCE_PROVIDER and SHIP_CHECK_SOURCE_LABEL/);
   });
 
+  it("rejects unstable CI provider identifiers", () => {
+    expect(() => sourceExecutionContextFromEnvironment({
+      SHIP_CHECK_EXECUTION_LOCATION: "ci-runner",
+      SHIP_CHECK_SOURCE_PROVIDER: "GitHub",
+      SHIP_CHECK_SOURCE_LABEL: "good-ship/example"
+    })).toThrow(/stable lowercase provider ID/);
+  });
+
   it("records a checked-out workspace as CI evidence when context is supplied", async () => {
     const root = await fs.mkdtemp(path.join(os.tmpdir(), "ship-check-ci-source-"));
     try {
