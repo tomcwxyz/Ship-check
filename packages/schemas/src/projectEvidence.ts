@@ -60,6 +60,39 @@ export const ProjectEvidenceSourceSchema = z.object({
 export type ProjectEvidenceSource = z.infer<typeof ProjectEvidenceSourceSchema>;
 
 /**
+ * A privacy-preserving fingerprint of the exact source inventory Ship Check
+ * attempted to scan. The digest is derived locally from normalised paths and
+ * per-entry content/link digests; source contents never enter the report.
+ *
+ * `partial` means one or more inventory entries were deliberately skipped by
+ * the fingerprint resource bounds or could not be read. Consumers must not
+ * treat equal partial fingerprints as proof of identical source snapshots.
+ */
+export const ProjectSnapshotFingerprintSchema = z.object({
+  algorithm: z.literal("sha256"),
+  scope: z.literal("source-inventory-v1"),
+  value: z.string().regex(/^[a-f0-9]{64}$/),
+  completeness: z.enum(["complete", "partial"]),
+  entryCount: z.number().int().nonnegative(),
+  hashedEntryCount: z.number().int().nonnegative(),
+  skippedEntryCount: z.number().int().nonnegative()
+}).strict().superRefine((fingerprint, ctx) => {
+  if (fingerprint.hashedEntryCount + fingerprint.skippedEntryCount !== fingerprint.entryCount) {
+    ctx.addIssue({
+      code: "custom",
+      message: "Fingerprint hashed/skipped entry counts must equal the source inventory entry count."
+    });
+  }
+  if (fingerprint.completeness === "complete" && fingerprint.skippedEntryCount !== 0) {
+    ctx.addIssue({
+      code: "custom",
+      message: "A complete source fingerprint cannot contain skipped entries."
+    });
+  }
+});
+export type ProjectSnapshotFingerprint = z.infer<typeof ProjectSnapshotFingerprintSchema>;
+
+/**
  * Input accepted by the core when a caller already knows how a directory was
  * acquired. The core supplies defaults for ordinary local scans and records
  * the final validated ProjectEvidenceSource in the report.

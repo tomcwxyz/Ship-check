@@ -6,7 +6,8 @@ import {
   type ProjectEvidenceCapability,
   type ProjectEvidenceSource,
   type ProjectEvidenceSourceInput,
-  type ProjectSnapshot
+  type ProjectSnapshot,
+  type ProjectSnapshotFingerprint
 } from "@ship-check/schemas";
 
 function uniqueCapabilities(capabilities: ProjectEvidenceCapability[]): ProjectEvidenceCapability[] {
@@ -44,6 +45,7 @@ export function createProjectSnapshot(options: {
   inventorySource: InventorySource;
   fileCount: number;
   commit?: string;
+  fingerprint?: ProjectSnapshotFingerprint;
 }): ProjectSnapshot {
   return ProjectSnapshotSchema.parse({
     schemaVersion: "0.1",
@@ -52,7 +54,8 @@ export function createProjectSnapshot(options: {
     inventory: {
       source: options.inventorySource,
       fileCount: options.fileCount,
-      ...(options.commit ? { commit: options.commit } : {})
+      ...(options.commit ? { commit: options.commit } : {}),
+      ...(options.fingerprint ? { fingerprint: options.fingerprint } : {})
     }
   });
 }
