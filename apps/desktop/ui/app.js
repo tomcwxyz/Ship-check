@@ -18,9 +18,14 @@ import {
   readDiagnostics,
 } from "./diagnostics.js";
 
+const SOURCE_MODES = new Set(["local", "github", "archive", "runtime"]);
+
 const state = {
   sourceMode: "local",
   projectPath: "",
+  archivePath: "",
+  runtimeUrl: "",
+  deploymentUrl: "",
   githubRepository: "",
   githubRef: "",
   engine: null,
@@ -35,11 +40,21 @@ const elements = {
   sourceSwitch: document.querySelector("#source-switch"),
   localSource: document.querySelector("#local-source"),
   githubSource: document.querySelector("#github-source"),
+  archiveSource: document.querySelector("#archive-source"),
+  runtimeSource: document.querySelector("#runtime-source"),
   githubRepository: document.querySelector("#github-repository"),
   githubRef: document.querySelector("#github-ref"),
   chooseProject: document.querySelector("#choose-project"),
   projectPath: document.querySelector("#project-path"),
   projectPathValue: document.querySelector("#project-path-value"),
+  chooseArchive: document.querySelector("#choose-archive"),
+  archivePath: document.querySelector("#archive-path"),
+  archivePathValue: document.querySelector("#archive-path-value"),
+  runtimeUrl: document.querySelector("#runtime-url"),
+  deploymentCompanion: document.querySelector("#deployment-companion"),
+  deploymentUrl: document.querySelector("#deployment-url"),
+  defaultScanNote: document.querySelector("#default-scan-note"),
+  scanExplainer: document.querySelector("#scan-explainer"),
   packGrid: document.querySelector("#pack-grid"),
   localSemgrepScan: document.querySelector("#local-semgrep-scan"),
   networkedDependencyScan: document.querySelector("#networked-dependency-scan"),
@@ -81,12 +96,17 @@ function productionReadySelected() {
   return selectedPacks().includes("production-ready");
 }
 
+function sourceHasFiles() {
+  return state.sourceMode !== "runtime";
+}
+
 function scanOptions() {
   return {
     localSemgrepScan:
-      secureBuildSelected() && Boolean(elements.localSemgrepScan?.checked),
+      sourceHasFiles() && secureBuildSelected() && Boolean(elements.localSemgrepScan?.checked),
     networkedDependencyScan:
-      productionReadySelected() && Boolean(elements.networkedDependencyScan?.checked),
+      sourceHasFiles() && productionReadySelected() && Boolean(elements.networkedDependencyScan?.checked),
+    deploymentUrl: state.sourceMode === "runtime" ? "" : state.deploymentUrl.trim(),
   };
 }
 
@@ -102,24 +122,30 @@ function clearError() {
 
 function sourceReady() {
   if (state.sourceMode === "github") return Boolean(state.githubRepository.trim());
+  if (state.sourceMode === "archive") return Boolean(state.archivePath);
+  if (state.sourceMode === "runtime") return Boolean(state.runtimeUrl.trim());
   return Boolean(state.projectPath);
 }
 
 function currentSourceValue() {
-  return state.sourceMode === "github" ? state.githubRepository.trim() : state.projectPath;
+  if (state.sourceMode === "github") return state.githubRepository.trim();
+  if (state.sourceMode === "archive") return state.archivePath;
+  if (state.sourceMode === "runtime") return state.runtimeUrl.trim();
+  return state.projectPath;
 }
 
 function updateDeepScanAvailability() {
-  const semgrepEnabledByPack = secureBuildSelected();
+  const sourceAvailable = sourceHasFiles();
+  const semgrepEnabled = sourceAvailable && secureBuildSelected();
   if (elements.localSemgrepScan) {
-    if (!semgrepEnabledByPack) elements.localSemgrepScan.checked = false;
-    elements.localSemgrepScan.disabled = state.scanning || !semgrepEnabledByPack;
+    if (!semgrepEnabled) elements.localSemgrepScan.checked = false;
+    elements.localSemgrepScan.disabled = state.scanning || !semgrepEnabled;
   }
 
-  const dependencyEnabledByPack = productionReadySelected();
+  const dependencyEnabled = sourceAvailable && productionReadySelected();
   if (elements.networkedDependencyScan) {
-    if (!dependencyEnabledByPack) elements.networkedDependencyScan.checked = false;
-    elements.networkedDependencyScan.disabled = state.scanning || !dependencyEnabledByPack;
+    if (!dependencyEnabled) elements.networkedDependencyScan.checked = false;
+    elements.networkedDependencyScan.disabled = state.scanning || !dependencyEnabled;
   }
 }
 
@@ -133,16 +159,23 @@ function updateRunAvailability() {
   elements.rerunScan.disabled = state.scanning || !ready;
 }
 
+function scanningLabel() {
+  if (state.sourceMode === "github") return "Checking out & scanning…";
+  if (state.sourceMode === "archive") return "Opening export & scanning…";
+  if (state.sourceMode === "runtime") return "Checking live site…";
+  if (state.deploymentUrl.trim()) return "Checking source & live site…";
+  return "Checking…";
+}
+
 function setScanning(scanning) {
   state.scanning = scanning;
-  elements.runScan.textContent = scanning
-    ? state.sourceMode === "github"
-      ? "Checking out & scanning…"
-      : "Checking…"
-    : "Run Ship Check";
+  elements.runScan.textContent = scanning ? scanningLabel() : "Run Ship Check";
   elements.chooseProject.disabled = scanning;
+  elements.chooseArchive.disabled = scanning;
   elements.githubRepository.disabled = scanning;
   elements.githubRef.disabled = scanning;
+  elements.runtimeUrl.disabled = scanning;
+  elements.deploymentUrl.disabled = scanning;
   for (const button of elements.sourceSwitch.querySelectorAll("[data-source]")) {
     button.disabled = scanning;
   }
@@ -161,17 +194,46 @@ function setProjectPath(projectPath) {
   updateRunAvailability();
 }
 
+function setArchivePath(archivePath) {
+  state.archivePath = archivePath || "";
+  elements.archivePath.dataset.empty = state.archivePath ? "false" : "true";
+  elements.archivePathValue.textContent = state.archivePath || "No project ZIP chosen yet";
+  elements.archivePathValue.title = state.archivePath;
+  updateRunAvailability();
+}
+
+function updateSourceGuidance() {
+  const runtimeOnly = state.sourceMode === "runtime";
+  elements.deploymentCompanion.hidden = runtimeOnly;
+  if (runtimeOnly) {
+    elements.defaultScanNote.querySelector("strong").textContent = "This review uses live runtime evidence only.";
+    elements.defaultScanNote.querySelector("span").textContent = "Source, dependencies, database internals and other unavailable areas stay visibly not assessed.";
+    elements.scanExplainer.querySelector("strong").textContent = "The live check is bounded and non-mutating.";
+    elements.scanExplainer.querySelector("span").textContent = "Ship Check follows a small redirect chain, inspects response metadata and discards response bodies and cookie values.";
+  } else {
+    elements.defaultScanNote.querySelector("strong").textContent = "The standard review is ready to run.";
+    elements.defaultScanNote.querySelector("span").textContent = "Ship Check uses the evidence this source can provide, and marks unavailable evidence as not assessed rather than assuming it is safe.";
+    elements.scanExplainer.querySelector("strong").textContent = "Nothing changes in the project.";
+    elements.scanExplainer.querySelector("span").textContent = "Source inspection is read-only. Live-site checks make bounded HTTP requests only when a deployment URL is included.";
+  }
+}
+
 function setSourceMode(mode) {
-  if (mode !== "local" && mode !== "github") return;
+  if (!SOURCE_MODES.has(mode)) return;
   state.sourceMode = mode;
   elements.localSource.hidden = mode !== "local";
   elements.githubSource.hidden = mode !== "github";
+  elements.archiveSource.hidden = mode !== "archive";
+  elements.runtimeSource.hidden = mode !== "runtime";
   for (const button of elements.sourceSwitch.querySelectorAll("[data-source]")) {
     button.classList.toggle("is-active", button.dataset.source === mode);
   }
   clearError();
+  updateSourceGuidance();
+  updateDeepScanAvailability();
   updateRunAvailability();
   if (mode === "github") elements.githubRepository.focus();
+  if (mode === "runtime") elements.runtimeUrl.focus();
 }
 
 function assertScanReport(report) {
@@ -207,7 +269,7 @@ function ensureDiagnosticsPanel() {
 
   const copy = document.createElement("p");
   copy.className = "source-help";
-  copy.textContent = "Stored locally for alpha testing. Includes repo label, engine/rule versions, selected local/network scan options, inventory source, coverage status, suppression/observation counts, timings and check outcomes — never source contents, suppression rationales/finding details, observation paths/details, evidence excerpts or matched secret values.";
+  copy.textContent = "Stored locally for alpha testing. Includes safe project labels, engine/rule versions, selected scan options, evidence-source count, coverage status, suppression/observation counts, timings and check outcomes — never source contents, deployment URL paths/query strings, cookie values, suppression rationales/finding details, observation paths/details, evidence excerpts or matched secret values.";
   panel.append(copy);
 
   const receipt = document.createElement("pre");
@@ -298,6 +360,23 @@ function recordFailure(error, packs, options, startedAt) {
   renderDiagnostics(entry, entries.length);
 }
 
+function evidenceSources(report) {
+  if (Array.isArray(report.project?.evidenceSources) && report.project.evidenceSources.length > 0) {
+    return report.project.evidenceSources;
+  }
+  return report.project?.snapshot?.source ? [report.project.snapshot.source] : [];
+}
+
+function sourceMetaLabel(source) {
+  const labels = {
+    local: "local source",
+    github: "GitHub source",
+    upload: "exported source",
+    url: "live deployment",
+  };
+  return labels[source?.provider] || source?.type || "project evidence";
+}
+
 function renderReport(report, options) {
   state.report = report;
   renderSummary(elements.summaryGrid, report);
@@ -310,20 +389,29 @@ function renderReport(report, options) {
   const when = Number.isNaN(generated.getTime())
     ? "just now"
     : generated.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-  const source = state.sourceMode === "github" ? "GitHub repo" : "local repo";
-  const inventory = report.project.inventorySource === "git-tracked" ? "Git tracked" : "filesystem";
+  const sources = evidenceSources(report);
+  const sourceLabel = sources.length > 1
+    ? `${sources.length} evidence sources (${sources.map(sourceMetaLabel).join(" + ")})`
+    : sources.length === 1
+      ? sourceMetaLabel(sources[0])
+      : "project evidence";
+  const fileLabel = report.project.fileCount > 0
+    ? `${report.project.fileCount.toLocaleString("en-GB")} files`
+    : "no source files supplied";
+  const notAssessed = report.checks.filter((check) => check.status === "not-assessed").length;
+  const inventory = report.project.inventorySource === "git-tracked" ? "Git tracked" : "filesystem/runtime";
   const semgrepMode = options.localSemgrepScan ? "Semgrep local" : "Semgrep off";
   const dependencyMode = options.networkedDependencyScan ? "OSV network check" : "OSV off";
-  elements.scanMeta.textContent = `${source} · ${report.project.fileCount.toLocaleString("en-GB")} files · ${report.checks.length} checks · ${report.suppressedFindings.length} suppressed · ${report.observations.length} observed · ${report.gaps.length} unverified · ${semgrepMode} · ${dependencyMode} · ${inventory} · ${when}`;
+  elements.scanMeta.textContent = `${sourceLabel} · ${fileLabel} · ${report.checks.length} checks · ${report.suppressedFindings.length} suppressed · ${report.observations.length} observed · ${report.gaps.length} unverified · ${notAssessed} not assessed · ${semgrepMode} · ${dependencyMode} · ${inventory} · ${when}`;
 
   elements.emptyCopy.textContent = report.findings.length === 0
     ? report.suppressedFindings.length > 0
       ? `No active findings in assessed areas. ${report.suppressedFindings.length} finding${report.suppressedFindings.length === 1 ? " is" : "s are"} explicitly accepted in .ship-check.json; review the rationale and rule version above.`
-      : report.gaps.length > 0
-        ? `No confirmed findings in assessed areas. ${report.gaps.length} control${report.gaps.length === 1 ? " still needs" : "s still need"} verification; ${report.observations.length} repository observation${report.observations.length === 1 ? " was" : "s were"} also recorded.`
+      : report.gaps.length > 0 || notAssessed > 0
+        ? `No confirmed findings in assessed areas. ${report.gaps.length} control${report.gaps.length === 1 ? " still needs" : "s still need"} verification and ${notAssessed} check${notAssessed === 1 ? " was" : "s were"} not assessed with the available evidence.`
         : report.observations.length > 0
-          ? `No confirmed findings in assessed areas. Ship Check recorded ${report.observations.length} repository observation${report.observations.length === 1 ? "" : "s"}; check those and the coverage before treating the repository as clean.`
-          : "No confirmed findings in assessed areas. Check the coverage above before treating the repository as clean."
+          ? `No confirmed findings in assessed areas. Ship Check recorded ${report.observations.length} project observation${report.observations.length === 1 ? "" : "s"}; check those and the coverage before treating the project as clean.`
+          : "No confirmed findings in assessed areas. Check the coverage above before treating the project as clean."
     : "No findings match this severity filter.";
 
   renderFindings(elements.findingsList, elements.emptyState, report.findings, state.severityFilter, report.checks);
@@ -356,6 +444,16 @@ async function chooseProject() {
   }
 }
 
+async function chooseArchive() {
+  clearError();
+  try {
+    const selected = await desktopBridge.chooseProjectArchive();
+    if (selected) setArchivePath(selected);
+  } catch (error) {
+    showError(error instanceof Error ? error.message : String(error));
+  }
+}
+
 async function runScan() {
   if (!sourceReady() || !state.engine?.available || state.scanning) return;
   const packs = selectedPacks();
@@ -369,14 +467,17 @@ async function runScan() {
   clearError();
   setScanning(true);
   try {
-    const rawReport = state.sourceMode === "github"
-      ? await desktopBridge.scanGithubRepository(
-          state.githubRepository.trim(),
-          state.githubRef.trim(),
-          packs,
-          options,
-        )
-      : await desktopBridge.scanProject(state.projectPath, packs, options);
+    let rawReport;
+    if (state.sourceMode === "github") {
+      rawReport = await desktopBridge.scanGithubRepository(
+        state.githubRepository.trim(),
+        state.githubRef.trim(),
+        packs,
+        options,
+      );
+    } else {
+      rawReport = await desktopBridge.scanProject(currentSourceValue(), packs, options);
+    }
     const report = assertScanReport(rawReport);
     state.severityFilter = "all";
     for (const button of elements.severityFilters.querySelectorAll("[data-severity]")) {
@@ -408,15 +509,23 @@ elements.githubRef.addEventListener("input", (event) => {
   state.githubRef = event.target.value;
 });
 
-elements.githubRepository.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !elements.runScan.disabled) runScan();
+elements.runtimeUrl.addEventListener("input", (event) => {
+  state.runtimeUrl = event.target.value;
+  updateRunAvailability();
 });
 
-elements.githubRef.addEventListener("keydown", (event) => {
-  if (event.key === "Enter" && !elements.runScan.disabled) runScan();
+elements.deploymentUrl.addEventListener("input", (event) => {
+  state.deploymentUrl = event.target.value;
 });
+
+for (const input of [elements.githubRepository, elements.githubRef, elements.runtimeUrl, elements.deploymentUrl]) {
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" && !elements.runScan.disabled) runScan();
+  });
+}
 
 elements.chooseProject.addEventListener("click", chooseProject);
+elements.chooseArchive.addEventListener("click", chooseArchive);
 elements.runScan.addEventListener("click", runScan);
 elements.rerunScan.addEventListener("click", runScan);
 elements.packGrid.addEventListener("change", () => {
@@ -441,6 +550,7 @@ elements.severityFilters.addEventListener("click", (event) => {
 });
 
 setProjectPath("");
+setArchivePath("");
 setSourceMode("local");
 updateDeepScanAvailability();
 restoreDiagnostics();
