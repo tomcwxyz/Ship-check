@@ -47,9 +47,9 @@ export type CruxDiscoveryReport = {
 
 const sourceFile = /\.(?:[cm]?[jt]sx?|json|ya?ml)$/i;
 const modelCallPatterns: Array<{ regex: RegExp; label: string; technology: string }> = [
-  { regex: /\bgenerateText\s*\(/, label: "Vercel AI SDK text generation", technology: "ai" },
-  { regex: /\bgenerateObject\s*\(/, label: "Vercel AI SDK structured generation", technology: "ai" },
-  { regex: /\bstreamText\s*\(/, label: "Vercel AI SDK streaming generation", technology: "ai" },
+  { regex: /\bgenerateText\s*\(\s*\{/, label: "Vercel AI SDK text generation", technology: "ai" },
+  { regex: /\bgenerateObject\s*\(\s*\{/, label: "Vercel AI SDK structured generation", technology: "ai" },
+  { regex: /\bstreamText\s*\(\s*\{/, label: "Vercel AI SDK streaming generation", technology: "ai" },
   { regex: /\.chat\.completions\.create\s*\(/, label: "OpenAI-compatible chat completion", technology: "openai-compatible" },
   { regex: /\.responses\.create\s*\(/, label: "OpenAI responses call", technology: "openai" },
   { regex: /\.messages\.create\s*\(/, label: "Anthropic messages call", technology: "anthropic" },
@@ -80,6 +80,34 @@ const workflowFromEvidence = (
   }
 
   return null;
+};
+
+const coalesceSignals = (signals: CruxDiscoverySignal[]): CruxDiscoverySignal[] => {
+  const grouped = new Map<string, CruxDiscoverySignal>();
+  for (const signal of signals) {
+    const key = [
+      signal.kind,
+      signal.label,
+      signal.technology ?? "",
+      signal.workflow_hint ?? "",
+      signal.candidate_label ?? "",
+      signal.scope_hint ?? "",
+    ].join("|");
+    const existing = grouped.get(key);
+    if (!existing) {
+      grouped.set(key, signal);
+      continue;
+    }
+    const seen = new Set(existing.evidence.map((item) => `${item.path ?? ""}:${item.line ?? 0}:${item.detail}`));
+    for (const evidence of signal.evidence) {
+      const evidenceKey = `${evidence.path ?? ""}:${evidence.line ?? 0}:${evidence.detail}`;
+      if (!seen.has(evidenceKey) && existing.evidence.length < 5) {
+        existing.evidence.push(evidence);
+        seen.add(evidenceKey);
+      }
+    }
+  }
+  return [...grouped.values()];
 };
 
 export async function discoverAIProject(
@@ -114,7 +142,12 @@ export async function discoverAIProject(
     }
   }
 
-  for (const file of context.files.filter((item) => sourceFile.test(item))) {
+  for (const file of context.files.filter(
+    (item) =>
+      sourceFile.test(item) &&
+      !/(?:^|\/)(?:tests?|__tests__|fixtures?)(?:\/|$)/i.test(item) &&
+      !/\.(?:test|spec)\.[cm]?[jt]sx?$/i.test(item),
+  )) {
     const text = await context.readText(file);
     if (!text) continue;
 
@@ -132,7 +165,7 @@ export async function discoverAIProject(
       });
     }
 
-    const providerMatch = /\b(?:interface\s+LlmProvider|LLM_PROVIDER|createOpenAICompatible|createOpenAICompatLlm)\b/.exec(text);
+    const providerMatch = /\b(?:interface\s+LlmProvider|LLM_PROVIDER|createOpenAICompatLlm)\b/.exec(text);
     if (providerMatch) {
       const line = lineNumber(text, providerMatch.index);
       pushUnique(signals, {
@@ -189,7 +222,7 @@ export async function discoverAIProject(
       label: context.source.label || path.basename(context.root),
       ...(context.source.provider === "github" ? { external_ref: context.source.label } : {}),
     },
-    signals,
+    signals: coalesceSignals(signals),
     limitations: [
       "Static source inspection can identify technical AI and workflow signals, but cannot establish organisational purpose, affected people, decision authority or whether a candidate represents one coherent AI use.",
       "No prompt, response, source-document or application-record content is included in this discovery report.",
