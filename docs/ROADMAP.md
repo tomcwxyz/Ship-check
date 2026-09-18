@@ -189,9 +189,9 @@ Goal: verify controls that source inspection cannot establish, while keeping run
 
 - [ ] Mature the Gitleaks / OSV / pinned Semgrep adapters based on corpus evidence.
 - [ ] Safe dynamic/local smoke-test adapters where they add evidence beyond repository inspection.
-- [ ] Regression comparison: newly introduced, resolved and persistent findings/gaps across comparable scans.
+- [x] Local desktop regression comparison for comparable scans: newly introduced, persistent and resolved active findings/gaps are derived from opaque local identities, without retaining raw finding/gap IDs.
 - [ ] Optional focused one-finding-at-a-time review mode for larger scans.
-- [ ] Local scan history without source-content retention by default.
+- [x] Local scan history remains metadata-only and capped; source contents, raw finding/gap IDs and local paths are not retained, while source/project and finding/gap identities are stored as SHA-256 digests for comparison.
 - [ ] Stable check/ruleset provenance suitable for team/pilot use.
 
 ## Alpha 2.1 — project evidence source abstraction
@@ -211,7 +211,7 @@ Goal: stop treating `repository` as the only useful unit of inspection without w
 
 - [ ] Add bounded tar/archive formats only if real hosted-builder/export journeys require them; ZIP is the current first-class export path.
 - [ ] Extend execution provenance to CI-provided and managed-hosted runners when those execution modes land.
-- [ ] Define source/project fingerprinting for comparable scan history without retaining source content.
+- [x] Define bounded source fingerprinting for comparable history without retaining source content: `source-inventory-v1` records only an aggregate SHA-256 digest plus completeness/count metadata, and partial fingerprints never claim identical snapshots.
 - [ ] Add explicit parity tests across future local, CI and managed execution locations rather than assuming equivalent results.
 
 ## Alpha 2.2 — cloud control plane, history and CI
@@ -280,6 +280,7 @@ Goal: move from repeated scans towards a durable, evidence-backed assurance reco
 
 ### Still to do
 
+- [x] Surface first local project-level attention across comparable desktop scans: new, persistent and resolved active findings/gaps, plus source snapshot changed/unchanged/uncertain state.
 - [ ] Add platform-evidence correlation and more cross-source relationships only where they are defensible.
 - [ ] Keep contradictory evidence visible rather than automatically choosing one source as truth.
 - [ ] Surface project-level attention across history: what changed, what was resolved, what remains unknown and what has become newly relevant.
