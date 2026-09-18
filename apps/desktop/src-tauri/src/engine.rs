@@ -14,6 +14,7 @@ const ALLOWED_PACKS: [&str; 3] = ["secure-build", "production-ready", "cost-awar
 #[serde(rename_all = "camelCase")]
 pub struct ScanRequest {
     pub project_path: String,
+    pub deployment_url: Option<String>,
     #[serde(default)]
     pub packs: Vec<String>,
     #[serde(default)]
@@ -108,20 +109,54 @@ fn locate_engine(app: &AppHandle) -> Result<PathBuf, String> {
     ))
 }
 
-fn canonical_project(project_path: &str) -> Result<PathBuf, String> {
+fn looks_like_runtime_url(value: &str) -> bool {
+    let lower = value.to_ascii_lowercase();
+    lower.starts_with("https://") || lower.starts_with("http://")
+}
+
+fn validated_source(project_path: &str) -> Result<String, String> {
     let trimmed = project_path.trim();
     if trimmed.is_empty() {
-        return Err("Choose a project folder before running Ship Check.".to_string());
+        return Err("Choose a project source before running Ship Check.".to_string());
     }
 
-    let project = fs::canonicalize(trimmed)
-        .map_err(|error| format!("Could not open the selected project folder: {error}"))?;
-    let metadata = fs::metadata(&project)
-        .map_err(|error| format!("Could not inspect the selected project folder: {error}"))?;
-    if !metadata.is_dir() {
-        return Err("Ship Check can only scan a project folder.".to_string());
+    if looks_like_runtime_url(trimmed) {
+        return Ok(trimmed.to_string());
     }
-    Ok(project)
+
+    let source = fs::canonicalize(trimmed)
+        .map_err(|error| format!("Could not open the selected project source: {error}"))?;
+    let metadata = fs::metadata(&source)
+        .map_err(|error| format!("Could not inspect the selected project source: {error}"))?;
+
+    if metadata.is_dir() {
+        return Ok(source.to_string_lossy().to_string());
+    }
+
+    if metadata.is_file()
+        && source
+            .extension()
+            .and_then(|extension| extension.to_str())
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("zip"))
+    {
+        return Ok(source.to_string_lossy().to_string());
+    }
+
+    Err("Ship Check desktop sources must be a project folder, project ZIP export, or http(s) deployment URL.".to_string())
+}
+
+fn validated_deployment_url(value: Option<&str>) -> Result<Option<String>, String> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Ok(None);
+    }
+    if !looks_like_runtime_url(trimmed) {
+        return Err("The live deployment must use an http:// or https:// URL.".to_string());
+    }
+    Ok(Some(trimmed.to_string()))
 }
 
 fn validated_packs(packs: &[String]) -> Result<Vec<String>, String> {
@@ -184,20 +219,28 @@ pub fn status(app: &AppHandle) -> EngineStatus {
 
 pub fn scan(app: &AppHandle, request: ScanRequest) -> Result<Value, String> {
     let engine = locate_engine(app)?;
-    let project = canonical_project(&request.project_path)?;
+    let source = validated_source(&request.project_path)?;
+    let deployment_url = validated_deployment_url(request.deployment_url.as_deref())?;
     let packs = validated_packs(&request.packs)?;
+    let runtime_only = looks_like_runtime_url(&source);
 
+    if runtime_only && deployment_url.is_some() {
+        return Err("Choose either a live site as the primary source or add a live deployment to source code, not both.".to_string());
+    }
     if request.local_semgrep_scan && !packs.iter().any(|pack| pack == "secure-build") {
         return Err("Local Semgrep scanning requires the Secure Build pack.".to_string());
     }
     if request.networked_dependency_scan && !packs.iter().any(|pack| pack == "production-ready") {
         return Err("Networked dependency scanning requires the Production Ready pack.".to_string());
     }
+    if runtime_only && (request.local_semgrep_scan || request.networked_dependency_scan) {
+        return Err("Deep source checks need source files and are unavailable for a live-site-only review.".to_string());
+    }
 
     let mut command = Command::new(&engine);
     command
         .arg("scan")
-        .arg(&project)
+        .arg(&source)
         .arg("--format")
         .arg("json")
         .arg("--fail-on")
@@ -205,6 +248,9 @@ pub fn scan(app: &AppHandle, request: ScanRequest) -> Result<Value, String> {
 
     for pack in packs {
         command.arg("--pack").arg(pack);
+    }
+    if let Some(deployment_url) = deployment_url {
+        command.arg("--deployment-url").arg(deployment_url);
     }
     if request.local_semgrep_scan {
         command.arg("--local-semgrep-scan");
@@ -262,5 +308,20 @@ mod tests {
             .expect("packs"),
             vec!["cost-aware", "secure-build"]
         );
+    }
+
+    #[test]
+    fn accepts_runtime_urls_without_filesystem_canonicalisation() {
+        assert_eq!(
+            validated_source("https://example.com/app").expect("url"),
+            "https://example.com/app"
+        );
+    }
+
+    #[test]
+    fn rejects_non_http_deployment_urls() {
+        let error = validated_deployment_url(Some("ftp://example.com"))
+            .expect_err("reject non-http deployment");
+        assert!(error.contains("http:// or https://"));
     }
 }
