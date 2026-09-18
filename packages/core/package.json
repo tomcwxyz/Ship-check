@@ -10,6 +10,10 @@
     "./runtime": {
       "types": "./dist/runtime.d.ts",
       "default": "./dist/runtime.js"
+    },
+    "./multiSource": {
+      "types": "./dist/multiSource.d.ts",
+      "default": "./dist/multiSource.js"
     }
   },
   "types": "./dist/index.d.ts",
