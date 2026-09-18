@@ -127,7 +127,7 @@ export async function discoverAIProject(
         kind: "provider_configuration",
         label: "Configurable LLM provider boundary",
         confidence: "high",
-        technology: /OpenAICompatible|OpenAICompat/.test(providerMatch[0]) ? "openai-compatible" : undefined,
+        ...(/OpenAICompatible|OpenAICompat/.test(providerMatch[0]) ? { technology: "openai-compatible" } : {}),
         evidence: [{ path: file, line, detail: "Source contains a configurable LLM/provider boundary." }],
       });
     }
@@ -171,7 +171,7 @@ export async function discoverAIProject(
       kind: "source_code",
       provider: "ship-check",
       label: context.source.label || path.basename(context.root),
-      ...(context.source.type === "github" ? { external_ref: context.source.label } : {}),
+      ...(context.source.provider === "github" ? { external_ref: context.source.label } : {}),
     },
     signals,
     limitations: [
