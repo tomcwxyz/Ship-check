@@ -14,6 +14,7 @@ import { scanProject, type CheckDefinition } from "@ship-check/core";
 import { combineScanReports } from "@ship-check/core/multiSource";
 import { parseRuntimeTargetUrl, scanRuntimeTarget } from "@ship-check/core/runtime";
 import { costAwareChecks } from "@ship-check/cost-checks";
+import { databaseSourceChecks } from "@ship-check/database-checks";
 import { deepChecksForPacks } from "@ship-check/deep-checks";
 import { semgrepLocalCheck } from "@ship-check/deep-checks/semgrep";
 import { runtimeHttpChecks } from "@ship-check/runtime-checks";
@@ -163,6 +164,7 @@ function checksForRequestedPacks(
     ...selectedBreadthChecks,
     ...(packs.includes("production-ready") ? [serverSurfaceInventoryCheck] : []),
     ...(packs.includes("cost-aware") ? costAwareChecks : []),
+    ...databaseSourceChecks.filter((check) => packs.includes(check.pack)),
     ...deepChecksForPacks(packs, { networkedDependencyScan: options.networkedDependencyScan }),
     ...(packs.includes("secure-build") && options.localSemgrepScan ? [semgrepLocalCheck] : [])
   ];
