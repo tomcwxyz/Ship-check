@@ -1,5 +1,8 @@
 import type { CheckDefinition, ProjectContext } from "@ship-check/core";
 import type { AssessmentGap, Finding, Observation } from "@ship-check/schemas";
+import { neonSourceChecks } from "./neon.js";
+import { supabaseSourceChecks } from "./supabase.js";
+import { supabaseKeySourceChecks } from "./supabaseKeys.js";
 
 const POSTGRES_PACKAGES = new Set([
   "pg",
@@ -294,5 +297,8 @@ export const privilegedRequestCredentialCheck: CheckDefinition = {
 export const databaseSourceChecks: CheckDefinition[] = [
   postgresChangeProvenanceCheck,
   destructiveMigrationCheck,
-  privilegedRequestCredentialCheck
+  privilegedRequestCredentialCheck,
+  ...supabaseSourceChecks,
+  ...supabaseKeySourceChecks,
+  ...neonSourceChecks
 ];
