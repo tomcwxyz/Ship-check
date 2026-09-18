@@ -127,12 +127,15 @@ async function main() {
     args.push("--networked-dependency-scan");
   }
 
+  const repository = process.env.GITHUB_REPOSITORY || "github-workspace";
+  const relativeTarget = path.relative(workspace, target).replace(/\\/g, "/") || ".";
+  const sourceLabel = relativeTarget === "." ? repository : `${repository}:${relativeTarget}`;
   const environment = {
     ...process.env,
     SHIP_CHECK_EXECUTION_LOCATION: "ci-runner",
     SHIP_CHECK_SOURCE_PROVIDER: "github",
-    SHIP_CHECK_SOURCE_LABEL: process.env.GITHUB_REPOSITORY || "github-workspace",
-    SHIP_CHECK_SOURCE_ID: `github:${process.env.GITHUB_REPOSITORY || "workspace"}`,
+    SHIP_CHECK_SOURCE_LABEL: sourceLabel,
+    SHIP_CHECK_SOURCE_ID: `github:${sourceLabel}`,
     SHIP_CHECK_SOURCE_REF: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || "",
   };
 
