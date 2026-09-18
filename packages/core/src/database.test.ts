@@ -23,7 +23,9 @@ const snapshot = DatabaseMetadataSnapshotSchema.parse({
     fixedMetadataQueriesOnly: true,
     rowDataRead: false,
     tableLimit: 1000,
-    tablesTruncated: false
+    tablesTruncated: false,
+    inspectorSuperuser: false,
+    inspectorBypassRls: false
   },
   tables: [{
     schema: "public",
@@ -93,6 +95,7 @@ describe("database metadata scan runner", () => {
     expect(serialized).not.toContain("policyCount");
     expect(serialized).not.toContain("grants");
     expect(serialized).not.toContain("tableLimit");
+    expect(serialized).not.toContain("inspectorSuperuser");
   });
 
   it("rejects a metadata snapshot that does not carry a database evidence source", () => {
