@@ -158,6 +158,11 @@ function store(overrides: Partial<CloudHistoryStore> = {}): CloudHistoryStore {
         exportedAt: "2026-09-19T11:00:00.000Z"
       });
     }),
+    updateDisplayName: vi.fn(async (_accountId, _projectId, displayName) => ({
+      ...project,
+      ...(displayName === null ? { displayName: undefined } : { displayName }),
+      updatedAt: "2026-09-19T11:00:00.000Z"
+    })),
     updateRetention: vi.fn(async (_accountId, _projectId, retention) => ({
       ...project,
       retention,
@@ -356,6 +361,11 @@ describe("cloud history service", () => {
     const service = createCloudHistoryService(historyStore, { now: fixedNow });
 
     await service.exportProject(principal, projectId);
+    await service.updateDisplayName(principal, {
+      schemaVersion: "0.1",
+      projectId,
+      displayName: "Renamed explicitly"
+    });
     await service.updateRetention(principal, {
       schemaVersion: "0.1",
       projectId,
@@ -366,6 +376,12 @@ describe("cloud history service", () => {
     expect(historyStore.exportProject).toHaveBeenCalledWith(
       accountId,
       projectId,
+      new Date("2026-09-19T11:00:00.000Z")
+    );
+    expect(historyStore.updateDisplayName).toHaveBeenCalledWith(
+      accountId,
+      projectId,
+      "Renamed explicitly",
       new Date("2026-09-19T11:00:00.000Z")
     );
     expect(historyStore.updateRetention).toHaveBeenCalledWith(
