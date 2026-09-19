@@ -141,6 +141,11 @@ function service(overrides: Partial<CloudHistoryService> = {}): CloudHistoryServ
       }
     })),
     getProject: vi.fn(async () => project),
+    listProjects: vi.fn(async () => ({
+      schemaVersion: "0.1" as const,
+      projects: [project]
+    })),
+    getTimeline: vi.fn(async () => timeline),
     sync: vi.fn(async () => ({
       schemaVersion: "0.1" as const,
       projectId,
@@ -225,6 +230,61 @@ describe("cloud history HTTP transport", () => {
     expect(response.status).toBe(403);
     expect(parsedBody(response).code).toBe("mutation-not-authorised");
     expect(cloudService.deleteProject).not.toHaveBeenCalled();
+  });
+
+  it("lists connected projects from bounded query parameters", async () => {
+    const cloudService = service();
+    const handler = createCloudHistoryHttpHandler(cloudService);
+
+    const response = await handler(request({
+      path: "/v1/projects?limit=25&cursor=abc_DEF-123"
+    }));
+
+    expect(response.status).toBe(200);
+    expect(parsedBody(response).projects).toEqual([project]);
+    expect(cloudService.listProjects).toHaveBeenCalledWith(principal, {
+      schemaVersion: "0.1",
+      limit: 25,
+      cursor: "abc_DEF-123"
+    });
+  });
+
+  it("rejects invalid project-list limits and invalid cursor domain errors as 400", async () => {
+    const handler = createCloudHistoryHttpHandler(service());
+
+    const badLimit = await handler(request({
+      path: "/v1/projects?limit=101"
+    }));
+    expect(badLimit.status).toBe(400);
+    expect(parsedBody(badLimit).code).toBe("invalid-request");
+
+    const badCursorHandler = createCloudHistoryHttpHandler(service({
+      listProjects: vi.fn(async () => {
+        throw new CloudHistoryServiceOperationError(
+          "project-list-cursor-invalid",
+          "Project list cursor is invalid or no longer usable."
+        );
+      })
+    }));
+    const badCursor = await badCursorHandler(request({
+      path: "/v1/projects?cursor=e30"
+    }));
+    expect(badCursor.status).toBe(400);
+    expect(parsedBody(badCursor).code).toBe("invalid-request");
+  });
+
+  it("serves the source-free timeline without download semantics", async () => {
+    const cloudService = service();
+    const handler = createCloudHistoryHttpHandler(cloudService);
+
+    const response = await handler(request({
+      path: `/v1/projects/${projectId}/timeline`
+    }));
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-disposition"]).toBeUndefined();
+    expect(parsedBody(response).type).toBe("project-history-timeline");
+    expect(cloudService.getTimeline).toHaveBeenCalledWith(principal, projectId);
   });
 
   it("serves project reads with no-store security headers", async () => {

@@ -35,9 +35,11 @@ For browser cookie sessions, `mutationAuthorised` should only be true after the 
 | Method | Route | Operation |
 | --- | --- | --- |
 | POST | `/v1/projects/connect` | Connect/create a project from strict assurance metadata and ingest the first event |
+| GET | `/v1/projects?limit=&cursor=` | List account-scoped connected projects with bounded keyset pagination |
 | GET | `/v1/projects/:projectId` | Read the account-scoped project record |
 | DELETE | `/v1/projects/:projectId` | Hard-delete project + cascaded history |
 | POST | `/v1/projects/:projectId/events` | Sync one strict assurance-metadata event |
+| GET | `/v1/projects/:projectId/timeline` | Read the source-free project history timeline for product/UI use |
 | GET | `/v1/projects/:projectId/export` | Export the source-free project history envelope |
 | PATCH | `/v1/projects/:projectId/name` | Explicitly update or clear display name |
 | PATCH | `/v1/projects/:projectId/retention` | Explicitly change history retention |
@@ -46,6 +48,10 @@ For browser cookie sessions, `mutationAuthorised` should only be true after the 
 Path project IDs are UUID-validated. For body routes that also contain `projectId`, body and path must match.
 
 Unknown routes return 404. Known routes with the wrong method return 405 plus an `Allow` header.
+
+Project directory pages default to 50 items and are capped at 100. `cursor` is an opaque base64url continuation token produced by the service; malformed/invalid cursors return 400 and are never treated as SQL fragments or free-form ordering input.
+
+The timeline route is intentionally separate from `/export`: it returns the same portable source-free timeline contract without a download `Content-Disposition` header, so a hosted UI can consume history without special-casing an export response.
 
 ## Mutation authorisation
 

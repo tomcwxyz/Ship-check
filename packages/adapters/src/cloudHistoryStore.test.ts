@@ -217,6 +217,38 @@ describe("cloud history store", () => {
     expect(db.calls[0]?.text).toMatch(/WHERE account_id = \$1 AND project_identity = \$2/i);
   });
 
+  it("lists projects inside one account with stable keyset ordering", async () => {
+    const db = new FakeDatabase([{ rows: [projectRow] }]);
+    const store = createCloudHistoryStore(db);
+
+    const projects = await store.listProjects(accountId, { limit: 51 });
+
+    expect(projects).toHaveLength(1);
+    expect(projects[0]?.id).toBe(projectId);
+    expect(db.calls[0]?.values).toEqual([accountId, 51]);
+    expect(db.calls[0]?.text).toMatch(/WHERE account_id = \$1/i);
+    expect(db.calls[0]?.text).toMatch(/ORDER BY updated_at DESC, id DESC/i);
+  });
+
+  it("continues project listing strictly before the supplied updated-at/id cursor", async () => {
+    const db = new FakeDatabase([{ rows: [] }]);
+    const store = createCloudHistoryStore(db);
+    const before = {
+      updatedAt: "2026-09-19T08:00:00.000Z",
+      id: projectId
+    };
+
+    await store.listProjects(accountId, { limit: 51, before });
+
+    expect(db.calls[0]?.values).toEqual([
+      accountId,
+      51,
+      before.updatedAt,
+      before.id
+    ]);
+    expect(db.calls[0]?.text).toMatch(/\(updated_at, id\) < \(\$3::timestamptz, \$4::uuid\)/i);
+  });
+
   it("stores matching metadata with expiry derived from project retention", async () => {
     const value = event();
     const db = new FakeDatabase([

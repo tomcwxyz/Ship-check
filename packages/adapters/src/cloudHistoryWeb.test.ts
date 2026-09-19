@@ -102,6 +102,11 @@ function service(overrides: Partial<CloudHistoryService> = {}): CloudHistoryServ
       }
     })),
     getProject: vi.fn(async () => project),
+    listProjects: vi.fn(async () => ({
+      schemaVersion: "0.1" as const,
+      projects: [project]
+    })),
+    getTimeline: vi.fn(),
     sync: vi.fn(),
     exportProject: vi.fn(),
     updateDisplayName: vi.fn(),
@@ -184,6 +189,25 @@ describe("cloud history Web binding", () => {
     expect(response.headers.get("cache-control")).toBe("no-store");
     expect((await response.json() as { id: string }).id).toBe(projectId);
     expect(cloudService.getProject).toHaveBeenCalledWith(principal, projectId);
+  });
+
+  it("preserves bounded project-list query parameters into the transport", async () => {
+    const cloudService = service();
+    const handler = createCloudHistoryWebHandler(cloudService, {
+      authenticate: async () => auth()
+    });
+
+    const response = await handler(new Request(
+      "https://cloud.example/v1/projects?limit=7&cursor=abc_DEF-123",
+      { method: "GET" }
+    ));
+
+    expect(response.status).toBe(200);
+    expect(cloudService.listProjects).toHaveBeenCalledWith(principal, {
+      schemaVersion: "0.1",
+      limit: 7,
+      cursor: "abc_DEF-123"
+    });
   });
 
   it("streams a bounded JSON mutation body into project connect", async () => {

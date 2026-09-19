@@ -126,6 +126,16 @@ This remains a portable binding, not a deployed service. Next/Vercel route files
 
 See [`CLOUD_WEB.md`](./CLOUD_WEB.md).
 
+### Cloud project directory and timeline reads
+
+The control plane now has bounded account-scoped read primitives suitable for a hosted product surface without creating a portfolio score.
+
+Project listing is ordered by recent project mutation using `updated_at DESC, id DESC` and uses opaque keyset continuation. The public contract defaults to 50 and caps pages at 100. The service decodes and validates the cursor before storage sees the timestamp/UUID boundary.
+
+A dedicated timeline read route reuses the same portable `ProjectHistoryTimeline` reducer as local/CLI history. Cloud therefore does not own a second interpretation of new/persistent/reactivated/coverage state.
+
+The directory returns project identity/configuration records only; attention/history remain explicit timeline data.
+
 ## Evidence rules
 
 - Never echo detected credential values in findings.

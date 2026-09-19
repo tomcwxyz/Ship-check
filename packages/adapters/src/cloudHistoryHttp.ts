@@ -3,6 +3,7 @@ import {
   CloudHistoryHttpErrorSchema,
   CloudHistoryIngestRequestSchema,
   CloudProjectConnectRequestSchema,
+  CloudProjectListRequestSchema,
   CloudProjectNameUpdateRequestSchema,
   CloudRetentionUpdateRequestSchema,
   type CloudAuthenticatedPrincipal,
@@ -85,6 +86,19 @@ function pathname(value: string): string {
   }
 }
 
+function query(value: string): URLSearchParams {
+  try {
+    return new URL(value, "https://ship-check.invalid").searchParams;
+  } catch {
+    const queryStart = value.indexOf("?");
+    if (queryStart < 0) return new URLSearchParams();
+    const fragmentStart = value.indexOf("#", queryStart);
+    return new URLSearchParams(
+      value.slice(queryStart + 1, fragmentStart >= 0 ? fragmentStart : undefined)
+    );
+  }
+}
+
 function routeParts(value: string): string[] {
   return pathname(value).split("/").filter(Boolean);
 }
@@ -139,6 +153,9 @@ function serviceErrorResponse(error: CloudHistoryServiceOperationError): CloudHi
   if (error.code === "project-not-found" || error.code === "account-not-found") {
     return errorResponse(404, "not-found", error.message);
   }
+  if (error.code === "project-list-cursor-invalid") {
+    return errorResponse(400, "invalid-request", error.message);
+  }
   return errorResponse(409, "conflict", error.message);
 }
 
@@ -187,6 +204,21 @@ export function createCloudHistoryHttpHandler(
         return jsonResponse(200, await service.connectProject(principal, input));
       }
 
+      if (parts.join("/") === "v1/projects") {
+        if (method !== "GET") {
+          return errorResponse(405, "method-not-allowed", "Use GET to list connected projects.", { allow: "GET" });
+        }
+        const params = query(request.path);
+        const limitValue = params.get("limit");
+        const cursorValue = params.get("cursor");
+        const input = CloudProjectListRequestSchema.parse({
+          schemaVersion: "0.1",
+          ...(limitValue !== null ? { limit: Number(limitValue) } : {}),
+          ...(cursorValue ? { cursor: cursorValue } : {})
+        });
+        return jsonResponse(200, await service.listProjects(principal, input));
+      }
+
       if (parts.length >= 3 && parts[0] === "v1" && parts[1] === "projects") {
         const id = projectId(parts[2]!);
 
@@ -223,6 +255,13 @@ export function createCloudHistoryHttpHandler(
           return jsonResponse(200, await service.exportProject(principal, id), {
             "content-disposition": `attachment; filename="ship-check-history-${id}.json"`
           });
+        }
+
+        if (parts.length === 4 && parts[3] === "timeline") {
+          if (method !== "GET") {
+            return errorResponse(405, "method-not-allowed", "Use GET to read the project timeline.", { allow: "GET" });
+          }
+          return jsonResponse(200, await service.getTimeline(principal, id));
         }
 
         if (parts.length === 4 && parts[3] === "name") {

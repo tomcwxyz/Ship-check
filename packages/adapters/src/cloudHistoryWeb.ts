@@ -62,7 +62,8 @@ function responseFromTransport(value: {
 
 function requestPath(request: Request): string {
   try {
-    return new URL(request.url).pathname;
+    const url = new URL(request.url);
+    return `${url.pathname}${url.search}`;
   } catch {
     return "/";
   }

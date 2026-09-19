@@ -5,6 +5,9 @@ import {
   CloudHistoryServiceErrorSchema,
   CloudProjectConnectRequestSchema,
   CloudProjectConnectResultSchema,
+  CloudProjectListCursorSchema,
+  CloudProjectListPageSchema,
+  CloudProjectListRequestSchema,
   CloudProjectNameUpdateRequestSchema,
   CloudRetentionUpdateRequestSchema,
   type CloudAccount,
@@ -19,10 +22,15 @@ import {
   type CloudProjectConnectResult,
   type CloudProjectDeletionReceipt,
   type CloudProjectHistoryExport,
+  type CloudProjectListCursor,
+  type CloudProjectListPage,
+  type CloudProjectListRequest,
   type CloudProjectNameUpdateRequest,
-  type CloudRetentionUpdateRequest
+  type CloudRetentionUpdateRequest,
+  type ProjectHistoryTimeline
 } from "@ship-check/schemas";
 import type { CloudHistoryStore } from "./cloudHistoryStore.js";
+import { buildProjectHistoryTimeline } from "./timeline.js";
 
 export class CloudHistoryServiceOperationError extends Error {
   readonly code: CloudHistoryServiceErrorCode;
@@ -57,6 +65,14 @@ export type CloudHistoryService = {
     principal: CloudAuthenticatedPrincipal,
     projectId: string
   ): Promise<CloudProject>;
+  listProjects(
+    principal: CloudAuthenticatedPrincipal,
+    request: CloudProjectListRequest
+  ): Promise<CloudProjectListPage>;
+  getTimeline(
+    principal: CloudAuthenticatedPrincipal,
+    projectId: string
+  ): Promise<ProjectHistoryTimeline>;
   sync(
     principal: CloudAuthenticatedPrincipal,
     request: CloudHistoryIngestRequest
@@ -87,6 +103,23 @@ function operationError(
   message: string
 ): CloudHistoryServiceOperationError {
   return new CloudHistoryServiceOperationError(code, message);
+}
+
+function encodeProjectListCursor(cursor: CloudProjectListCursor): string {
+  const parsed = CloudProjectListCursorSchema.parse(cursor);
+  return Buffer.from(JSON.stringify(parsed), "utf8").toString("base64url");
+}
+
+function decodeProjectListCursor(value: string): CloudProjectListCursor {
+  try {
+    const json = Buffer.from(value, "base64url").toString("utf8");
+    return CloudProjectListCursorSchema.parse(JSON.parse(json));
+  } catch {
+    throw operationError(
+      "project-list-cursor-invalid",
+      "Project list cursor is invalid or no longer usable."
+    );
+  }
 }
 
 function mapStoreError(error: unknown): never {
@@ -230,6 +263,49 @@ export function createCloudHistoryService(
 
     async getProject(principal, projectId) {
       return (await requireProject(principal, projectId)).project;
+    },
+
+    async listProjects(principalValue, requestValue) {
+      const principal = CloudAuthenticatedPrincipalSchema.parse(principalValue);
+      const request = CloudProjectListRequestSchema.parse(requestValue);
+      const account = await requireExistingAccount(principal);
+      const before = request.cursor ? decodeProjectListCursor(request.cursor) : undefined;
+      const rows = await store.listProjects(account.id, {
+        limit: request.limit + 1,
+        ...(before ? { before } : {})
+      });
+      const projects = rows.slice(0, request.limit);
+      const hasMore = rows.length > request.limit;
+      const last = projects.at(-1);
+
+      return CloudProjectListPageSchema.parse({
+        schemaVersion: "0.1",
+        projects,
+        ...(hasMore && last
+          ? {
+              nextCursor: encodeProjectListCursor({
+                updatedAt: last.updatedAt,
+                id: last.id
+              })
+            }
+          : {})
+      });
+    },
+
+    async getTimeline(principal, projectId) {
+      const { account } = await requireProject(principal, projectId);
+      try {
+        const events = await store.listEvents(account.id, projectId);
+        if (events.length === 0) {
+          throw operationError(
+            "history-empty",
+            "Project has no assurance metadata history to read."
+          );
+        }
+        return buildProjectHistoryTimeline(events.map((entry) => entry.event));
+      } catch (error) {
+        mapStoreError(error);
+      }
     },
 
     async sync(principalValue, requestValue) {
