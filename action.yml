@@ -20,9 +20,13 @@ inputs:
     required: false
     default: "high"
   report-path:
-    description: Repository-relative path for the JSON report.
+    description: Repository-relative path for the full JSON report.
     required: false
     default: ".ship-check/report.json"
+  metadata-path:
+    description: Repository-relative path for the source-free assurance metadata sidecar.
+    required: false
+    default: ".ship-check/metadata.json"
   deployment-url:
     description: Optional deployed URL to add bounded runtime evidence to the source review.
     required: false
@@ -38,8 +42,11 @@ inputs:
 
 outputs:
   report-path:
-    description: Repository-relative path to the generated JSON report.
+    description: Repository-relative path to the generated full JSON report.
     value: ${{ steps.scan.outputs.report-path }}
+  metadata-path:
+    description: Repository-relative path to the generated source-free assurance metadata sidecar.
+    value: ${{ steps.scan.outputs.metadata-path }}
   exit-code:
     description: Ship Check threshold exit code before the action gate is applied.
     value: ${{ steps.scan.outputs.exit-code }}
@@ -108,6 +115,7 @@ runs:
         INPUT_PACKS: ${{ inputs.packs }}
         INPUT_FAIL_ON: ${{ inputs.fail-on }}
         INPUT_REPORT_PATH: ${{ inputs.report-path }}
+        INPUT_METADATA_PATH: ${{ inputs.metadata-path }}
         INPUT_DEPLOYMENT_URL: ${{ inputs.deployment-url }}
         INPUT_NETWORKED_DEPENDENCY_SCAN: ${{ inputs.networked-dependency-scan }}
         INPUT_PR_COMPARISON: ${{ inputs.pr-comparison }}
