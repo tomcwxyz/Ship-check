@@ -224,7 +224,8 @@ export const ProjectHistoryEvidenceSourceSchema = z.object({
   provider: ProjectEvidenceSourceSchema.shape.provider,
   acquisition: ProjectEvidenceSourceSchema.shape.acquisition,
   executionLocation: ProjectEvidenceSourceSchema.shape.executionLocation,
-  capabilities: ProjectEvidenceSourceSchema.shape.capabilities
+  capabilities: ProjectEvidenceSourceSchema.shape.capabilities,
+  count: z.number().int().positive().default(1)
 }).strict();
 export type ProjectHistoryEvidenceSource = z.infer<typeof ProjectHistoryEvidenceSourceSchema>;
 
