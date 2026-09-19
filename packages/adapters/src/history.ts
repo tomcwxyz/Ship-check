@@ -89,13 +89,15 @@ function safeEvidenceSource(source: ProjectEvidenceSource) {
 }
 
 function sortedEvidenceSources(sources: ProjectEvidenceSource[]) {
-  const deduped = new Map<string, ReturnType<typeof safeEvidenceSource>>();
+  const grouped = new Map<string, ReturnType<typeof safeEvidenceSource> & { count: number }>();
   for (const source of sources) {
     const safe = safeEvidenceSource(source);
     const key = JSON.stringify(safe);
-    if (!deduped.has(key)) deduped.set(key, safe);
+    const existing = grouped.get(key);
+    if (existing) existing.count += 1;
+    else grouped.set(key, { ...safe, count: 1 });
   }
-  return [...deduped.values()].sort((left, right) =>
+  return [...grouped.values()].sort((left, right) =>
     JSON.stringify(left).localeCompare(JSON.stringify(right))
   );
 }
