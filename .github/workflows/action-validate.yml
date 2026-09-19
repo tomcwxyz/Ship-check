@@ -98,6 +98,9 @@ jobs:
           if (process.env.EVENT_NAME === "pull_request") {
             assert.equal(metadata.change?.basis, "pull-request-base");
             assert.equal(metadata.change?.scope, "source");
+            assert.equal(metadata.change?.findings?.introduced, Number(process.env.NEW_FINDING_COUNT));
+            assert.equal(metadata.change?.gaps?.introduced, Number(process.env.NEW_UNVERIFIED_COUNT));
+            assert.equal(metadata.change?.surfaces?.introduced, Number(process.env.NEW_SURFACE_COUNT));
           } else {
             assert.equal(metadata.change, undefined);
           }
