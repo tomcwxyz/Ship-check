@@ -138,7 +138,7 @@ This slice does **not** add:
 - a hosted Next.js app or API;
 - a Neon project/database;
 - authentication/session UI;
-- automatic CLI/desktop/CI sync;
+- automatic post-scan desktop/CI sync (the CLI now has explicit metadata-only connect/sync commands);
 - GitHub App/webhook ingestion;
 - structured-finding or bounded-evidence sync;
 - managed source scanning;
@@ -146,3 +146,16 @@ This slice does **not** add:
 - hosted timeline UI.
 
 Those should build on this store rather than widening the persistence boundary first.
+
+## Explicit CLI metadata sync
+
+The CLI now has an opt-in client over the existing Cloud history HTTP contract:
+
+- `ship-check cloud connect <metadata.json>`;
+- `ship-check cloud sync <project-id> <metadata.json>`;
+- `ship-check cloud projects`;
+- `ship-check cloud timeline <project-id>`.
+
+The client accepts only the strict `assurance-metadata/0.1` envelope for writes, reads its bearer credential from `SHIP_CHECK_CLOUD_TOKEN`, requires an explicit `--cloud-url` or `SHIP_CHECK_CLOUD_URL`, requires HTTPS outside localhost development, refuses credentials in endpoint URLs, bounds response bodies and follows no redirects.
+
+This is intentionally **not automatic scan upload** and does not add token persistence. It is the first end-to-end client boundary for the narrowest cloud sync level while hosted deployment/session binding is still being built.

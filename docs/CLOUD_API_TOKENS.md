@@ -2,7 +2,7 @@
 
 Ship Check Cloud API tokens are the planned non-browser credential for CLI, CI and other explicit automation against the metadata-only control plane.
 
-This foundation adds token generation, hashed persistence, account-scoped management and active-token authentication lookup. It does **not yet** wire bearer tokens into the Web handler or expose token-management HTTP routes.
+This foundation adds token generation, hashed persistence, account-scoped management, active-token authentication lookup and scoped bearer authentication for the Cloud history Web handler. Browser/session token-management HTTP routes are now available separately; a hosted app still needs to bind them to real session authentication and product UI.
 
 ## Raw token boundary
 
@@ -144,7 +144,7 @@ The Web binding evaluates explicit denial before consuming POST/PATCH request bo
 
 This foundation deliberately does not yet add:
 
-- token-management HTTP routes;
+- hosted token-management UI and session binding;
 - CLI token storage;
 - CLI/CI metadata sync;
 - token rotation helpers;
