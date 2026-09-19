@@ -470,7 +470,7 @@ export function createCloudHistoryStore(database: CloudHistoryDatabase): CloudHi
       const when = iso(updatedAt);
       const parsedName = displayName === null
         ? null
-        : CloudProjectSchema.shape.displayName.unwrap().parse(displayName);
+        : CloudProjectSchema.pick({ displayName: true }).parse({ displayName }).displayName!;
 
       const result = await database.query<ProjectRow>(
         `UPDATE ship_check_projects
