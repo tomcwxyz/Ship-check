@@ -105,6 +105,33 @@ function safeFingerprint(report) {
   };
 }
 
+function safeRuleset(report) {
+  const ruleset = report?.ruleset;
+  if (
+    !ruleset ||
+    ruleset.algorithm !== "sha256" ||
+    ruleset.scope !== "check-ruleset-v1" ||
+    !HASH_RE.test(ruleset.value)
+  ) {
+    return null;
+  }
+  return {
+    algorithm: "sha256",
+    scope: "check-ruleset-v1",
+    value: ruleset.value,
+    checkCount: Math.max(0, Number(ruleset.checkCount) || 0),
+  };
+}
+
+function comparableRuleset(left, right) {
+  const leftRuleset = left?.ruleset?.value;
+  const rightRuleset = right?.ruleset?.value;
+  if (HASH_RE.test(leftRuleset ?? "") && HASH_RE.test(rightRuleset ?? "")) {
+    return leftRuleset === rightRuleset;
+  }
+  return samePacks(left, right) && checkSignature(left) === checkSignature(right);
+}
+
 function checkSignature(entry) {
   return (entry?.checks ?? [])
     .map((check) => `${check.checkId}@${check.checkVersion ?? "1"}`)
@@ -156,12 +183,10 @@ export function compareWithPreviousDiagnostics(entries, current) {
     return null;
   }
 
-  const currentChecks = checkSignature(current);
   const previous = [...(entries ?? [])].reverse().find((entry) =>
     entry?.event === "scan-completed" &&
     entry?.source?.identity === current.source.identity &&
-    samePacks(entry, current) &&
-    checkSignature(entry) === currentChecks &&
+    comparableRuleset(entry, current) &&
     Array.isArray(entry.findingIdentities) &&
     Array.isArray(entry.gapIdentities)
   );
@@ -240,6 +265,7 @@ export async function createSuccessDiagnostic({ report, sourceMode, sourceValue,
     opaqueIdentities(report?.gaps),
   ]);
   const fingerprint = safeFingerprint(report);
+  const ruleset = safeRuleset(report);
   return {
     schemaVersion: "1",
     event: "scan-completed",
@@ -272,6 +298,7 @@ export async function createSuccessDiagnostic({ report, sourceMode, sourceValue,
     notAssessedCount: report.checks?.filter((check) => check.status === "not-assessed").length ?? 0,
     coverage: (report.coverage ?? []).map(safeCoverage),
     checks: report.checks.map(safeCheck),
+    ...(ruleset ? { ruleset } : {}),
     findingIdentities,
     gapIdentities,
   };
@@ -365,6 +392,7 @@ export function formatReceipt(entry) {
     ...optionLines(entry),
     `${passed} passed · ${findings} with findings · ${suppressedChecks} suppression-only · ${entry.suppressedCount ?? 0} suppressed findings · ${unverified} unverified · ${resolved} resolved by other evidence · ${entry.resolvedCount ?? 0} resolved questions · ${notAssessed} not assessed · ${entry.observedCount ?? 0} observed · ${errors} errors · ${entry.elapsedMs} ms`,
     `engine ${entry.toolVersion}`,
+    ...(entry.ruleset ? [`ruleset ${entry.ruleset.value.slice(0, 12)} · ${entry.ruleset.checkCount} checks`] : []),
     "",
     ...entry.checks.map(
       (check) => `${check.status.padEnd(12)} ${check.checkId}@${check.checkVersion ?? "1"} · ${check.findingCount} findings · ${check.suppressedCount ?? 0} suppressed · ${check.gapCount ?? 0} gaps · ${check.resolvedGapCount ?? 0} resolved gaps · ${check.observationCount ?? 0} observed · ${check.durationMs} ms${check.missingEvidence?.length ? ` · missing ${check.missingEvidence.join(",")}` : ""}`,
@@ -384,7 +412,7 @@ export function formatDiagnostics(entries) {
     {
       schemaVersion: "1",
       exportedAt: new Date().toISOString(),
-      note: "Ship Check diagnostics contain scan metadata only: no source contents, raw finding/gap IDs, suppression rationales/finding details, resolved-question details, observation paths/details, evidence excerpts, local source paths, deployment URL paths/query strings, database connection URLs/credentials, cookie values or matched secret values. Regression identities and source locators are stored only as SHA-256 digests.",
+      note: "Ship Check diagnostics contain scan metadata only: no source contents, raw finding/gap IDs, suppression rationales/finding details, resolved-question details, observation paths/details, evidence excerpts, local source paths, deployment URL paths/query strings, database connection URLs/credentials, cookie values or matched secret values. Regression identities, source locators and ruleset provenance are stored only as SHA-256 digests.",
       entries,
     },
     null,
