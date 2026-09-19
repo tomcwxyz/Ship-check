@@ -72,6 +72,10 @@ function shouldReadBody(method: string): boolean {
   return method === "POST" || method === "PATCH";
 }
 
+function isMutation(method: string): boolean {
+  return method === "POST" || method === "PATCH" || method === "DELETE";
+}
+
 async function readBoundedBody(
   request: Request,
   maxBodyBytes: number
@@ -141,8 +145,18 @@ export function createCloudHistoryWebHandler(
       }));
     }
 
+    const method = request.method.trim().toUpperCase();
+    if (isMutation(method) && auth.mutationAuthorised !== true) {
+      return responseFromTransport(await transport({
+        method: request.method,
+        path: requestPath(request),
+        contentType: request.headers.get("content-type") ?? undefined,
+        auth
+      }));
+    }
+
     let body: string | undefined;
-    if (shouldReadBody(request.method.trim().toUpperCase())) {
+    if (shouldReadBody(method)) {
       try {
         body = await readBoundedBody(request, maxBodyBytes);
       } catch (error) {
