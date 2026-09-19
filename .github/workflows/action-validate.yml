@@ -54,6 +54,7 @@ jobs:
           METADATA_PATH: ${{ steps.ship-check.outputs.metadata-path }}
           COMPARISON_STATUS: ${{ steps.ship-check.outputs.comparison-status }}
           EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
           NEW_FINDING_COUNT: ${{ steps.ship-check.outputs.new-finding-count }}
           NEW_UNVERIFIED_COUNT: ${{ steps.ship-check.outputs.new-unverified-count }}
           NEW_SURFACE_COUNT: ${{ steps.ship-check.outputs.new-surface-count }}
@@ -98,6 +99,7 @@ jobs:
           if (process.env.EVENT_NAME === "pull_request") {
             assert.equal(metadata.change?.basis, "pull-request-base");
             assert.equal(metadata.change?.scope, "source");
+            assert.equal(metadata.change?.baselineCommit, process.env.BASE_SHA);
             assert.equal(metadata.change?.findings?.introduced, Number(process.env.NEW_FINDING_COUNT));
             assert.equal(metadata.change?.gaps?.introduced, Number(process.env.NEW_UNVERIFIED_COUNT));
             assert.equal(metadata.change?.surfaces?.introduced, Number(process.env.NEW_SURFACE_COUNT));
