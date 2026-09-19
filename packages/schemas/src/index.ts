@@ -36,6 +36,20 @@ export const RulesetProvenanceSchema = z.object({
 }).strict();
 export type RulesetProvenance = z.infer<typeof RulesetProvenanceSchema>;
 
+export const OpaqueProjectIdentitySchema = z.object({
+  algorithm: z.literal("sha256"),
+  scope: z.literal("project-source-v1"),
+  value: z.string().regex(/^[a-f0-9]{64}$/)
+}).strict();
+export type OpaqueProjectIdentity = z.infer<typeof OpaqueProjectIdentitySchema>;
+
+export const OpaqueScanIdentitySchema = z.object({
+  algorithm: z.literal("sha256"),
+  scope: z.literal("scan-event-v1"),
+  value: z.string().regex(/^[a-f0-9]{64}$/)
+}).strict();
+export type OpaqueScanIdentity = z.infer<typeof OpaqueScanIdentitySchema>;
+
 export const AssessmentAreaSchema = z.enum([
   "secrets",
   "access-control",
@@ -203,6 +217,88 @@ export const ScanReportSchema = z.object({
   generatedAt: z.string().datetime()
 });
 export type ScanReport = z.infer<typeof ScanReportSchema>;
+
+
+export const ProjectHistoryEvidenceSourceSchema = z.object({
+  type: ProjectEvidenceSourceSchema.shape.type,
+  provider: ProjectEvidenceSourceSchema.shape.provider,
+  acquisition: ProjectEvidenceSourceSchema.shape.acquisition,
+  executionLocation: ProjectEvidenceSourceSchema.shape.executionLocation,
+  capabilities: ProjectEvidenceSourceSchema.shape.capabilities
+}).strict();
+export type ProjectHistoryEvidenceSource = z.infer<typeof ProjectHistoryEvidenceSourceSchema>;
+
+export const ProjectHistoryCoverageSchema = z.object({
+  area: AssessmentAreaSchema,
+  status: CoverageStatusSchema,
+  checkCount: z.number().int().nonnegative()
+}).strict();
+export type ProjectHistoryCoverage = z.infer<typeof ProjectHistoryCoverageSchema>;
+
+export const ProjectHistoryChangeSchema = z.object({
+  basis: z.enum(["previous-comparable-scan", "pull-request-base"]),
+  sourceSnapshot: z.enum(["changed", "unchanged", "uncertain", "unknown"]),
+  findings: z.object({
+    introduced: z.number().int().nonnegative(),
+    persistent: z.number().int().nonnegative(),
+    reactivated: z.number().int().nonnegative().default(0),
+    accepted: z.number().int().nonnegative().default(0),
+    noLongerActive: z.number().int().nonnegative()
+  }).strict(),
+  gaps: z.object({
+    introduced: z.number().int().nonnegative(),
+    persistent: z.number().int().nonnegative(),
+    noLongerActive: z.number().int().nonnegative()
+  }).strict(),
+  surfaces: z.object({
+    introduced: z.number().int().nonnegative().default(0),
+    persistent: z.number().int().nonnegative().default(0),
+    noLongerObserved: z.number().int().nonnegative().default(0)
+  }).strict().default({
+    introduced: 0,
+    persistent: 0,
+    noLongerObserved: 0
+  })
+}).strict();
+export type ProjectHistoryChange = z.infer<typeof ProjectHistoryChangeSchema>;
+
+export const ProjectHistoryMetadataSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  type: z.literal("assurance-metadata"),
+  provider: z.literal("ship-check"),
+  project: z.object({
+    identity: OpaqueProjectIdentitySchema,
+    identityBasis: z.enum(["primary-evidence", "caller-provided"]),
+    evidenceSources: z.array(ProjectHistoryEvidenceSourceSchema).min(1),
+    sourceFingerprint: ProjectSnapshotFingerprintSchema.optional(),
+    commit: z.string().regex(/^[a-f0-9]{40,64}$/).optional()
+  }).strict(),
+  scan: z.object({
+    identity: OpaqueScanIdentitySchema,
+    generatedAt: z.string().datetime(),
+    engineVersion: z.string().min(1),
+    ruleset: RulesetProvenanceSchema,
+    packs: z.array(CheckPackSchema),
+    checkCount: z.number().int().nonnegative()
+  }).strict(),
+  counts: z.object({
+    findings: z.number().int().nonnegative(),
+    suppressed: z.number().int().nonnegative(),
+    critical: z.number().int().nonnegative(),
+    high: z.number().int().nonnegative(),
+    medium: z.number().int().nonnegative(),
+    low: z.number().int().nonnegative(),
+    info: z.number().int().nonnegative(),
+    unverified: z.number().int().nonnegative(),
+    resolved: z.number().int().nonnegative(),
+    observed: z.number().int().nonnegative(),
+    notAssessed: z.number().int().nonnegative(),
+    checkErrors: z.number().int().nonnegative()
+  }).strict(),
+  coverage: z.array(ProjectHistoryCoverageSchema),
+  change: ProjectHistoryChangeSchema.optional()
+}).strict();
+export type ProjectHistoryMetadata = z.infer<typeof ProjectHistoryMetadataSchema>;
 
 export const AssuranceOutcomeSchema = z.enum(["pass", "fail", "uncertain", "incomplete"]);
 export type AssuranceOutcome = z.infer<typeof AssuranceOutcomeSchema>;
