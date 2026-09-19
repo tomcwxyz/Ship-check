@@ -112,6 +112,7 @@ function store(overrides: Partial<CloudHistoryStore> = {}): CloudHistoryStore {
       createdAt: "2026-09-19T10:00:00.000Z",
       updatedAt: "2026-09-19T10:00:00.000Z"
     })),
+    listProjects: vi.fn(async () => [project]),
     findProjectByIdentity: vi.fn(async () => project),
     getProject: vi.fn(async () => project),
     ingest: vi.fn(async (_accountId, resolvedProjectId, value) => ({
@@ -308,6 +309,81 @@ describe("cloud history service", () => {
     });
 
     expect(historyStore.ingest).not.toHaveBeenCalled();
+  });
+
+  it("lists connected projects with a stable opaque keyset cursor", async () => {
+    const older: CloudProject = {
+      ...project,
+      id: "44444444-4444-4444-8444-444444444444",
+      displayName: "Older",
+      updatedAt: "2026-09-18T10:00:00.000Z"
+    };
+    const historyStore = store({
+      listProjects: vi.fn(async () => [project, older])
+    });
+    const service = createCloudHistoryService(historyStore, { now: fixedNow });
+
+    const first = await service.listProjects(principal, {
+      schemaVersion: "0.1" as const,
+      limit: 1
+    });
+
+    expect(first.projects).toEqual([project]);
+    expect(first.nextCursor).toMatch(/^[A-Za-z0-9_-]+$/);
+    expect(historyStore.listProjects).toHaveBeenCalledWith(accountId, { limit: 2 });
+
+    vi.mocked(historyStore.listProjects).mockResolvedValueOnce([older]);
+    const second = await service.listProjects(principal, {
+      schemaVersion: "0.1" as const,
+      limit: 1,
+      cursor: first.nextCursor
+    });
+
+    expect(second.projects).toEqual([older]);
+    expect(second.nextCursor).toBeUndefined();
+    expect(historyStore.listProjects).toHaveBeenLastCalledWith(accountId, {
+      limit: 2,
+      before: {
+        updatedAt: project.updatedAt,
+        id: project.id
+      }
+    });
+  });
+
+  it("rejects a malformed opaque project-list cursor before SQL listing", async () => {
+    const historyStore = store();
+    const service = createCloudHistoryService(historyStore, { now: fixedNow });
+
+    await expect(service.listProjects(principal, {
+      schemaVersion: "0.1" as const,
+      limit: 10,
+      cursor: "e30"
+    })).rejects.toMatchObject({
+      code: "project-list-cursor-invalid"
+    });
+
+    expect(historyStore.listProjects).not.toHaveBeenCalled();
+  });
+
+  it("builds the project timeline from stored source-free metadata events", async () => {
+    const value = event();
+    const historyStore = store({
+      listEvents: vi.fn(async () => [{
+        schemaVersion: "0.1" as const,
+        accountId,
+        projectId,
+        event: value,
+        ingestedAt: "2026-09-19T10:00:00.000Z",
+        expiresAt: "2026-12-18T10:00:00.000Z"
+      }])
+    });
+    const service = createCloudHistoryService(historyStore, { now: fixedNow });
+
+    const timeline = await service.getTimeline(principal, projectId);
+
+    expect(timeline.eventCount).toBe(1);
+    expect(timeline.latestScan.value).toBe(value.scan.identity.value);
+    expect(historyStore.listEvents).toHaveBeenCalledWith(accountId, projectId);
   });
 
   it("scopes ordinary sync through the principal's account", async () => {
