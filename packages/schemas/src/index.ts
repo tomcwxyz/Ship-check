@@ -657,6 +657,12 @@ export const CloudApiTokenCreateResultSchema = z.object({
 }).strict();
 export type CloudApiTokenCreateResult = z.infer<typeof CloudApiTokenCreateResultSchema>;
 
+export const CloudApiTokenListResultSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  tokens: z.array(CloudApiTokenRecordSchema).max(100)
+}).strict();
+export type CloudApiTokenListResult = z.infer<typeof CloudApiTokenListResultSchema>;
+
 export const CloudApiTokenAuthenticationSchema = z.object({
   schemaVersion: z.literal("0.1"),
   tokenId: z.string().uuid(),
@@ -704,7 +710,8 @@ export const CloudHistoryServiceErrorCodeSchema = z.enum([
   "account-not-found",
   "history-conflict",
   "history-empty",
-  "project-list-cursor-invalid"
+  "project-list-cursor-invalid",
+  "api-token-not-found"
 ]);
 export type CloudHistoryServiceErrorCode = z.infer<typeof CloudHistoryServiceErrorCodeSchema>;
 
