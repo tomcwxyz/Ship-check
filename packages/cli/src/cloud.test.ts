@@ -1,3 +1,4 @@
+import { ProjectHistoryMetadataSchema } from "@ship-check/schemas";
 import { describe, expect, it, vi } from "vitest";
 import {
   createCloudHistoryClient,
@@ -5,36 +6,59 @@ import {
 } from "./cloud.js";
 
 const token = `shipcheck_${"A".repeat(43)}`;
-const event = {
+const event = ProjectHistoryMetadataSchema.parse({
   schemaVersion: "0.1",
   type: "assurance-metadata",
   provider: "ship-check",
-  generatedAt: "2026-09-19T20:00:00.000Z",
   project: {
-    identity: { schemaVersion: "0.1", algorithm: "sha256", value: "a".repeat(64) },
-    identityBasis: "primary-evidence"
+    identity: {
+      algorithm: "sha256",
+      scope: "project-source-v1",
+      value: "a".repeat(64)
+    },
+    identityBasis: "primary-evidence",
+    evidenceSources: [{
+      type: "source",
+      provider: "local",
+      acquisition: "local",
+      executionLocation: "user-device",
+      capabilities: ["source-files"],
+      count: 1
+    }]
   },
   scan: {
-    identity: { schemaVersion: "0.1", algorithm: "sha256", value: "b".repeat(64) },
+    identity: {
+      algorithm: "sha256",
+      scope: "scan-event-v1",
+      value: "b".repeat(64)
+    },
+    generatedAt: "2026-09-19T20:00:00.000Z",
     engineVersion: "0.0.0-alpha.8",
-    ruleset: { schemaVersion: "0.1", algorithm: "sha256", value: "c".repeat(64) },
-    source: {
-      fingerprint: { schemaVersion: "0.1", algorithm: "sha256", value: "d".repeat(64) },
-      completeness: "complete",
-      hashedEntries: 1,
-      skippedEntries: 0
-    }
+    ruleset: {
+      algorithm: "sha256",
+      scope: "check-ruleset-v1",
+      value: "c".repeat(64),
+      checkCount: 0
+    },
+    packs: [],
+    checkCount: 0
   },
-  evidence: [],
   counts: {
     findings: 0,
     suppressed: 0,
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    info: 0,
     unverified: 0,
-    observations: 0,
+    resolved: 0,
+    observed: 0,
+    notAssessed: 0,
     checkErrors: 0
   },
   coverage: []
-} as const;
+});
 
 describe("cloud history CLI client", () => {
   it("uses bearer auth and metadata-only connect payloads", async () => {
