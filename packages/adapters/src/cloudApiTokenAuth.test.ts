@@ -12,9 +12,11 @@ const accountId = "11111111-1111-4111-8111-111111111111";
 
 function store(scopes: Array<"history:read" | "history:sync" | "project:manage">): CloudApiTokenStore {
   return {
-    createToken: vi.fn(),
-    listTokens: vi.fn(),
-    revokeToken: vi.fn(),
+    createToken: vi.fn(async () => {
+      throw new Error("createToken is not used by bearer-auth tests.");
+    }),
+    listTokens: vi.fn(async () => []),
+    revokeToken: vi.fn(async () => null),
     authenticateToken: vi.fn(async () => ({
       schemaVersion: "0.1",
       tokenId,
