@@ -21,6 +21,7 @@ import { CloudHistoryServiceOperationError } from "./cloudHistoryService.js";
 export type CloudApiTokenServiceOptions = {
   newId?: () => string;
   now?: () => Date;
+  generateToken?: typeof generateCloudApiToken;
 };
 
 export type CloudApiTokenService = {
@@ -48,6 +49,7 @@ export function createCloudApiTokenService(
 ): CloudApiTokenService {
   const newId = options.newId ?? randomUUID;
   const now = options.now ?? (() => new Date());
+  const generateToken = options.generateToken ?? generateCloudApiToken;
 
   const findAccount = async (
     value: CloudAuthenticatedPrincipal
@@ -84,7 +86,7 @@ export function createCloudApiTokenService(
         });
       }
 
-      const generated = generateCloudApiToken();
+      const generated = generateToken();
       const expiresAt = addDays(createdAt, request.expiresInDays);
       const record = await tokenStore.createToken({
         id: newId(),
