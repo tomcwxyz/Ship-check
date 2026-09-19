@@ -240,13 +240,19 @@ export function createCloudHistoryStore(database: CloudHistoryDatabase): CloudHi
   return {
     async registerAccount(input) {
       const createdAt = iso(input.createdAt ?? new Date());
+      const parsed = CloudAccountSchema.parse({
+        schemaVersion: "0.1",
+        id: input.id,
+        authSubjectHash: input.authSubjectHash,
+        createdAt
+      });
       const result = await database.query<AccountRow>(
         `INSERT INTO ship_check_accounts (id, auth_subject_hash, created_at)
          VALUES ($1, $2, $3)
          ON CONFLICT (auth_subject_hash)
          DO UPDATE SET auth_subject_hash = EXCLUDED.auth_subject_hash
          RETURNING id, auth_subject_hash, created_at`,
-        [input.id, input.authSubjectHash, createdAt]
+        [parsed.id, parsed.authSubjectHash, parsed.createdAt]
       );
       const row = result.rows[0];
       if (!row) throw new Error("Cloud account registration did not return an account.");
@@ -268,7 +274,7 @@ export function createCloudHistoryStore(database: CloudHistoryDatabase): CloudHi
         accountId: input.accountId,
         projectIdentity: input.projectIdentity,
         identityBasis: input.identityBasis,
-        ...(input.displayName ? { displayName: input.displayName } : {}),
+        ...(input.displayName !== undefined ? { displayName: input.displayName } : {}),
         retention
       });
 
@@ -294,7 +300,11 @@ export function createCloudHistoryStore(database: CloudHistoryDatabase): CloudHi
       );
       const row = result.rows[0];
       if (!row) throw new Error("Cloud project creation did not return a project.");
-      return projectFromRow(row);
+      const project = projectFromRow(row);
+      if (project.identityBasis !== parsed.identityBasis) {
+        throw new Error("Existing hosted project uses a different project identity basis.");
+      }
+      return project;
     },
 
     getProject: loadProject,
