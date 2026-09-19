@@ -5,7 +5,7 @@ import {
   CloudApiTokenListResultSchema,
   CloudApiTokenRecordSchema,
   CloudAuthenticatedPrincipalSchema,
-  type CloudApiTokenCreateRequest,
+  type CloudApiTokenCreateRequestInput,
   type CloudApiTokenCreateResult,
   type CloudApiTokenListResult,
   type CloudApiTokenRecord,
@@ -27,7 +27,7 @@ export type CloudApiTokenServiceOptions = {
 export type CloudApiTokenService = {
   createToken(
     principal: CloudAuthenticatedPrincipal,
-    request: CloudApiTokenCreateRequest
+    request: CloudApiTokenCreateRequestInput
   ): Promise<CloudApiTokenCreateResult>;
   listTokens(
     principal: CloudAuthenticatedPrincipal
