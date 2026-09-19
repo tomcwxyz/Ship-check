@@ -66,6 +66,24 @@ A pure `buildProjectHistoryTimeline()` reducer can consume multiple metadata eve
 
 See [`HISTORY_METADATA.md`](./HISTORY_METADATA.md).
 
+## Cloud history persistence boundary
+
+The first hosted persistence layer remains outside the checking engine. It lives behind a transaction-capable SQL adapter and stores only the portable metadata-history contracts.
+
+The Postgres/Neon-compatible schema has three entities:
+
+- opaque account identity (UUID + SHA-256 auth-subject hash);
+- account-scoped hosted project identity + optional display name + explicit retention;
+- source-free assurance metadata events keyed by deterministic scan identity.
+
+No full report/source/evidence columns exist in this schema. Project/account hard deletion cascades through stored history. Time-bounded retention is based on ingestion time and can be changed explicitly, recalculating existing event expiry.
+
+The store validates project identity before ingestion and treats deterministic scan identity as an idempotency boundary. Exact duplicates are no-ops; an otherwise identical scan can be enriched once with explicit comparison metadata; conflicting core/comparison payloads are rejected.
+
+All ordinary queries are account-scoped. Expiry pruning is the only system-level unscoped operation. The database is intended to remain server-only until a concrete hosted auth/session model exists; database-native RLS should bind to trusted account claims later rather than shipping placeholder policies.
+
+This layer does not provision infrastructure or create a network API. See [`CLOUD_HISTORY.md`](./CLOUD_HISTORY.md).
+
 ## Evidence rules
 
 - Never echo detected credential values in findings.
