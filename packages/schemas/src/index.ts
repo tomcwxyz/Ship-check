@@ -28,6 +28,14 @@ export const CheckVersionSchema = z.string().regex(
 );
 export type CheckVersion = z.infer<typeof CheckVersionSchema>;
 
+export const RulesetProvenanceSchema = z.object({
+  algorithm: z.literal("sha256"),
+  scope: z.literal("check-ruleset-v1"),
+  value: z.string().regex(/^[a-f0-9]{64}$/),
+  checkCount: z.number().int().nonnegative()
+}).strict();
+export type RulesetProvenance = z.infer<typeof RulesetProvenanceSchema>;
+
 export const AssessmentAreaSchema = z.enum([
   "secrets",
   "access-control",
@@ -177,6 +185,7 @@ export const ScanReportSchema = z.object({
   }),
   packs: z.array(CheckPackSchema),
   checks: z.array(CheckResultSchema),
+  ruleset: RulesetProvenanceSchema.optional(),
   findings: z.array(FindingSchema),
   suppressedFindings: z.array(AppliedSuppressionSchema).default([]),
   gaps: z.array(AssessmentGapSchema).default([]),
