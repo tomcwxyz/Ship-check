@@ -250,8 +250,8 @@ describe("project history metadata adapter", () => {
       checkErrors: 0
     });
     expect(first.coverage).toEqual([
-      { area: "secrets", status: "assessed", checkCount: 1 },
-      { area: "configuration", status: "partial", checkCount: 1 }
+      { area: "configuration", status: "partial", checkCount: 1 },
+      { area: "secrets", status: "assessed", checkCount: 1 }
     ]);
 
     expect(serialised).not.toContain("/Users/tom/private-client");
@@ -261,6 +261,18 @@ describe("project history metadata adapter", () => {
     expect(serialised).not.toContain("Private rationale");
     expect(serialised).not.toContain("app/api/private/route.ts");
     expect(serialised).not.toContain("Private coverage detail");
+  });
+
+  it("keeps scan identity stable across non-semantic pack and coverage ordering", () => {
+    const firstReport = sourceReport();
+    const reordered = ScanReportSchema.parse({
+      ...firstReport,
+      packs: [...firstReport.packs].reverse(),
+      coverage: [...firstReport.coverage].reverse()
+    });
+
+    expect(toProjectHistoryMetadata(reordered).scan.identity.value)
+      .toBe(toProjectHistoryMetadata(firstReport).scan.identity.value);
   });
 
   it("changes scan identity for a new scan while retaining project identity", () => {
