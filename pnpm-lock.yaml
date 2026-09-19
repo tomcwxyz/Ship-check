@@ -30,6 +30,19 @@ importers:
         specifier: workspace:*
         version: link:../schemas
 
+  packages/cloud-runtime:
+    dependencies:
+      '@ship-check/adapters':
+        specifier: workspace:*
+        version: link:../adapters
+      pg:
+        specifier: 8.23.0
+        version: 8.23.0
+    devDependencies:
+      '@types/pg':
+        specifier: 8.23.1
+        version: 8.23.1
+
   packages/checks:
     dependencies:
       '@ship-check/core':

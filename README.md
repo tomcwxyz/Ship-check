@@ -232,6 +232,7 @@ Ship Check follows the same broad separation used by RACK and TOPO:
 - `packages/database-checks` — Postgres/Supabase/Neon source evidence and bounded live database checks;
 - `packages/database-inspector` — opt-in local Postgres metadata acquisition behind the read-only/fixed-query boundary;
 - `packages/runtime-checks` — bounded deployed HTTP checks;
+- `packages/cloud-runtime` — server-only Postgres/runtime composition for the optional Cloud control plane;
 - `packages/deep-checks` — privacy-bounded adapters for mature or deeper scanners;
 - `packages/adapters` — RACK, TOPO and organisational assurance bridges;
 - `packages/cli` — standalone CLI and project-source/database acquisition boundaries;
