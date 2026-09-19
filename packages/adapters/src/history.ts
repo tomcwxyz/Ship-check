@@ -50,9 +50,14 @@ function canonicalGithubIdentity(source: ProjectEvidenceSource): string {
       .replace(/^ssh:\/\/git@github\.com\//i, "")
       .replace(/\.git$/i, "")
       .replace(/\/+$/, "");
-    const parts = cleaned.split("/").filter(Boolean);
-    if (parts.length >= 2) {
-      return `${parts.at(-2)!.toLowerCase()}/${parts.at(-1)!.toLowerCase()}`;
+    const match = cleaned.match(/^([^/]+)\/([^/:]+)(?::(.+))?$/);
+    if (match) {
+      const owner = match[1]!.toLowerCase();
+      const repository = match[2]!.toLowerCase();
+      const subpath = match[3]?.replace(/^\/+|\/+$/g, "");
+      return subpath
+        ? `${owner}/${repository}:${subpath}`
+        : `${owner}/${repository}`;
     }
   }
   return source.id.toLowerCase();
