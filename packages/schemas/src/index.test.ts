@@ -268,6 +268,7 @@ describe("ProjectHistoryMetadataSchema", () => {
       }],
       change: {
         basis: "pull-request-base",
+        scope: "source",
         sourceSnapshot: "changed",
         findings: {
           introduced: 1,
