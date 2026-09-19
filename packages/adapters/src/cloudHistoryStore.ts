@@ -176,7 +176,9 @@ export type CreateCloudProjectInput = {
 
 export type CloudHistoryStore = {
   registerAccount(input: RegisterCloudAccountInput): Promise<CloudAccount>;
+  findAccountByAuthSubjectHash(authSubjectHash: string): Promise<CloudAccount | null>;
   createProject(input: CreateCloudProjectInput): Promise<CloudProject>;
+  findProjectByIdentity(accountId: string, projectIdentity: string): Promise<CloudProject | null>;
   getProject(accountId: string, projectId: string): Promise<CloudProject | null>;
   ingest(
     accountId: string,
@@ -209,6 +211,32 @@ export type CloudHistoryStore = {
 };
 
 export function createCloudHistoryStore(database: CloudHistoryDatabase): CloudHistoryStore {
+  const loadAccountByAuthSubjectHash = async (authSubjectHash: string): Promise<CloudAccount | null> => {
+    const parsed = CloudAccountSchema.shape.authSubjectHash.parse(authSubjectHash);
+    const result = await database.query<AccountRow>(
+      `SELECT id, auth_subject_hash, created_at
+       FROM ship_check_accounts
+       WHERE auth_subject_hash = $1`,
+      [parsed]
+    );
+    return result.rows[0] ? accountFromRow(result.rows[0]) : null;
+  };
+
+  const loadProjectByIdentity = async (
+    accountId: string,
+    projectIdentity: string
+  ): Promise<CloudProject | null> => {
+    const parsed = CloudProjectSchema.shape.projectIdentity.shape.value.parse(projectIdentity);
+    const result = await database.query<ProjectRow>(
+      `SELECT id, account_id, project_identity, identity_basis, display_name,
+              retention_policy, created_at, updated_at
+       FROM ship_check_projects
+       WHERE account_id = $1 AND project_identity = $2`,
+      [accountId, parsed]
+    );
+    return result.rows[0] ? projectFromRow(result.rows[0]) : null;
+  };
+
   const loadProject = async (accountId: string, projectId: string): Promise<CloudProject | null> => {
     const result = await database.query<ProjectRow>(
       `SELECT id, account_id, project_identity, identity_basis, display_name,
@@ -259,6 +287,8 @@ export function createCloudHistoryStore(database: CloudHistoryDatabase): CloudHi
       return accountFromRow(row);
     },
 
+    findAccountByAuthSubjectHash: loadAccountByAuthSubjectHash,
+
     async createProject(input) {
       const createdAt = iso(input.createdAt ?? new Date());
       const retention = CloudHistoryRetentionSchema.parse(input.retention);
@@ -307,6 +337,7 @@ export function createCloudHistoryStore(database: CloudHistoryDatabase): CloudHi
       return project;
     },
 
+    findProjectByIdentity: loadProjectByIdentity,
     getProject: loadProject,
 
     async ingest(accountId, projectId, value, ingestedAt = new Date()) {
