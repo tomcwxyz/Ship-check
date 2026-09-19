@@ -156,6 +156,29 @@ pnpm ship-check -- timeline ./scan-1-metadata.json ./scan-2-metadata.json > ship
 
 The reducer deduplicates and orders events, reports ruleset/engine/source/coverage continuity and surfaces the latest aggregate attention snapshot. It preserves explicit comparison deltas when an event has them, but never invents new/resolved findings from changes in aggregate counts.
 
+### Optional Cloud metadata sync
+
+The alpha CLI can explicitly send that **metadata-only** envelope to a Ship Check Cloud-compatible endpoint. It does not upload source, findings, evidence excerpts or repair guidance, and it does not persist the API token.
+
+```bash
+export SHIP_CHECK_CLOUD_URL="https://cloud.example"
+export SHIP_CHECK_CLOUD_TOKEN="shipcheck_..."
+
+pnpm ship-check -- cloud connect ./ship-check-metadata.json \
+  --display-name "My project" \
+  --retention 90-days
+```
+
+The connect result returns the hosted project UUID. Later metadata events can be synced explicitly:
+
+```bash
+pnpm ship-check -- cloud sync <project-id> ./next-metadata.json
+pnpm ship-check -- cloud projects
+pnpm ship-check -- cloud timeline <project-id>
+```
+
+Remote endpoints must use HTTPS; plain HTTP is accepted only for localhost development. The API token is sent only in the `Authorization` header. There is deliberately no default hosted URL yet: the user or deployment must opt into a concrete endpoint.
+
 ## GitHub Actions
 
 Ship Check can run inside the repository owner's GitHub Actions runner using the same canonical engine:
