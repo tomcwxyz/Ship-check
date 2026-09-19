@@ -725,6 +725,7 @@ export type CloudHistoryServiceError = z.infer<typeof CloudHistoryServiceErrorSc
 
 export const CloudHistoryHttpErrorCodeSchema = z.enum([
   "unauthenticated",
+  "operation-not-authorised",
   "mutation-not-authorised",
   "invalid-request",
   "payload-too-large",
