@@ -209,6 +209,34 @@ export type CloudHistoryStore = {
 };
 
 export function createCloudHistoryStore(database: CloudHistoryDatabase): CloudHistoryStore {
+  const loadProject = async (accountId: string, projectId: string): Promise<CloudProject | null> => {
+    const result = await database.query<ProjectRow>(
+      `SELECT id, account_id, project_identity, identity_basis, display_name,
+              retention_policy, created_at, updated_at
+       FROM ship_check_projects
+       WHERE id = $1 AND account_id = $2`,
+      [projectId, accountId]
+    );
+    return result.rows[0] ? projectFromRow(result.rows[0]) : null;
+  };
+
+  const loadEvents = async (
+    accountId: string,
+    projectId: string
+  ): Promise<CloudHistoryStoredEvent[]> => {
+    const project = await loadProject(accountId, projectId);
+    if (!project) throw new Error("Cloud project was not found for this account.");
+    const result = await database.query<HistoryRow>(
+      `SELECT e.payload, e.ingested_at, e.expires_at
+       FROM ship_check_history_events e
+       JOIN ship_check_projects p ON p.id = e.project_id
+       WHERE e.project_id = $1 AND p.account_id = $2
+       ORDER BY e.generated_at ASC, e.scan_identity ASC`,
+      [projectId, accountId]
+    );
+    return result.rows.map((row) => storedEventFromRow(accountId, projectId, row));
+  };
+
   return {
     async registerAccount(input) {
       const createdAt = iso(input.createdAt ?? new Date());
@@ -269,16 +297,7 @@ export function createCloudHistoryStore(database: CloudHistoryDatabase): CloudHi
       return projectFromRow(row);
     },
 
-    async getProject(accountId, projectId) {
-      const result = await database.query<ProjectRow>(
-        `SELECT id, account_id, project_identity, identity_basis, display_name,
-                retention_policy, created_at, updated_at
-         FROM ship_check_projects
-         WHERE id = $1 AND account_id = $2`,
-        [projectId, accountId]
-      );
-      return result.rows[0] ? projectFromRow(result.rows[0]) : null;
-    },
+    getProject: loadProject,
 
     async ingest(accountId, projectId, value, ingestedAt = new Date()) {
       const event = ProjectHistoryMetadataSchema.parse(value);
@@ -382,24 +401,12 @@ export function createCloudHistoryStore(database: CloudHistoryDatabase): CloudHi
       });
     },
 
-    async listEvents(accountId, projectId) {
-      const project = await this.getProject(accountId, projectId);
-      if (!project) throw new Error("Cloud project was not found for this account.");
-      const result = await database.query<HistoryRow>(
-        `SELECT e.payload, e.ingested_at, e.expires_at
-         FROM ship_check_history_events e
-         JOIN ship_check_projects p ON p.id = e.project_id
-         WHERE e.project_id = $1 AND p.account_id = $2
-         ORDER BY e.generated_at ASC, e.scan_identity ASC`,
-        [projectId, accountId]
-      );
-      return result.rows.map((row) => storedEventFromRow(accountId, projectId, row));
-    },
+    listEvents: loadEvents,
 
     async exportProject(accountId, projectId, exportedAt = new Date()) {
-      const project = await this.getProject(accountId, projectId);
+      const project = await loadProject(accountId, projectId);
       if (!project) throw new Error("Cloud project was not found for this account.");
-      const stored = await this.listEvents(accountId, projectId);
+      const stored = await loadEvents(accountId, projectId);
       if (stored.length === 0) {
         throw new Error("Cloud project has no assurance metadata history to export.");
       }
