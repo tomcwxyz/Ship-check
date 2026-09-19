@@ -389,6 +389,48 @@ describe("cloud history store", () => {
     expect(JSON.stringify(exported)).not.toContain("github.com");
   });
 
+  it("updates or clears the optional project display name inside the account scope", async () => {
+    const renamedRow = {
+      ...projectRow,
+      display_name: "Renamed explicitly",
+      updated_at: "2026-09-19T11:00:00.000Z"
+    };
+    const db = new FakeDatabase([{ rows: [renamedRow] }]);
+    const store = createCloudHistoryStore(db);
+
+    const renamed = await store.updateDisplayName(
+      accountId,
+      projectId,
+      "  Renamed explicitly  ",
+      "2026-09-19T11:00:00.000Z"
+    );
+
+    expect(renamed.displayName).toBe("Renamed explicitly");
+    expect(db.calls[0]?.values).toEqual([
+      projectId,
+      accountId,
+      "Renamed explicitly",
+      "2026-09-19T11:00:00.000Z"
+    ]);
+    expect(db.calls[0]?.text).toMatch(/WHERE id = \$1 AND account_id = \$2/i);
+
+    const clearedDb = new FakeDatabase([{
+      rows: [{
+        ...projectRow,
+        display_name: null,
+        updated_at: "2026-09-19T11:05:00.000Z"
+      }]
+    }]);
+    const cleared = await createCloudHistoryStore(clearedDb).updateDisplayName(
+      accountId,
+      projectId,
+      null,
+      "2026-09-19T11:05:00.000Z"
+    );
+    expect(cleared.displayName).toBeUndefined();
+    expect(clearedDb.calls[0]?.values[2]).toBeNull();
+  });
+
   it("updates retention for the project and all existing history rows", async () => {
     const updatedRow = {
       ...projectRow,
