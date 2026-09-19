@@ -336,7 +336,7 @@ test("equal partial source fingerprints stay uncertain rather than claiming iden
   assert.equal(comparison.snapshot, "uncertain");
 });
 
-test("different rule sets are not treated as comparable history", async () => {
+test("different ruleset fingerprints are not treated as comparable history", async () => {
   const baseline = await createSuccessDiagnostic({
     report,
     sourceMode: "local",
@@ -348,9 +348,6 @@ test("different rule sets are not treated as comparable history", async () => {
     report: {
       ...report,
       ruleset: { ...report.ruleset, value: "e".repeat(64) },
-      checks: report.checks.map((check) => check.checkId === "secure.secret-pattern"
-        ? { ...check, checkVersion: "2" }
-        : check),
     },
     sourceMode: "local",
     sourceValue: "/home/tom/project",
