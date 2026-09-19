@@ -72,13 +72,14 @@ A history event may optionally carry aggregate change counts:
 - newly observed, persistent and no-longer-observed inventory surfaces;
 - changed / unchanged / partial-uncertain / unknown source snapshot state.
 
-Every change block declares both its baseline basis and its scope.
+Every change block declares both its baseline basis and its scope. It may also carry an exact baseline commit and/or the opaque identity of a prior metadata scan.
 
 The GitHub Action currently records PR comparison as:
 
 ```text
 basis: pull-request-base
 scope: source
+baselineCommit: <exact PR base SHA>
 ```
 
 That is intentional. A PR source comparison does not claim to compare a historical live deployment even when the current scan also includes runtime evidence.
