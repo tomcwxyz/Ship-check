@@ -239,6 +239,8 @@ export type ProjectHistoryCoverage = z.infer<typeof ProjectHistoryCoverageSchema
 export const ProjectHistoryChangeSchema = z.object({
   basis: z.enum(["previous-comparable-scan", "pull-request-base"]),
   scope: z.enum(["source", "project"]),
+  baselineScan: OpaqueScanIdentitySchema.optional(),
+  baselineCommit: z.string().regex(/^[a-f0-9]{40,64}$/).optional(),
   sourceSnapshot: z.enum(["changed", "unchanged", "uncertain", "unknown"]),
   findings: z.object({
     introduced: z.number().int().nonnegative(),
