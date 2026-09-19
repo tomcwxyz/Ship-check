@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ProjectHistoryMetadataSchema, ProjectHistoryTimelineSchema, ScanReportSchema, ShipCheckConfigSchema } from "./index.js";
+import { CloudAccountSchema, CloudHistoryIngestRequestSchema, CloudProjectSchema, ProjectHistoryMetadataSchema, ProjectHistoryTimelineSchema, ScanReportSchema, ShipCheckConfigSchema } from "./index.js";
 
 const baseReport = {
   schemaVersion: "0.1" as const,
@@ -520,6 +520,107 @@ describe("ProjectHistoryTimelineSchema", () => {
         findings: 1
       }
     })).toThrow(/latest attention/i);
+  });
+});
+
+describe("Cloud history contracts", () => {
+  const metadata = ProjectHistoryMetadataSchema.parse({
+    schemaVersion: "0.1",
+    type: "assurance-metadata",
+    provider: "ship-check",
+    project: {
+      identity: { algorithm: "sha256", scope: "project-source-v1", value: "a".repeat(64) },
+      identityBasis: "primary-evidence",
+      evidenceSources: [{
+        type: "source",
+        provider: "github",
+        acquisition: "ci",
+        executionLocation: "ci-runner",
+        capabilities: ["source-files"],
+        count: 1
+      }]
+    },
+    scan: {
+      identity: { algorithm: "sha256", scope: "scan-event-v1", value: "b".repeat(64) },
+      generatedAt: "2026-09-19T09:00:00.000Z",
+      engineVersion: "test",
+      ruleset: {
+        algorithm: "sha256",
+        scope: "check-ruleset-v1",
+        value: "c".repeat(64),
+        checkCount: 1
+      },
+      packs: ["secure-build"],
+      checkCount: 1
+    },
+    counts: {
+      findings: 0,
+      suppressed: 0,
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      info: 0,
+      unverified: 0,
+      resolved: 0,
+      observed: 0,
+      notAssessed: 0,
+      checkErrors: 0
+    },
+    coverage: []
+  });
+
+  it("keeps hosted account identity opaque and project sync metadata-only", () => {
+    const account = CloudAccountSchema.parse({
+      schemaVersion: "0.1",
+      id: "11111111-1111-4111-8111-111111111111",
+      authSubjectHash: "d".repeat(64),
+      createdAt: "2026-09-19T09:00:00.000Z"
+    });
+    const project = CloudProjectSchema.parse({
+      schemaVersion: "0.1",
+      id: "22222222-2222-4222-8222-222222222222",
+      accountId: account.id,
+      projectIdentity: metadata.project.identity,
+      identityBasis: metadata.project.identityBasis,
+      displayName: "Example project",
+      syncLevel: "assurance-metadata",
+      retention: "90-days",
+      createdAt: "2026-09-19T09:00:00.000Z",
+      updatedAt: "2026-09-19T09:00:00.000Z"
+    });
+
+    expect(account.authSubjectHash).toHaveLength(64);
+    expect(project.syncLevel).toBe("assurance-metadata");
+    expect(project.retention).toBe("90-days");
+  });
+
+  it("rejects raw auth subject fields, unsupported retention and non-metadata ingest", () => {
+    expect(() => CloudAccountSchema.parse({
+      schemaVersion: "0.1",
+      id: "11111111-1111-4111-8111-111111111111",
+      authSubjectHash: "d".repeat(64),
+      authSubject: "raw-user-id",
+      createdAt: "2026-09-19T09:00:00.000Z"
+    })).toThrow();
+
+    expect(() => CloudProjectSchema.parse({
+      schemaVersion: "0.1",
+      id: "22222222-2222-4222-8222-222222222222",
+      accountId: "11111111-1111-4111-8111-111111111111",
+      projectIdentity: metadata.project.identity,
+      identityBasis: metadata.project.identityBasis,
+      syncLevel: "assurance-metadata",
+      retention: "forever",
+      createdAt: "2026-09-19T09:00:00.000Z",
+      updatedAt: "2026-09-19T09:00:00.000Z"
+    })).toThrow();
+
+    expect(() => CloudHistoryIngestRequestSchema.parse({
+      schemaVersion: "0.1",
+      projectId: "22222222-2222-4222-8222-222222222222",
+      event: { type: "full-scan-report" }
+    })).toThrow();
   });
 });
 

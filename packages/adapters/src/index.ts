@@ -1,3 +1,12 @@
+export { createCloudHistoryStore, hashCloudAuthSubject, retentionExpiry } from "./cloudHistoryStore.js";
+export type {
+  CloudHistoryDatabase,
+  CloudHistoryQueryResult,
+  CloudHistorySqlExecutor,
+  CloudHistoryStore,
+  CreateCloudProjectInput,
+  RegisterCloudAccountInput
+} from "./cloudHistoryStore.js";
 export { buildProjectHistoryTimeline } from "./timeline.js";
 export { toProjectHistoryMetadata } from "./history.js";
 export type { ProjectHistoryMetadataOptions } from "./history.js";

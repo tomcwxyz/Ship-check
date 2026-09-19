@@ -221,7 +221,8 @@ Goal: create useful Cloud Ship Check without requiring source code to enter Ship
 - [x] Portable metadata-only project-history event contract with opaque project/scan identities, engine/ruleset/source provenance, aggregate counts/coverage and optional scoped change counts; available via CLI `--format metadata` and the GitHub Action sidecar without network sync.
 - [x] Portable source-free project timeline reducer/CLI over metadata events: stable ordering/deduplication, provenance continuity and latest aggregate attention, while transition semantics remain limited to explicit comparison blocks.
 
-- [ ] Hosted account/project model for connected projects and assurance history.
+- [x] Hosted metadata-history persistence foundation: opaque account identity, account-scoped project identity, Postgres/Neon-compatible schema, idempotent metadata ingestion, portable timeline export, explicit retention and hard-delete semantics. No hosted infrastructure or auth/API is implied.
+- [ ] Hosted auth/session + account/project API for connected projects, using the persistence model above without widening the metadata boundary.
 - [ ] Optional report sync from local CLI/desktop with user-selectable data boundary: metadata only, structured findings, or bounded evidence.
 - [ ] Hosted/persistent project timeline UI showing explicit newly introduced, persistent, reactivated, accepted and no-longer-active findings/gaps across stored comparable scans; the portable metadata reducer foundation is now landed.
 - [ ] GitHub App for repository/project association, webhook triggers and PR/release status surfaces.
@@ -229,7 +230,8 @@ Goal: create useful Cloud Ship Check without requiring source code to enter Ship
 - [x] PR change summaries in the GitHub Action compare the exact base SHA with the current source using the same engine/rules, distinguishing new/persistent/reactivated findings, newly accepted exceptions, no-longer-active findings/gaps, still-unverified controls and newly observed inventory surfaces without treating disappearance as proof of remediation.
 - [ ] Team review state for accepted exceptions, verification notes and evidence history without turning Ship Check into a generic issue tracker.
 - [x] Keep a source-free metadata-only assurance export as the narrowest future cloud sync mode; the history envelope omits raw project locators and all finding/evidence detail, while OOS remains a separate organisational bridge.
-- [ ] Define explicit retention/export/deletion controls before private-project pilot use.
+- [x] Define persistence-layer retention/export/deletion semantics: explicit 30/90/180/365-day or until-deleted project policy, recalculated expiry, source-free timeline export, and project/account hard deletion with cascade receipts.
+- [ ] Expose retention/export/deletion controls through authenticated hosted product/API flows and verify them end-to-end before private-project pilot use.
 
 Suggested cloud sync levels:
 
