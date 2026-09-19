@@ -62,6 +62,8 @@ The scan-event identity is deterministic over the privacy-bounded scan metadata,
 
 This is a **data contract, not a transport**. CLI `--format metadata` and the GitHub Action sidecar can produce it today. No Ship Check service receives it automatically. Account association, ingestion, retention/deletion, team visibility and higher sync levels remain separate control-plane responsibilities.
 
+A pure `buildProjectHistoryTimeline()` reducer can consume multiple metadata events without source access or storage infrastructure. It validates one project identity, deduplicates by deterministic scan identity, orders events, derives only provenance continuity (ruleset/engine/source fingerprint/coverage/evidence-source shape) and exposes the latest aggregate attention snapshot. It never derives finding-transition semantics from count differences; only explicit comparison metadata carries new/persistent/reactivated/accepted/no-longer-active meaning.
+
 See [`HISTORY_METADATA.md`](./HISTORY_METADATA.md).
 
 ## Evidence rules
