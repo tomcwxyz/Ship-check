@@ -4,7 +4,7 @@ Ship Check uses the same broad architectural rule as RACK and TOPO: **portable d
 
 ## Layers
 
-`@ship-check/schemas` owns the stable interchange contract. A finding always carries a check ID, pack, severity, confidence, evidence, remediation and an agent-ready repair prompt. Reports are versioned independently from any desktop UI. The same package owns the portable `ProjectEvidenceSource`, `ProjectSnapshot` and ruleset-provenance contracts used to describe where project evidence came from, what it can establish and which deterministic rule set produced the result.
+`@ship-check/schemas` owns the stable interchange contract. A finding always carries a check ID, pack, severity, confidence, evidence, remediation and an agent-ready repair prompt. Reports are versioned independently from any desktop UI. The same package owns the portable `ProjectEvidenceSource`, `ProjectSnapshot`, ruleset-provenance and metadata-history contracts used to describe where project evidence came from, what it can establish and which deterministic rule set produced the result.
 
 `@ship-check/core` owns project inventory and orchestration. It knows how to establish the scanned source set, read bounded text safely, execute checks and assemble a validated report. It does not know about Tauri, RACK, TOPO or a hosted account. Materialised source from a local folder, transient checkout, upload, CI runner or future hosted-builder adapter therefore reaches the same checking engine.
 
@@ -42,6 +42,27 @@ This is deliberately separate from:
 A multi-source report fingerprints the reconciled union of its check definitions. If two evidence-source reports claim the same check ID with conflicting rule version or pack metadata, Ship Check refuses to combine them instead of silently choosing one.
 
 Desktop history and CI pull-request comparison prefer the ruleset fingerprint when present and retain the older check-signature fallback only for previously stored reports that predate this field.
+
+## Metadata-only project history
+
+`ProjectHistoryMetadata` is the portable control-plane/history envelope. It is derived from a full scan report after checking and contains only:
+
+- opaque `project-source-v1` and deterministic `scan-event-v1` SHA-256 identities;
+- engine/ruleset provenance, packs and check count;
+- sanitised evidence-source type/provider/acquisition/execution/capability metadata;
+- aggregate source fingerprint state and commit identity when available;
+- severity/status counts and coverage area/status/check counts;
+- optional aggregate change metadata with explicit baseline basis and `source` vs `project` scope.
+
+The contract is strict and cannot carry source labels/IDs/refs, finding/gap/observation identities or details, evidence, remediation or suppression rationale.
+
+Project identity is derived locally from the primary evidence source unless a caller supplies a separate project-association key. GitHub identity is canonical across CLI/CI acquisition; runtime identity discards query/fragment data before hashing. These hashes are pseudonymous rather than anonymous.
+
+The scan-event identity is deterministic over the privacy-bounded scan metadata, making repeated export idempotent without turning source content into cloud state.
+
+This is a **data contract, not a transport**. CLI `--format metadata` and the GitHub Action sidecar can produce it today. No Ship Check service receives it automatically. Account association, ingestion, retention/deletion, team visibility and higher sync levels remain separate control-plane responsibilities.
+
+See [`HISTORY_METADATA.md`](./HISTORY_METADATA.md).
 
 ## Evidence rules
 
