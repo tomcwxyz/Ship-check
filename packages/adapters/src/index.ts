@@ -21,6 +21,7 @@ export type {
   CloudHistorySqlExecutor,
   CloudHistoryStore,
   CreateCloudProjectInput,
+  ListCloudProjectsInput,
   RegisterCloudAccountInput
 } from "./cloudHistoryStore.js";
 export { buildProjectHistoryTimeline } from "./timeline.js";
