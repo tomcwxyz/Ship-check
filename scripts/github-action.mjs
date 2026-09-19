@@ -265,14 +265,9 @@ async function main() {
   }
 
   const cli = path.join(actionPath, "packages", "cli", "dist", "index.js");
-  const args = [cli, "scan", target, "--format", "json", "--fail-on", failOn];
-  for (const pack of [...new Set(packs)]) args.push("--pack", pack);
-
   const deploymentUrl = input("deployment-url").trim();
-  if (deploymentUrl) args.push("--deployment-url", deploymentUrl);
-  if (parseBoolean(input("networked-dependency-scan"))) {
-    args.push("--networked-dependency-scan");
-  }
+  const networkedDependencyScan = parseBoolean(input("networked-dependency-scan"));
+  const prComparisonEnabled = parseBoolean(input("pr-comparison", "true"));
 
   const repository = process.env.GITHUB_REPOSITORY || "github-workspace";
   const relativeTarget = path.relative(workspace, target).replace(/\\/g, "/") || ".";
@@ -286,18 +281,14 @@ async function main() {
     SHIP_CHECK_SOURCE_REF: process.env.GITHUB_HEAD_REF || process.env.GITHUB_REF_NAME || "",
   };
 
-  const result = await run(process.execPath, args, {
+  const { result, report } = await runScan(cli, target, packs, {
     cwd: workspace,
-    env: environment,
+    environment,
+    failOn,
+    deploymentUrl,
+    networkedDependencyScan,
+    label: "Ship Check",
   });
-
-  let report;
-  try {
-    report = JSON.parse(result.stdout);
-  } catch {
-    const detail = result.stderr.trim() || result.stdout.trim() || `exit code ${result.code}`;
-    throw new Error(`Ship Check did not produce a JSON report: ${detail.slice(0, 500)}`);
-  }
 
   await fs.mkdir(path.dirname(reportPath), { recursive: true });
   await fs.writeFile(reportPath, JSON.stringify(report, null, 2) + "\n");
@@ -311,6 +302,84 @@ async function main() {
     writeOutput("snapshot-completeness", report?.project?.snapshot?.inventory?.fingerprint?.completeness ?? "unknown"),
   ]);
   await appendSummary(report, result.code);
+
+  let comparison = null;
+  let comparisonContext = null;
+  let comparisonStatus = prComparisonEnabled ? "not-applicable" : "disabled";
+
+  if (prComparisonEnabled) {
+    try {
+      const prContext = await pullRequestContext();
+      if (prContext) {
+        comparisonContext = prContext;
+        const materialised = await materialiseBaseWorktree(workspace, prContext.baseSha);
+        try {
+          const baseTarget = relativeTarget === "."
+            ? materialised.path
+            : path.join(materialised.path, relativeTarget);
+          const baseStat = await fs.stat(baseTarget).catch(() => null);
+
+          if (!baseStat?.isDirectory()) {
+            comparison = {
+              comparable: false,
+              reason: "The configured project path did not exist at the pull request base commit.",
+            };
+          } else {
+            let currentSourceReport = report;
+            if (deploymentUrl) {
+              currentSourceReport = (await runScan(cli, target, packs, {
+                cwd: workspace,
+                environment,
+                failOn: "never",
+                networkedDependencyScan,
+                label: "Current source comparison scan",
+              })).report;
+            }
+
+            const baseEnvironment = {
+              ...environment,
+              SHIP_CHECK_SOURCE_REF: prContext.baseSha,
+            };
+            const baseReport = (await runScan(cli, baseTarget, packs, {
+              cwd: materialised.path,
+              environment: baseEnvironment,
+              failOn: "never",
+              networkedDependencyScan,
+              label: "Pull request base scan",
+            })).report;
+
+            comparison = compareReports(baseReport, currentSourceReport);
+          }
+        } finally {
+          await materialised.cleanup();
+        }
+
+        comparisonStatus = comparison?.comparable ? "compared" : "unavailable";
+        await appendPullRequestSummary(comparison, prContext);
+      }
+    } catch (error) {
+      comparisonStatus = "unavailable";
+      const message = (error instanceof Error ? error.message : String(error))
+        .replaceAll(workspace, "<workspace>")
+        .replaceAll(os.tmpdir(), "<temp>")
+        .slice(0, 300);
+      comparison = { comparable: false, reason: "The exact pull request base could not be compared in this runner." };
+      await appendPullRequestSummary(comparison, comparisonContext ?? {});
+      process.stderr.write(`Ship Check PR comparison unavailable: ${message}\n`);
+    }
+  }
+
+  const delta = comparisonOutputs(comparison);
+  await Promise.all([
+    writeOutput("comparison-status", comparisonStatus === "compared" ? delta.status : comparisonStatus),
+    writeOutput("new-finding-count", delta.newFindings),
+    writeOutput("reactivated-finding-count", delta.reactivatedFindings),
+    writeOutput("accepted-finding-count", delta.acceptedFindings),
+    writeOutput("no-longer-active-finding-count", delta.noLongerActiveFindings),
+    writeOutput("new-unverified-count", delta.newGaps),
+    writeOutput("no-longer-active-unverified-count", delta.noLongerActiveGaps),
+    writeOutput("new-surface-count", delta.newSurfaces),
+  ]);
 
   if (result.stderr.trim()) {
     process.stderr.write(result.stderr);
