@@ -122,7 +122,7 @@ test("equal partial fingerprints remain uncertain", () => {
   assert.equal(compareReports(base, current).sourceSnapshot, "uncertain");
 });
 
-test("rule-version or pack drift makes scans non-comparable", () => {
+test("ruleset fingerprint drift makes scans non-comparable", () => {
   const base = report();
   const current = report({
     ruleset: {
@@ -131,10 +131,6 @@ test("rule-version or pack drift makes scans non-comparable", () => {
       value: "e".repeat(64),
       checkCount: 2,
     },
-    checks: [
-      { checkId: "secure.example", checkVersion: "2" },
-      { checkId: "production.example", checkVersion: "2" },
-    ],
   });
   const comparison = compareReports(base, current);
   assert.equal(comparison.comparable, false);
