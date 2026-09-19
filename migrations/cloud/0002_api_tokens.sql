@@ -30,10 +30,6 @@ CREATE TABLE ship_check_api_tokens (
         'history:sync',
         'project:manage'
       ]::text[]
-    ),
-  CONSTRAINT ship_check_api_tokens_scopes_unique
-    CHECK (
-      cardinality(scopes) = cardinality(ARRAY(SELECT DISTINCT unnest(scopes)))
     )
 );
 
