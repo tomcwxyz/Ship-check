@@ -336,7 +336,7 @@ describe("cloud history service", () => {
     const second = await service.listProjects(principal, {
       schemaVersion: "0.1" as const,
       limit: 1,
-      cursor: first.nextCursor
+      cursor: first.nextCursor!
     });
 
     expect(second.projects).toEqual([older]);
