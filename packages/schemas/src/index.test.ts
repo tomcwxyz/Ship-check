@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ScanReportSchema, ShipCheckConfigSchema } from "./index.js";
+import { ProjectHistoryMetadataSchema, ScanReportSchema, ShipCheckConfigSchema } from "./index.js";
 
 const baseReport = {
   schemaVersion: "0.1" as const,
@@ -195,6 +195,159 @@ describe("ScanReportSchema", () => {
     expect(() => ScanReportSchema.parse({
       ...baseReport,
       coverage: [{ area: "magic", status: "partial", checkIds: [], detail: "Nope" }]
+    })).toThrow();
+  });
+});
+
+describe("ProjectHistoryMetadataSchema", () => {
+  it("accepts source-free assurance history metadata", () => {
+    const metadata = ProjectHistoryMetadataSchema.parse({
+      schemaVersion: "0.1",
+      type: "assurance-metadata",
+      provider: "ship-check",
+      project: {
+        identity: {
+          algorithm: "sha256",
+          scope: "project-source-v1",
+          value: "a".repeat(64)
+        },
+        identityBasis: "primary-evidence",
+        evidenceSources: [{
+          type: "source",
+          provider: "github",
+          acquisition: "ci",
+          executionLocation: "ci-runner",
+          capabilities: ["source-files", "ci-context"]
+        }],
+        sourceFingerprint: {
+          algorithm: "sha256",
+          scope: "source-inventory-v1",
+          value: "b".repeat(64),
+          completeness: "complete",
+          entryCount: 10,
+          hashedEntryCount: 10,
+          skippedEntryCount: 0
+        },
+        commit: "c".repeat(40)
+      },
+      scan: {
+        identity: {
+          algorithm: "sha256",
+          scope: "scan-event-v1",
+          value: "d".repeat(64)
+        },
+        generatedAt: "2026-09-19T08:45:00.000Z",
+        engineVersion: "0.0.0-alpha.7",
+        ruleset: {
+          algorithm: "sha256",
+          scope: "check-ruleset-v1",
+          value: "e".repeat(64),
+          checkCount: 4
+        },
+        packs: ["secure-build", "production-ready"],
+        checkCount: 4
+      },
+      counts: {
+        findings: 2,
+        suppressed: 1,
+        critical: 0,
+        high: 1,
+        medium: 1,
+        low: 0,
+        info: 0,
+        unverified: 1,
+        resolved: 1,
+        observed: 3,
+        notAssessed: 2,
+        checkErrors: 0
+      },
+      coverage: [{
+        area: "secrets",
+        status: "assessed",
+        checkCount: 2
+      }],
+      change: {
+        basis: "pull-request-base",
+        sourceSnapshot: "changed",
+        findings: {
+          introduced: 1,
+          persistent: 1,
+          reactivated: 0,
+          accepted: 1,
+          noLongerActive: 1
+        },
+        gaps: {
+          introduced: 1,
+          persistent: 0,
+          noLongerActive: 1
+        },
+        surfaces: {
+          introduced: 2,
+          persistent: 1,
+          noLongerObserved: 0
+        }
+      }
+    });
+
+    expect(metadata.project.identity.value).toHaveLength(64);
+    expect(metadata.scan.identity.value).toHaveLength(64);
+    expect(metadata.project.evidenceSources[0]?.provider).toBe("github");
+    expect(metadata.change?.findings.accepted).toBe(1);
+  });
+
+  it("rejects raw labels and evidence from the metadata envelope", () => {
+    expect(() => ProjectHistoryMetadataSchema.parse({
+      schemaVersion: "0.1",
+      type: "assurance-metadata",
+      provider: "ship-check",
+      project: {
+        identity: {
+          algorithm: "sha256",
+          scope: "project-source-v1",
+          value: "a".repeat(64)
+        },
+        identityBasis: "primary-evidence",
+        evidenceSources: [{
+          type: "source",
+          provider: "local",
+          acquisition: "local",
+          executionLocation: "user-device",
+          capabilities: ["source-files"],
+          label: "/home/user/private-project"
+        }]
+      },
+      scan: {
+        identity: {
+          algorithm: "sha256",
+          scope: "scan-event-v1",
+          value: "d".repeat(64)
+        },
+        generatedAt: "2026-09-19T08:45:00.000Z",
+        engineVersion: "0.0.0-alpha.7",
+        ruleset: {
+          algorithm: "sha256",
+          scope: "check-ruleset-v1",
+          value: "e".repeat(64),
+          checkCount: 1
+        },
+        packs: ["secure-build"],
+        checkCount: 1
+      },
+      counts: {
+        findings: 0,
+        suppressed: 0,
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        info: 0,
+        unverified: 0,
+        resolved: 0,
+        observed: 0,
+        notAssessed: 0,
+        checkErrors: 0
+      },
+      coverage: []
     })).toThrow();
   });
 });
