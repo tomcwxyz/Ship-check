@@ -604,6 +604,13 @@ export const CloudRetentionUpdateRequestSchema = z.object({
 }).strict();
 export type CloudRetentionUpdateRequest = z.infer<typeof CloudRetentionUpdateRequestSchema>;
 
+export const CloudProjectNameUpdateRequestSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  projectId: z.string().uuid(),
+  displayName: z.string().trim().min(1).max(120).nullable()
+}).strict();
+export type CloudProjectNameUpdateRequest = z.infer<typeof CloudProjectNameUpdateRequestSchema>;
+
 export const CloudHistoryServiceErrorCodeSchema = z.enum([
   "project-retention-conflict",
   "project-name-conflict",
