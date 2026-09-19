@@ -25,6 +25,7 @@ import { runtimeHttpChecks } from "@ship-check/runtime-checks";
 import {
   AssuranceGateIdSchema,
   CheckPackSchema,
+  CloudHistoryRetentionSchema,
   ProjectHistoryMetadataSchema,
   type AssessmentArea,
   type AssuranceGateId,
@@ -36,12 +37,16 @@ import {
 } from "@ship-check/schemas";
 import { resolveDatabaseInspection, scanConfiguredDatabase } from "./databaseInspection.js";
 import {
+  createCloudHistoryClient,
+  resolveCloudClientConfig
+} from "./cloud.js";
+import {
   parseGithubRepository,
   prepareRepositorySource,
   sourceExecutionContextFromEnvironment
 } from "./repositorySource.js";
 
-const version = "0.0.0-alpha.7";
+const version = "0.0.0-alpha.8";
 const severityRank: Record<Severity, number> = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 const areaNames: Record<AssessmentArea, string> = {
   secrets: "Secrets",
@@ -55,7 +60,7 @@ const areaNames: Record<AssessmentArea, string> = {
 };
 
 function usage(): string {
-  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-source] [--deployment-url url] [--inspect-database] [--database-url-env ENV_NAME] [--database-platform postgres|supabase|neon] [--database-table-limit 1000] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--local-semgrep-scan] [--networked-dependency-scan] [--format pretty|json|metadata|rack|oos] [--fail-on critical|high|medium|low|never]\n\nAI discovery:\n  ship-check discover-ai [project-source] [--ref branch-or-tag]\n    Emits a metadata-only crux-discovery/0.1 report. Discovery identifies technical AI/workflow signals only; it does not declare organisational purpose or authority.\n\nProject sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  Exported project: C:\\path\\to\\project.zip\n  Deployment URL only: https://example.com\n  Source + deployment: add --deployment-url https://example.com\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nRuntime URL checks:\n  Deployment URLs use a bounded, non-mutating GET probe with manual redirect following. Ship Check records transport, selected browser security headers, cookie flags and a synthetic CORS Origin response. It does not retain response bodies or cookie values. A URL-only run leaves source/database checks not assessed; --deployment-url combines runtime evidence with the supplied source in one project report.\n\nDatabase metadata checks:\n  --inspect-database explicitly opts into a local read-only Postgres metadata inspection and requires Production Ready. The connection URL is read from SHIP_CHECK_DATABASE_URL by default; use --database-url-env NAME to select another environment variable. Do not put a database URL on the command line. Ship Check opens a read-only transaction, runs only its fixed system-catalog metadata queries, reads no application rows, rolls the transaction back and does not retain the connection URL or database role name. --database-platform labels provider-specific evidence; --database-table-limit bounds the table inventory from 1 to 5000 (default 1000).\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  Server-boundary checks trace a bounded local import graph so auth, webhook verification, paid work, object-level authorisation questions and outbound-request questions can include shared helpers.\n  Production Ready records positive server-surface observations separately from findings and checks selected GitHub Actions supply-chain boundaries.\n  --local-semgrep-scan opts into Ship Check's small pinned local Semgrep ruleset and requires Secure Build. It stays offline, disables Semgrep metrics/version checks and never uses Registry/auto rules. Semgrep itself is not bundled in the alpha desktop; use a compatible local CLI or SHIP_CHECK_SEMGREP_PATH.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.\n\nAccepted exceptions:\n  A tracked .ship-check.json may suppress an exact finding ID only when it also names the matching rule version and a substantive rationale. Suppressed findings remain visible in the report and rule-version changes invalidate old suppressions. Runtime-only URL scans do not load repository suppression configuration.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check discover-ai .\n  ship-check discover-ai tomcwxyz/open-recs-local --ref master\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan ./lovable-export.zip\n  ship-check scan https://example.com\n  ship-check scan ./lovable-export.zip --deployment-url https://example.com\n  ship-check scan tomcwxyz/Ship-check --deployment-url https://ship-check.example\n  SHIP_CHECK_DATABASE_URL=postgresql://... ship-check scan . --inspect-database --database-platform supabase\n  ship-check scan . --inspect-database --database-url-env MY_READONLY_DATABASE_URL --database-platform neon\n  ship-check scan . --pack secure-build --local-semgrep-scan\n  ship-check scan . --networked-dependency-scan\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n`;
+  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-source] [--deployment-url url] [--inspect-database] [--database-url-env ENV_NAME] [--database-platform postgres|supabase|neon] [--database-table-limit 1000] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--local-semgrep-scan] [--networked-dependency-scan] [--format pretty|json|metadata|rack|oos] [--fail-on critical|high|medium|low|never]\n\nCloud history (metadata only):\n  ship-check cloud connect <metadata.json> [--cloud-url https://...] [--display-name name] [--retention 30-days|90-days|180-days|365-days|until-deleted]\n  ship-check cloud sync <project-id> <metadata.json> [--cloud-url https://...]\n  ship-check cloud projects [--cloud-url https://...]\n  ship-check cloud timeline <project-id> [--cloud-url https://...]\n    Uses SHIP_CHECK_CLOUD_TOKEN for bearer authentication and sends only the source-free assurance metadata envelope. SHIP_CHECK_CLOUD_URL may provide the endpoint instead of --cloud-url.\n\nAI discovery:\n  ship-check discover-ai [project-source] [--ref branch-or-tag]\n    Emits a metadata-only crux-discovery/0.1 report. Discovery identifies technical AI/workflow signals only; it does not declare organisational purpose or authority.\n\nProject sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  Exported project: C:\\path\\to\\project.zip\n  Deployment URL only: https://example.com\n  Source + deployment: add --deployment-url https://example.com\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nRuntime URL checks:\n  Deployment URLs use a bounded, non-mutating GET probe with manual redirect following. Ship Check records transport, selected browser security headers, cookie flags and a synthetic CORS Origin response. It does not retain response bodies or cookie values. A URL-only run leaves source/database checks not assessed; --deployment-url combines runtime evidence with the supplied source in one project report.\n\nDatabase metadata checks:\n  --inspect-database explicitly opts into a local read-only Postgres metadata inspection and requires Production Ready. The connection URL is read from SHIP_CHECK_DATABASE_URL by default; use --database-url-env NAME to select another environment variable. Do not put a database URL on the command line. Ship Check opens a read-only transaction, runs only its fixed system-catalog metadata queries, reads no application rows, rolls the transaction back and does not retain the connection URL or database role name. --database-platform labels provider-specific evidence; --database-table-limit bounds the table inventory from 1 to 5000 (default 1000).\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  Server-boundary checks trace a bounded local import graph so auth, webhook verification, paid work, object-level authorisation questions and outbound-request questions can include shared helpers.\n  Production Ready records positive server-surface observations separately from findings and checks selected GitHub Actions supply-chain boundaries.\n  --local-semgrep-scan opts into Ship Check's small pinned local Semgrep ruleset and requires Secure Build. It stays offline, disables Semgrep metrics/version checks and never uses Registry/auto rules. Semgrep itself is not bundled in the alpha desktop; use a compatible local CLI or SHIP_CHECK_SEMGREP_PATH.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.\n\nAccepted exceptions:\n  A tracked .ship-check.json may suppress an exact finding ID only when it also names the matching rule version and a substantive rationale. Suppressed findings remain visible in the report and rule-version changes invalidate old suppressions. Runtime-only URL scans do not load repository suppression configuration.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check discover-ai .\n  ship-check discover-ai tomcwxyz/open-recs-local --ref master\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan ./lovable-export.zip\n  ship-check scan https://example.com\n  ship-check scan ./lovable-export.zip --deployment-url https://example.com\n  ship-check scan tomcwxyz/Ship-check --deployment-url https://ship-check.example\n  SHIP_CHECK_DATABASE_URL=postgresql://... ship-check scan . --inspect-database --database-platform supabase\n  ship-check scan . --inspect-database --database-url-env MY_READONLY_DATABASE_URL --database-platform neon\n  ship-check scan . --pack secure-build --local-semgrep-scan\n  ship-check scan . --networked-dependency-scan\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n  SHIP_CHECK_CLOUD_URL=https://cloud.example SHIP_CHECK_CLOUD_TOKEN=shipcheck_... ship-check cloud connect ./ship-check-metadata.json --display-name "My project"\n`;
 }
 
 function checkVersionFor(report: ScanReport, checkId: string): string {
@@ -218,6 +223,18 @@ function renderReport(
   }
 }
 
+async function readProjectHistoryMetadataFile(file: string): Promise<ProjectHistoryMetadata> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(await fs.readFile(file, "utf8"));
+  } catch (error) {
+    throw new Error(
+      `Could not read project history metadata from ${file}: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+  return ProjectHistoryMetadataSchema.parse(parsed);
+}
+
 async function main(): Promise<void> {
   const { values, positionals } = parseArgs({
     allowPositionals: true,
@@ -235,6 +252,9 @@ async function main(): Promise<void> {
       "database-table-limit": { type: "string" },
       "local-semgrep-scan": { type: "boolean", default: false },
       "networked-dependency-scan": { type: "boolean", default: false },
+      "cloud-url": { type: "string" },
+      "display-name": { type: "string" },
+      retention: { type: "string" },
       help: { type: "boolean", short: "h" },
       version: { type: "boolean", short: "v" }
     }
@@ -245,9 +265,76 @@ async function main(): Promise<void> {
     return;
   }
   const command = positionals[0];
-  if (values.help || (command !== "scan" && command !== "discover-ai" && command !== "timeline")) {
+  if (
+    values.help ||
+    (command !== "scan" &&
+      command !== "discover-ai" &&
+      command !== "timeline" &&
+      command !== "cloud")
+  ) {
     console.log(usage());
     process.exitCode = values.help ? 0 : 1;
+    return;
+  }
+
+  if (command === "cloud") {
+    const action = positionals[1];
+    if (!action || !new Set(["connect", "sync", "projects", "timeline"]).has(action)) {
+      throw new Error(
+        "ship-check cloud requires connect, sync, projects or timeline."
+      );
+    }
+
+    const config = resolveCloudClientConfig({
+      cloudUrl: values["cloud-url"]
+    });
+    const client = createCloudHistoryClient(config);
+
+    if (action === "connect") {
+      const metadataFile = positionals[2];
+      if (!metadataFile) {
+        throw new Error("ship-check cloud connect requires a metadata JSON file.");
+      }
+      const event = await readProjectHistoryMetadataFile(metadataFile);
+      const retention = CloudHistoryRetentionSchema.parse(
+        values.retention ?? "90-days"
+      );
+      const result = await client.connectProject({
+        event,
+        retention,
+        ...(values["display-name"]
+          ? { displayName: String(values["display-name"]) }
+          : {})
+      });
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    if (action === "sync") {
+      const projectId = positionals[2];
+      const metadataFile = positionals[3];
+      if (!projectId || !metadataFile) {
+        throw new Error(
+          "ship-check cloud sync requires a project id and metadata JSON file."
+        );
+      }
+      const event = await readProjectHistoryMetadataFile(metadataFile);
+      console.log(
+        JSON.stringify(await client.syncProject(projectId, event), null, 2)
+      );
+      return;
+    }
+
+    if (action === "projects") {
+      console.log(JSON.stringify(await client.listProjects(), null, 2));
+      return;
+    }
+
+    const projectId = positionals[2];
+    if (!projectId) {
+      throw new Error("ship-check cloud timeline requires a project id.");
+    }
+    console.log(JSON.stringify(await client.getTimeline(projectId), null, 2));
     return;
   }
 
