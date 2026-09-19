@@ -629,6 +629,26 @@ export const CloudHistoryServiceErrorSchema = z.object({
 }).strict();
 export type CloudHistoryServiceError = z.infer<typeof CloudHistoryServiceErrorSchema>;
 
+export const CloudHistoryHttpErrorCodeSchema = z.enum([
+  "unauthenticated",
+  "mutation-not-authorised",
+  "invalid-request",
+  "payload-too-large",
+  "not-found",
+  "conflict",
+  "method-not-allowed",
+  "internal-error"
+]);
+export type CloudHistoryHttpErrorCode = z.infer<typeof CloudHistoryHttpErrorCodeSchema>;
+
+export const CloudHistoryHttpErrorSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  type: z.literal("cloud-history-http-error"),
+  code: CloudHistoryHttpErrorCodeSchema,
+  message: z.string().min(1)
+}).strict();
+export type CloudHistoryHttpError = z.infer<typeof CloudHistoryHttpErrorSchema>;
+
 export const AssuranceOutcomeSchema = z.enum(["pass", "fail", "uncertain", "incomplete"]);
 export type AssuranceOutcome = z.infer<typeof AssuranceOutcomeSchema>;
 
