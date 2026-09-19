@@ -396,6 +396,61 @@ export const ProjectHistoryTimelineSchema = z.object({
       message: "Timeline latestScan must match the latest event."
     });
   }
+  if (first && first.scan.generatedAt !== timeline.firstAt) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["firstAt"],
+      message: "Timeline firstAt must match the first event timestamp."
+    });
+  }
+  if (latest && latest.scan.generatedAt !== timeline.latestAt) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["latestAt"],
+      message: "Timeline latestAt must match the latest event timestamp."
+    });
+  }
+  timeline.events.forEach((entry, index) => {
+    if (entry.event.project.identity.value !== timeline.project.identity.value) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["events", index, "event", "project", "identity"],
+        message: "Every timeline event must use the timeline project identity."
+      });
+    }
+    if (entry.event.project.identityBasis !== timeline.project.identityBasis) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["events", index, "event", "project", "identityBasis"],
+        message: "Every timeline event must use the timeline project identity basis."
+      });
+    }
+    if (index === 0) {
+      if (entry.continuity) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["events", index, "continuity"],
+          message: "The first timeline event cannot have previous-scan continuity."
+        });
+      }
+      return;
+    }
+    const previous = timeline.events[index - 1]!.event;
+    if (entry.event.scan.generatedAt < previous.scan.generatedAt) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["events", index, "event", "scan", "generatedAt"],
+        message: "Timeline events must be ordered chronologically."
+      });
+    }
+    if (!entry.continuity || entry.continuity.previousScan.value !== previous.scan.identity.value) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["events", index, "continuity", "previousScan"],
+        message: "Timeline continuity must point to the immediately previous scan."
+      });
+    }
+  });
 });
 export type ProjectHistoryTimeline = z.infer<typeof ProjectHistoryTimelineSchema>;
 
