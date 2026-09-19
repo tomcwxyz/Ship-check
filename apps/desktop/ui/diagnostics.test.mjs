@@ -48,6 +48,12 @@ const report = {
       },
     },
   },
+  ruleset: {
+    algorithm: "sha256",
+    scope: "check-ruleset-v1",
+    value: "d".repeat(64),
+    checkCount: 4,
+  },
   summary: { total: 1, suppressed: 1, critical: 0, high: 1, medium: 0, low: 0, info: 0 },
   findings: [
     { id: "secure.secret-pattern:src/private.ts:2:OpenAI-style API key" },
@@ -132,6 +138,8 @@ test("successful diagnostics keep scan consent, counts and rule versions but not
   assert.match(entry.source.identity, /^[a-f0-9]{64}$/);
   assert.equal(entry.source.fingerprint.value, "a".repeat(64));
   assert.equal(entry.source.fingerprint.completeness, "complete");
+  assert.equal(entry.ruleset.value, "d".repeat(64));
+  assert.equal(entry.ruleset.checkCount, 4);
   assert.equal(entry.findingIdentities.length, 1);
   assert.equal(entry.gapIdentities.length, 1);
   assert.match(entry.findingIdentities[0], /^[a-f0-9]{64}$/);
@@ -167,6 +175,7 @@ test("successful diagnostics keep scan consent, counts and rule versions but not
   assert.doesNotMatch(JSON.stringify(entry), /secure\.secret-pattern:src\/private\.ts/);
   assert.doesNotMatch(JSON.stringify(entry), /production\.next-security-headers:next\.config\.ts/);
   assert.match(formatReceipt(entry), /94 files · 4 checks · git-tracked/);
+  assert.match(formatReceipt(entry), /ruleset d{12} · 4 checks/);
   assert.match(formatReceipt(entry), /live deployment evidence: on/);
   assert.match(formatReceipt(entry), /local Semgrep scan: on/);
   assert.match(formatReceipt(entry), /dependency network scan: on/);
@@ -327,7 +336,7 @@ test("equal partial source fingerprints stay uncertain rather than claiming iden
   assert.equal(comparison.snapshot, "uncertain");
 });
 
-test("different rule sets are not treated as comparable history", async () => {
+test("different ruleset fingerprints are not treated as comparable history", async () => {
   const baseline = await createSuccessDiagnostic({
     report,
     sourceMode: "local",
@@ -338,9 +347,7 @@ test("different rule sets are not treated as comparable history", async () => {
   const current = await createSuccessDiagnostic({
     report: {
       ...report,
-      checks: report.checks.map((check) => check.checkId === "secure.secret-pattern"
-        ? { ...check, checkVersion: "2" }
-        : check),
+      ruleset: { ...report.ruleset, value: "e".repeat(64) },
     },
     sourceMode: "local",
     sourceValue: "/home/tom/project",
@@ -349,6 +356,28 @@ test("different rule sets are not treated as comparable history", async () => {
   });
 
   assert.equal(compareWithPreviousDiagnostics([baseline], current), null);
+});
+
+test("legacy diagnostics without ruleset provenance still compare by packs and check versions", async () => {
+  const legacyReport = { ...report };
+  delete legacyReport.ruleset;
+
+  const baseline = await createSuccessDiagnostic({
+    report: legacyReport,
+    sourceMode: "local",
+    sourceValue: "/home/tom/project",
+    packs: ["secure-build", "production-ready", "cost-aware"],
+    elapsedMs: 5,
+  });
+  const current = await createSuccessDiagnostic({
+    report: legacyReport,
+    sourceMode: "local",
+    sourceValue: "/home/tom/project",
+    packs: ["secure-build", "production-ready", "cost-aware"],
+    elapsedMs: 6,
+  });
+
+  assert.ok(compareWithPreviousDiagnostics([baseline], current));
 });
 
 test("runtime project identity ignores query strings but distinguishes paths", async () => {
@@ -414,6 +443,7 @@ test("diagnostic history is capped to the newest 100 entries", () => {
   assert.match(formatDiagnostics(entries), /deployment URL paths\/query strings/);
   assert.match(formatDiagnostics(entries), /raw finding\/gap IDs/);
   assert.match(formatDiagnostics(entries), /SHA-256 digests/);
+  assert.match(formatDiagnostics(entries), /ruleset provenance/);
 });
 
 test('diagnostics retain resolved commit and scanner version without finding details', async () => {

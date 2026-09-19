@@ -52,7 +52,7 @@ A source checkout supplied through the Action is recorded as:
 - execution location: `ci-runner`;
 - capability: `ci-context` plus the normal source/Git capabilities Ship Check can establish.
 
-The source snapshot still receives the bounded `source-inventory-v1` fingerprint. This allows later comparison without treating the CI runner as a different checking engine.
+The source snapshot still receives the bounded `source-inventory-v1` fingerprint. Reports also carry a `check-ruleset-v1` SHA-256 fingerprint over selected check IDs, rule versions and packs. Engine version remains separate. Together these let history distinguish source change, rule-set change and tool-build change without retaining source contents.
 
 ## Inputs
 
@@ -76,7 +76,7 @@ A deployment URL adds the same bounded, non-mutating runtime evidence used by th
 
 ### Pull request change summary
 
-On a `pull_request` workflow, `pr-comparison: "true"` is the default. Ship Check reads the exact base SHA from GitHub's event payload, fetches that commit into the same Actions runner, creates a temporary detached Git worktree, and scans the same project path with the same Ship Check revision, packs and rule versions.
+On a `pull_request` workflow, `pr-comparison: "true"` is the default. Ship Check reads the exact base SHA from GitHub's event payload, fetches that commit into the same Actions runner, creates a temporary detached Git worktree, and scans the same project path with the same Ship Check revision and ruleset.
 
 The comparison is **source-to-source**. An optional deployment URL is not included in the base/current delta because the live deployment does not represent the historical base commit.
 
@@ -103,7 +103,8 @@ The Action exposes:
 - `exit-code` — Ship Check's threshold result;
 - `finding-count`;
 - `unverified-count`;
-- `snapshot-completeness` — `complete`, `partial` or `unknown`.
+- `snapshot-completeness` — `complete`, `partial` or `unknown`;
+- `ruleset-fingerprint` — the 64-character SHA-256 fingerprint for the selected check IDs, rule versions and packs.
 
 For pull-request comparison it also exposes:
 

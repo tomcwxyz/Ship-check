@@ -165,6 +165,11 @@ describe("combineScanReports", () => {
     const combined = combineScanReports(report("source"), report("runtime"));
 
     expect(combined.project.evidenceSources).toHaveLength(2);
+    expect(combined.ruleset).toMatchObject({
+      algorithm: "sha256",
+      scope: "check-ruleset-v1",
+      checkCount: 2
+    });
     expect(combined.project.evidenceSources.map((source) => source.type)).toEqual(["source", "deployment"]);
     expect(combined.checks.find((check) => check.checkId === "production.source")?.status).toBe("passed");
     expect(combined.checks.find((check) => check.checkId === "runtime.headers")?.status).toBe("passed");
@@ -172,6 +177,22 @@ describe("combineScanReports", () => {
     expect(combined.coverage.find((entry) => entry.area === "configuration")?.status).toBe("partial");
     expect(combined.observations).toHaveLength(1);
     expect(combined.resolvedGaps).toEqual([]);
+  });
+
+  it("rejects conflicting versions for the same check across evidence sources", () => {
+    const source = report("source");
+    const runtime = report("runtime");
+    const conflictingRuntime = ScanReportSchema.parse({
+      ...runtime,
+      checks: runtime.checks.map((check) =>
+        check.checkId === "production.source"
+          ? { ...check, checkVersion: "2" }
+          : check
+      )
+    });
+
+    expect(() => combineScanReports(source, conflictingRuntime))
+      .toThrow(/conflicting rule definitions for production\.source/i);
   });
 
   it("resolves an exact source gap only when a verified observation explicitly names that check", () => {

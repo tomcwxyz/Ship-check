@@ -70,6 +70,11 @@ describe("database metadata scan runner", () => {
     );
 
     expect(report.project.snapshot?.source.type).toBe("database");
+    expect(report.ruleset).toMatchObject({
+      algorithm: "sha256",
+      scope: "check-ruleset-v1",
+      checkCount: 2
+    });
     expect(report.checks.find((item) => item.checkId === "production.source-only")).toMatchObject({
       status: "not-assessed",
       missingEvidence: ["source-files"]

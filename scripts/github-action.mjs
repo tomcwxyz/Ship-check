@@ -218,6 +218,10 @@ async function appendSummary(report, scanExitCode) {
   const fingerprintLabel = fingerprint
     ? `${fingerprint.completeness} source fingerprint · ${fingerprint.hashedEntryCount}/${fingerprint.entryCount} entries hashed`
     : "source fingerprint unavailable";
+  const ruleset = report?.ruleset;
+  const rulesetLabel = ruleset
+    ? `${ruleset.scope} · ${ruleset.value.slice(0, 12)} · ${ruleset.checkCount} checks`
+    : "ruleset provenance unavailable";
 
   const lines = [
     "## Ship Check",
@@ -227,6 +231,7 @@ async function appendSummary(report, scanExitCode) {
     `Evidence: ${sourceProvenance(report)}`,
     `Snapshot: ${fingerprintLabel}`,
     `Engine: ${report?.tool?.version ?? "unknown"}`,
+    `Ruleset: ${rulesetLabel}`,
     "",
     scanExitCode === 0
       ? "The configured CI threshold was not crossed."
@@ -300,6 +305,7 @@ async function main() {
     writeOutput("finding-count", report?.summary?.total ?? 0),
     writeOutput("unverified-count", Array.isArray(report?.gaps) ? report.gaps.length : 0),
     writeOutput("snapshot-completeness", report?.project?.snapshot?.inventory?.fingerprint?.completeness ?? "unknown"),
+    writeOutput("ruleset-fingerprint", report?.ruleset?.value ?? "unknown"),
   ]);
   await appendSummary(report, result.code);
 

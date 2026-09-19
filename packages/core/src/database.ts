@@ -17,6 +17,7 @@ import {
   type DatabaseMetadataSnapshot
 } from "@ship-check/schemas/databaseEvidence";
 import { createProjectSnapshot } from "./projectEvidence.js";
+import { createRulesetProvenance } from "./ruleset.js";
 
 const DEFAULT_CHECK_VERSION: CheckVersion = "1";
 
@@ -262,6 +263,7 @@ export async function scanDatabaseMetadata(
     },
     packs: [...new Set([...sourceChecks, ...databaseChecks].map((check) => check.pack))],
     checks: results,
+    ruleset: createRulesetProvenance([...sourceChecks, ...databaseChecks]),
     findings: findings.sort((a, b) => `${a.severity}:${a.id}`.localeCompare(`${b.severity}:${b.id}`)),
     suppressedFindings: [],
     gaps: gaps.sort((a, b) => `${a.area}:${a.id}`.localeCompare(`${b.area}:${b.id}`)),

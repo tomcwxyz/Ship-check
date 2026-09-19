@@ -137,6 +137,9 @@ JSON remains the complete portable report:
 ```bash
 pnpm ship-check -- scan ./my-project --format json > ship-check-report.json
 ```
+
+Every newly generated report also carries a `check-ruleset-v1` SHA-256 fingerprint over the selected check IDs, rule versions and packs. Engine version remains separate, so history/CI can distinguish “same rules under a newer Ship Check build” from an actual ruleset change without retaining source content.
+
 ## GitHub Actions
 
 Ship Check can run inside the repository owner's GitHub Actions runner using the same canonical engine:

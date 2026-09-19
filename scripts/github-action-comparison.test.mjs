@@ -18,6 +18,12 @@ function report(overrides = {}) {
   return {
     tool: { name: "ship-check", version: "test" },
     packs: ["secure-build", "production-ready"],
+    ruleset: {
+      algorithm: "sha256",
+      scope: "check-ruleset-v1",
+      value: "f".repeat(64),
+      checkCount: 2,
+    },
     checks: [
       { checkId: "secure.example", checkVersion: "1" },
       { checkId: "production.example", checkVersion: "2" },
@@ -116,17 +122,35 @@ test("equal partial fingerprints remain uncertain", () => {
   assert.equal(compareReports(base, current).sourceSnapshot, "uncertain");
 });
 
-test("rule-version or pack drift makes scans non-comparable", () => {
+test("ruleset fingerprint drift makes scans non-comparable", () => {
   const base = report();
   const current = report({
-    checks: [
-      { checkId: "secure.example", checkVersion: "2" },
-      { checkId: "production.example", checkVersion: "2" },
-    ],
+    ruleset: {
+      algorithm: "sha256",
+      scope: "check-ruleset-v1",
+      value: "e".repeat(64),
+      checkCount: 2,
+    },
   });
   const comparison = compareReports(base, current);
   assert.equal(comparison.comparable, false);
-  assert.match(comparison.reason, /same packs and rule versions/i);
+  assert.match(comparison.reason, /same ruleset/i);
+});
+
+test("legacy reports without ruleset provenance fall back to check signatures", () => {
+  const base = report();
+  const current = report();
+  delete base.ruleset;
+  delete current.ruleset;
+
+  assert.equal(compareReports(base, current).comparable, true);
+
+  current.checks = current.checks.map((check) =>
+    check.checkId === "secure.example"
+      ? { ...check, checkVersion: "3" }
+      : check
+  );
+  assert.equal(compareReports(base, current).comparable, false);
 });
 
 test("summary is bounded to titles and uses honest state-change language", () => {

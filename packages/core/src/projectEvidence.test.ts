@@ -102,6 +102,42 @@ describe("project evidence provenance", () => {
     });
   });
 
+  it("fingerprints the selected rule set independent of check ordering", async () => {
+    const root = await temporaryProject();
+    const firstCheck: CheckDefinition = {
+      id: "secure.first",
+      version: "2",
+      pack: "secure-build",
+      title: "first",
+      description: "first",
+      async run() { return []; }
+    };
+    const secondCheck: CheckDefinition = {
+      id: "production.second",
+      pack: "production-ready",
+      title: "second",
+      description: "second",
+      async run() { return []; }
+    };
+
+    const first = await scanProject(root, [firstCheck, secondCheck], "0.0.0-test");
+    const reordered = await scanProject(root, [secondCheck, firstCheck], "0.0.0-test");
+    const changedVersion = await scanProject(
+      root,
+      [{ ...firstCheck, version: "3" }, secondCheck],
+      "0.0.0-test"
+    );
+
+    expect(first.ruleset).toMatchObject({
+      algorithm: "sha256",
+      scope: "check-ruleset-v1",
+      checkCount: 2
+    });
+    expect(first.ruleset?.value).toMatch(/^[a-f0-9]{64}$/);
+    expect(reordered.ruleset?.value).toBe(first.ruleset?.value);
+    expect(changedVersion.ruleset?.value).not.toBe(first.ruleset?.value);
+  });
+
   it("records an uploaded hosted-builder export without changing the checking engine", async () => {
     const root = await temporaryProject();
 
