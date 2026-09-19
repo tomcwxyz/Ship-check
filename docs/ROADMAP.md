@@ -226,6 +226,7 @@ Goal: create useful Cloud Ship Check without requiring source code to enter Ship
 - [x] Framework-neutral bounded HTTP transport/router contract over the Cloud history service: verified-principal input, mutation authorisation gate, bounded JSON bodies, no-store responses and safe error/status mapping.
 - [x] Standard Web `Request` / `Response` binding over the landed HTTP transport, with injected verified authentication, pre-body auth/mutation rejection and streaming byte-limit enforcement suitable for a later Next.js/Vercel adapter.
 - [ ] Hosted auth/session verification + actual Next/Vercel route binding/deployment of the landed Web handler, including session/CSRF or scoped-token policy, rate limiting and origin controls.
+- [x] Scoped expiring API-token persistence/management foundation for future CLI/CI sync: one-time raw credential, SHA-256-only persistence, revocation/last-used lifecycle and narrow history/project scopes; bearer route authorisation remains separate.
 - [ ] Optional report sync from local CLI/desktop with user-selectable data boundary: metadata only, structured findings, or bounded evidence.
 - [x] Bounded account-scoped Cloud project directory + non-download timeline read API foundation, using opaque keyset pagination and the existing portable timeline reducer without inventing a portfolio score.
 - [ ] Hosted/persistent project timeline UI showing explicit newly introduced, persistent, reactivated, accepted and no-longer-active findings/gaps across stored comparable scans; the directory/timeline API foundation is now landed.
