@@ -53,6 +53,7 @@ jobs:
           NEW_FINDING_COUNT: ${{ steps.ship-check.outputs.new-finding-count }}
           NEW_UNVERIFIED_COUNT: ${{ steps.ship-check.outputs.new-unverified-count }}
           NEW_SURFACE_COUNT: ${{ steps.ship-check.outputs.new-surface-count }}
+          RULESET_FINGERPRINT: ${{ steps.ship-check.outputs.ruleset-fingerprint }}
         run: |
           node --input-type=module <<'NODE'
           import assert from "node:assert/strict";
@@ -66,6 +67,7 @@ jobs:
           for (const name of ["NEW_FINDING_COUNT", "NEW_UNVERIFIED_COUNT", "NEW_SURFACE_COUNT"]) {
             assert.match(process.env[name] ?? "", /^\d+$/);
           }
+          assert.match(process.env.RULESET_FINGERPRINT ?? "", /^[a-f0-9]{64}$/);
           const source = report.project?.snapshot?.source;
           const fingerprint = report.project?.snapshot?.inventory?.fingerprint;
 
