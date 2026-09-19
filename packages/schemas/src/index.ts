@@ -301,7 +301,28 @@ export const ProjectHistoryMetadataSchema = z.object({
   }).strict(),
   coverage: z.array(ProjectHistoryCoverageSchema),
   change: ProjectHistoryChangeSchema.optional()
-}).strict();
+}).strict().superRefine((metadata, ctx) => {
+  const severityTotal =
+    metadata.counts.critical +
+    metadata.counts.high +
+    metadata.counts.medium +
+    metadata.counts.low +
+    metadata.counts.info;
+  if (severityTotal !== metadata.counts.findings) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["counts", "findings"],
+      message: "Finding severity counts must sum to the active finding count."
+    });
+  }
+  if (metadata.scan.ruleset.checkCount !== metadata.scan.checkCount) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["scan", "checkCount"],
+      message: "Ruleset check count must match the scan check count."
+    });
+  }
+});
 export type ProjectHistoryMetadata = z.infer<typeof ProjectHistoryMetadataSchema>;
 
 export const AssuranceOutcomeSchema = z.enum(["pass", "fail", "uncertain", "incomplete"]);
