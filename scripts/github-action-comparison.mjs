@@ -80,6 +80,18 @@ function fingerprintComparison(baseReport, currentReport) {
   return "uncertain";
 }
 
+function rulesetValue(report) {
+  const ruleset = report?.ruleset;
+  if (
+    ruleset?.algorithm === "sha256" &&
+    ruleset?.scope === "check-ruleset-v1" &&
+    /^[a-f0-9]{64}$/.test(ruleset?.value ?? "")
+  ) {
+    return ruleset.value;
+  }
+  return null;
+}
+
 function comparableChecks(report) {
   return (Array.isArray(report?.checks) ? report.checks : [])
     .map((check) => `${check.checkId}@${check.checkVersion ?? "1"}`)
@@ -96,15 +108,20 @@ function inventoryObservations(report) {
 }
 
 export function compareReports(baseReport, currentReport) {
+  const baseRuleset = rulesetValue(baseReport);
+  const currentRuleset = rulesetValue(currentReport);
   const baseChecks = comparableChecks(baseReport);
   const currentChecks = comparableChecks(currentReport);
   const basePacks = [...(baseReport?.packs ?? [])].sort();
   const currentPacks = [...(currentReport?.packs ?? [])].sort();
+  const sameRuleset = baseRuleset && currentRuleset
+    ? baseRuleset === currentRuleset
+    : sameStringSet(baseChecks, currentChecks) && sameStringSet(basePacks, currentPacks);
 
-  if (!sameStringSet(baseChecks, currentChecks) || !sameStringSet(basePacks, currentPacks)) {
+  if (!sameRuleset) {
     return {
       comparable: false,
-      reason: "The base and current scans did not use the same packs and rule versions.",
+      reason: "The base and current scans did not use the same ruleset.",
     };
   }
 
@@ -167,7 +184,7 @@ export function formatPullRequestComparison(comparison, context = {}) {
   const lines = [
     "### Pull request change",
     "",
-    `Compared the PR source with ${baseLabel} using the same Ship Check revision, packs and rule versions.`,
+    `Compared the PR source with ${baseLabel} using the same Ship Check revision and ruleset.`,
     "",
     `**Findings:** ${findings.introduced.length} new · ${findings.persistent.length} persistent · ${findings.reactivated.length} reactivated · ${findings.accepted.length} newly accepted · ${findings.noLongerActive.length} no longer active`,
     `**Unanswered controls:** ${gaps.introduced.length} new · ${gaps.persistent.length} persistent · ${gaps.noLongerActive.length} no longer active`,
