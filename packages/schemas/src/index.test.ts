@@ -296,6 +296,60 @@ describe("ProjectHistoryMetadataSchema", () => {
     expect(metadata.change?.findings.accepted).toBe(1);
   });
 
+  it("rejects inconsistent metadata counts", () => {
+    const base = {
+      schemaVersion: "0.1",
+      type: "assurance-metadata",
+      provider: "ship-check",
+      project: {
+        identity: { algorithm: "sha256", scope: "project-source-v1", value: "a".repeat(64) },
+        identityBasis: "primary-evidence",
+        evidenceSources: [{
+          type: "source",
+          provider: "local",
+          acquisition: "local",
+          executionLocation: "user-device",
+          capabilities: ["source-files"]
+        }]
+      },
+      scan: {
+        identity: { algorithm: "sha256", scope: "scan-event-v1", value: "b".repeat(64) },
+        generatedAt: "2026-09-19T08:45:00.000Z",
+        engineVersion: "test",
+        ruleset: {
+          algorithm: "sha256",
+          scope: "check-ruleset-v1",
+          value: "c".repeat(64),
+          checkCount: 1
+        },
+        packs: ["secure-build"],
+        checkCount: 1
+      },
+      counts: {
+        findings: 2,
+        suppressed: 0,
+        critical: 0,
+        high: 1,
+        medium: 0,
+        low: 0,
+        info: 0,
+        unverified: 0,
+        resolved: 0,
+        observed: 0,
+        notAssessed: 0,
+        checkErrors: 0
+      },
+      coverage: []
+    };
+
+    expect(() => ProjectHistoryMetadataSchema.parse(base)).toThrow(/severity counts/i);
+    expect(() => ProjectHistoryMetadataSchema.parse({
+      ...base,
+      counts: { ...base.counts, findings: 1 },
+      scan: { ...base.scan, checkCount: 2 }
+    })).toThrow(/ruleset check count/i);
+  });
+
   it("rejects raw labels and evidence from the metadata envelope", () => {
     expect(() => ProjectHistoryMetadataSchema.parse({
       schemaVersion: "0.1",
