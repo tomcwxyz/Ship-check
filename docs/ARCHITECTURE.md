@@ -4,7 +4,7 @@ Ship Check uses the same broad architectural rule as RACK and TOPO: **portable d
 
 ## Layers
 
-`@ship-check/schemas` owns the stable interchange contract. A finding always carries a check ID, pack, severity, confidence, evidence, remediation and an agent-ready repair prompt. Reports are versioned independently from any desktop UI. The same package now owns the portable `ProjectEvidenceSource` and `ProjectSnapshot` contracts used to describe where project evidence came from and what it can establish.
+`@ship-check/schemas` owns the stable interchange contract. A finding always carries a check ID, pack, severity, confidence, evidence, remediation and an agent-ready repair prompt. Reports are versioned independently from any desktop UI. The same package owns the portable `ProjectEvidenceSource`, `ProjectSnapshot` and ruleset-provenance contracts used to describe where project evidence came from, what it can establish and which deterministic rule set produced the result.
 
 `@ship-check/core` owns project inventory and orchestration. It knows how to establish the scanned source set, read bounded text safely, execute checks and assemble a validated report. It does not know about Tauri, RACK, TOPO or a hosted account. Materialised source from a local folder, transient checkout, upload, CI runner or future hosted-builder adapter therefore reaches the same checking engine.
 
@@ -29,6 +29,20 @@ A **project** is broader than a repository. Repository source is currently the r
 
 The rule is **coverage follows evidence**. Existing repository checks default to requiring `source-files`. A future URL-only source can expose `runtime-http`; source checks then become `not-assessed` and assurance gates become `incomplete` rather than silently passing. Runtime checks will explicitly require runtime capabilities instead.
 
+## Ruleset provenance
+
+Every newly generated source, runtime and database report carries a `check-ruleset-v1` fingerprint. It is the SHA-256 digest of the sorted selected `checkId + rule version + pack` descriptors, so execution order does not change the identity while a rule-version or pack change does.
+
+This is deliberately separate from:
+
+- **engine version** — the Ship Check build that executed the scan;
+- **source fingerprint** — the bounded project inventory/content identity;
+- **scanner version** — optional per-check provenance for external tools such as Gitleaks.
+
+A multi-source report fingerprints the reconciled union of its check definitions. If two evidence-source reports claim the same check ID with conflicting rule version or pack metadata, Ship Check refuses to combine them instead of silently choosing one.
+
+Desktop history and CI pull-request comparison prefer the ruleset fingerprint when present and retain the older check-signature fallback only for previously stored reports that predate this field.
+
 ## Evidence rules
 
 - Never echo detected credential values in findings.
@@ -37,7 +51,7 @@ The rule is **coverage follows evidence**. Existing repository checks default to
 - A pass means only that the specific rule completed against evidence it was capable of assessing.
 - Missing required evidence is `not-assessed`, not `passed` and not a fabricated finding.
 - Evidence provenance remains distinct even when later source, runtime, database or platform evidence is correlated.
-- Checks should be individually versionable later without breaking the report envelope.
+- Checks are individually versioned, and the selected rule set has a stable fingerprint without changing the report envelope.
 
 ## Local-first and cloud boundary
 
