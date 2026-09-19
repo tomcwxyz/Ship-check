@@ -264,28 +264,29 @@ describe("cloud history HTTP transport", () => {
   });
 
   it("rejects wrong content type, invalid JSON and oversized bodies", async () => {
-    const handler = createCloudHistoryHttpHandler(service(), { maxBodyBytes: 1024 });
+    const normalHandler = createCloudHistoryHttpHandler(service(), { maxBodyBytes: 64 * 1024 });
     const valid = JSON.stringify({
       schemaVersion: "0.1",
       event: metadata,
       retention: "90-days"
     });
 
-    expect((await handler(request({
+    expect((await normalHandler(request({
       method: "POST",
       path: "/v1/projects/connect",
       contentType: "text/plain",
       body: valid
     }))).status).toBe(400);
 
-    expect((await handler(request({
+    expect((await normalHandler(request({
       method: "POST",
       path: "/v1/projects/connect",
       contentType: "application/json",
       body: "{"
     }))).status).toBe(400);
 
-    const oversized = await handler(request({
+    const boundedHandler = createCloudHistoryHttpHandler(service(), { maxBodyBytes: 1024 });
+    const oversized = await boundedHandler(request({
       method: "POST",
       path: "/v1/projects/connect",
       contentType: "application/json",
