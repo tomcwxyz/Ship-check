@@ -638,7 +638,8 @@ export const CloudHistoryServiceErrorCodeSchema = z.enum([
   "project-not-found",
   "account-not-found",
   "history-conflict",
-  "history-empty"
+  "history-empty",
+  "project-list-cursor-invalid"
 ]);
 export type CloudHistoryServiceErrorCode = z.infer<typeof CloudHistoryServiceErrorCodeSchema>;
 
