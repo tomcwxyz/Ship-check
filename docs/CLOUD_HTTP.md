@@ -63,7 +63,9 @@ mutationAuthorised = true
 
 Authentication alone is insufficient for mutation.
 
-GET routes require an authenticated principal but not mutation authorisation.
+An authenticator may also set `requestAuthorised: false` to deny a specific operation even when the principal is valid. That produces 403 `operation-not-authorised` before service execution. Browser/session authenticators may omit this field to retain the normal authenticated-session behaviour; scoped API-token authentication sets it explicitly for every route.
+
+GET routes therefore still require an authenticated principal, and token-authenticated GETs additionally require the exact mapped read scope.
 
 This keeps the transport policy stable while letting a future hosted app choose an appropriate session/CSRF/API-token strategy.
 
@@ -102,6 +104,7 @@ Expected errors use the strict `cloud-history-http-error/0.1` envelope.
 Transport errors include:
 
 - `unauthenticated` → 401
+- `operation-not-authorised` → 403
 - `mutation-not-authorised` → 403
 - `invalid-request` → 400
 - `payload-too-large` → 413

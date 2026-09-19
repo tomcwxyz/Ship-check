@@ -1,4 +1,8 @@
 export {
+  createCloudApiTokenWebAuthenticator,
+  requiredCloudApiTokenScope
+} from "./cloudApiTokenAuth.js";
+export {
   createCloudApiTokenStore,
   generateCloudApiToken,
   hashCloudApiToken

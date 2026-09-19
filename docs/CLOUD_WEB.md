@@ -56,7 +56,9 @@ The binding authenticates **before** reading request bodies.
 
 If authentication returns `null`, the existing HTTP transport produces the 401 response without consuming the body.
 
-For POST/PATCH/DELETE requests, if `mutationAuthorised` is false, the binding similarly produces the 403 response before consuming the body.
+If authentication succeeds but returns `requestAuthorised: false`, the binding produces the per-operation 403 response before consuming a request body. This is used by the scoped API-token authenticator.
+
+For POST/PATCH/DELETE requests, if the operation is otherwise allowed but `mutationAuthorised` is false, the binding similarly produces the mutation 403 response before consuming the body.
 
 This matters for both resource use and privacy: data from a caller that has not passed the relevant access boundary is not parsed unnecessarily.
 

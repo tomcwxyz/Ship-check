@@ -16,6 +16,7 @@ import {
 
 export type CloudHistoryHttpAuthContext = {
   principal: CloudAuthenticatedPrincipal;
+  requestAuthorised?: boolean;
   mutationAuthorised: boolean;
 };
 
@@ -181,6 +182,14 @@ export function createCloudHistoryHttpHandler(
       principal = CloudAuthenticatedPrincipalSchema.parse(request.auth.principal);
     } catch {
       return errorResponse(401, "unauthenticated", "Authentication is required.");
+    }
+
+    if (request.auth.requestAuthorised === false) {
+      return errorResponse(
+        403,
+        "operation-not-authorised",
+        "This authenticated request is not authorised for this Cloud history operation."
+      );
     }
 
     if (isMutation(method) && request.auth.mutationAuthorised !== true) {

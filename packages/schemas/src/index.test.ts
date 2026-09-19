@@ -756,6 +756,13 @@ describe("Cloud history HTTP contracts", () => {
     });
 
     expect(error.code).toBe("conflict");
+
+    expect(CloudHistoryHttpErrorSchema.parse({
+      schemaVersion: "0.1",
+      type: "cloud-history-http-error",
+      code: "operation-not-authorised",
+      message: "This token cannot read project history."
+    }).code).toBe("operation-not-authorised");
     expect(() => CloudHistoryHttpErrorSchema.parse({
       ...error,
       detail: "postgresql://private/internal"

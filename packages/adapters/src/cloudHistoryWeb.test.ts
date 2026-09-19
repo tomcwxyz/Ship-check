@@ -150,6 +150,34 @@ describe("cloud history Web binding", () => {
     expect(cloudService.connectProject).not.toHaveBeenCalled();
   });
 
+  it("rejects explicitly denied operations before reading an oversized declared body", async () => {
+    const cloudService = service();
+    const handler = createCloudHistoryWebHandler(cloudService, {
+      authenticate: async () => ({
+        principal,
+        requestAuthorised: false,
+        mutationAuthorised: false
+      }),
+      maxBodyBytes: 1024
+    });
+
+    const response = await handler(new Request(
+      "https://cloud.example/v1/projects/connect",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "content-length": "999999"
+        },
+        body: "{}"
+      }
+    ));
+
+    expect(response.status).toBe(403);
+    expect((await response.json() as { code: string }).code).toBe("operation-not-authorised");
+    expect(cloudService.connectProject).not.toHaveBeenCalled();
+  });
+
   it("rejects read-only mutation principals before reading an oversized declared body", async () => {
     const cloudService = service();
     const handler = createCloudHistoryWebHandler(cloudService, {
