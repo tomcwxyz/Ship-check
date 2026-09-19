@@ -192,7 +192,7 @@ Goal: verify controls that source inspection cannot establish, while keeping run
 - [x] Local desktop regression comparison for comparable scans: newly introduced, persistent and resolved active findings/gaps are derived from opaque local identities, without retaining raw finding/gap IDs.
 - [ ] Optional focused one-finding-at-a-time review mode for larger scans.
 - [x] Local scan history remains metadata-only and capped; source contents, raw finding/gap IDs and local paths are not retained, while source/project and finding/gap identities are stored as SHA-256 digests for comparison.
-- [ ] Stable check/ruleset provenance suitable for team/pilot use.
+- [x] Stable check/ruleset provenance suitable for team/pilot use: every new report records a `check-ruleset-v1` SHA-256 fingerprint over selected check IDs, versions and packs; engine/source/scanner provenance remain separate and desktop/CI comparisons prefer the fingerprint with legacy fallback.
 
 ## Alpha 2.1 — project evidence source abstraction
 
