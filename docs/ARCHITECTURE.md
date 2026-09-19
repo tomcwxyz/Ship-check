@@ -126,6 +126,16 @@ This remains a portable binding, not a deployed service. Next/Vercel route files
 
 See [`CLOUD_WEB.md`](./CLOUD_WEB.md).
 
+### Scoped Cloud API credentials
+
+A separate API-token store/service now provides the credential foundation for future CLI/CI sync without changing the browser-session principal model.
+
+Raw tokens are generated from 32 random bytes and returned once. Persistence receives only a domain-separated SHA-256 digest plus a short non-secret prefix, account ownership, narrow scopes and lifecycle timestamps. Tokens always expire (30/90/180/365 days), can be revoked account-scope, and active authentication atomically checks revocation/expiry while updating `last_used_at`.
+
+The first scope vocabulary is `history:read`, `history:sync` and `project:manage`. Account deletion is intentionally outside API-token authority. Bearer parsing and route-by-route scope mapping remain a separate transport/authentication layer; token storage does not silently make credentials live.
+
+See [`CLOUD_API_TOKENS.md`](./CLOUD_API_TOKENS.md).
+
 ### Cloud project directory and timeline reads
 
 The control plane now has bounded account-scoped read primitives suitable for a hosted product surface without creating a portfolio score.
