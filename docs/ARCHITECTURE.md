@@ -136,6 +136,8 @@ The first scope vocabulary is `history:read`, `history:sync` and `project:manage
 
 See [`CLOUD_API_TOKENS.md`](./CLOUD_API_TOKENS.md).
 
+Bearer API-token authentication is now an injected Web authenticator over that token store. It uses an explicit deny-by-default route/scope table: history reads, history sync and project management are separate authorities, no scope implies another, and unknown routes are unauthorised until mapped deliberately. A valid but under-scoped token remains authenticated and receives a bounded 403; malformed, unknown, expired or revoked tokens remain unauthenticated. Account deletion is not representable through API-token scopes.
+
 ### Cloud project directory and timeline reads
 
 The control plane now has bounded account-scoped read primitives suitable for a hosted product surface without creating a portfolio score.
