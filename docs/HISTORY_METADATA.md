@@ -23,7 +23,7 @@ The `assurance-metadata/0.1` shape records:
 - a deterministic SHA-256 scan-event identity;
 - engine version and `check-ruleset-v1` fingerprint;
 - selected packs and total check count;
-- sanitised evidence-source provenance: type, provider, acquisition, execution location and capabilities;
+- sanitised evidence-source provenance: type, provider, acquisition, execution location, capabilities and grouped source count;
 - aggregate source fingerprint/completeness when one exists;
 - Git commit identity when one exists;
 - counts by finding severity plus suppressed, unanswered, resolved, observed, not-assessed and errored checks;
@@ -59,7 +59,7 @@ A SHA-256 project identity is **pseudonymous, not anonymous**. A party that can 
 
 ## Scan identity
 
-`scan-event-v1` is deterministic. It includes the opaque project identity, generated-at time, engine/ruleset provenance, source fingerprint state, commit, packs and aggregate counts.
+`scan-event-v1` is deterministic. It includes the opaque project identity, generated-at time, engine/ruleset provenance, source fingerprint state, commit, packs, aggregate counts, sanitised evidence-source provenance and coverage metadata.
 
 Exporting the same report twice therefore produces the same scan identity, which makes future ingestion idempotent. A genuinely new scan produces a different identity while retaining the project identity.
 
