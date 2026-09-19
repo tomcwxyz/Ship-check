@@ -25,14 +25,14 @@ const principal = {
 };
 
 const account: CloudAccount = {
-  schemaVersion: "0.1",
+  schemaVersion: "0.1" as const,
   id: accountId,
   authSubjectHash,
   createdAt: "2026-09-19T10:00:00.000Z"
 };
 
 const project: CloudProject = {
-  schemaVersion: "0.1",
+  schemaVersion: "0.1" as const,
   id: projectId,
   accountId,
   projectIdentity: {
@@ -50,7 +50,7 @@ const project: CloudProject = {
 
 function event(): ProjectHistoryMetadata {
   return ProjectHistoryMetadataSchema.parse({
-    schemaVersion: "0.1",
+    schemaVersion: "0.1" as const,
     type: "assurance-metadata",
     provider: "ship-check",
     project: {
@@ -115,10 +115,10 @@ function store(overrides: Partial<CloudHistoryStore> = {}): CloudHistoryStore {
     findProjectByIdentity: vi.fn(async () => project),
     getProject: vi.fn(async () => project),
     ingest: vi.fn(async (_accountId, resolvedProjectId, value) => ({
-      schemaVersion: "0.1",
+      schemaVersion: "0.1" as const,
       projectId: resolvedProjectId,
       scan: value.scan.identity,
-      status: "stored",
+      status: "stored" as const,
       ingestedAt: "2026-09-19T11:00:00.000Z",
       expiresAt: "2026-12-18T11:00:00.000Z"
     })),
@@ -126,7 +126,7 @@ function store(overrides: Partial<CloudHistoryStore> = {}): CloudHistoryStore {
     exportProject: vi.fn(async () => {
       const metadata = event();
       const timeline = ProjectHistoryTimelineSchema.parse({
-        schemaVersion: "0.1",
+        schemaVersion: "0.1" as const,
         type: "project-history-timeline",
         provider: "ship-check",
         project: {
@@ -151,7 +151,7 @@ function store(overrides: Partial<CloudHistoryStore> = {}): CloudHistoryStore {
         events: [{ event: metadata }]
       });
       return CloudProjectHistoryExportSchema.parse({
-        schemaVersion: "0.1",
+        schemaVersion: "0.1" as const,
         type: "ship-check-project-history-export",
         project,
         timeline,
@@ -169,13 +169,13 @@ function store(overrides: Partial<CloudHistoryStore> = {}): CloudHistoryStore {
       updatedAt: "2026-09-19T11:00:00.000Z"
     })),
     deleteProject: vi.fn(async () => ({
-      schemaVersion: "0.1",
+      schemaVersion: "0.1" as const,
       projectId,
       deletedAt: "2026-09-19T11:00:00.000Z",
       deletedHistoryEvents: 2
     })),
     deleteAccount: vi.fn(async () => ({
-      schemaVersion: "0.1",
+      schemaVersion: "0.1" as const,
       accountId,
       deletedAt: "2026-09-19T11:00:00.000Z",
       deletedProjects: 1,
@@ -238,7 +238,7 @@ describe("cloud history service", () => {
     });
 
     const result = await service.connectProject(principal, {
-      schemaVersion: "0.1",
+      schemaVersion: "0.1" as const,
       event: value,
       displayName: "Example",
       retention: "90-days"
@@ -267,7 +267,7 @@ describe("cloud history service", () => {
     const service = createCloudHistoryService(historyStore, { now: fixedNow });
 
     const result = await service.connectProject(principal, {
-      schemaVersion: "0.1",
+      schemaVersion: "0.1" as const,
       event: event(),
       displayName: "Example",
       retention: "90-days"
@@ -283,7 +283,7 @@ describe("cloud history service", () => {
     const service = createCloudHistoryService(historyStore, { now: fixedNow });
 
     await expect(service.connectProject(principal, {
-      schemaVersion: "0.1",
+      schemaVersion: "0.1" as const,
       event: event(),
       displayName: "Example",
       retention: "30-days"
@@ -299,7 +299,7 @@ describe("cloud history service", () => {
     const service = createCloudHistoryService(historyStore, { now: fixedNow });
 
     await expect(service.connectProject(principal, {
-      schemaVersion: "0.1",
+      schemaVersion: "0.1" as const,
       event: event(),
       displayName: "Renamed",
       retention: "90-days"
@@ -316,7 +316,7 @@ describe("cloud history service", () => {
     const service = createCloudHistoryService(historyStore, { now: fixedNow });
 
     await service.sync(principal, {
-      schemaVersion: "0.1",
+      schemaVersion: "0.1" as const,
       projectId,
       event: value
     });
@@ -340,7 +340,7 @@ describe("cloud history service", () => {
 
     try {
       await service.sync(principal, {
-        schemaVersion: "0.1",
+        schemaVersion: "0.1" as const,
         projectId,
         event: event()
       });
@@ -349,7 +349,7 @@ describe("cloud history service", () => {
       expect(error).toBeInstanceOf(CloudHistoryServiceOperationError);
       const contract = (error as CloudHistoryServiceOperationError).toContract();
       expect(contract).toEqual({
-        schemaVersion: "0.1",
+        schemaVersion: "0.1" as const,
         code: "history-conflict",
         message: "This scan identity is already associated with different assurance metadata."
       });
@@ -362,12 +362,12 @@ describe("cloud history service", () => {
 
     await service.exportProject(principal, projectId);
     await service.updateDisplayName(principal, {
-      schemaVersion: "0.1",
+      schemaVersion: "0.1" as const,
       projectId,
       displayName: "Renamed explicitly"
     });
     await service.updateRetention(principal, {
-      schemaVersion: "0.1",
+      schemaVersion: "0.1" as const,
       projectId,
       retention: "30-days"
     });
@@ -436,7 +436,7 @@ describe("cloud history service", () => {
     const service = createCloudHistoryService(historyStore, { now: fixedNow });
 
     await expect(service.resolveAccount({
-      schemaVersion: "0.1",
+      schemaVersion: "0.1" as const,
       authSubjectHash: "not-a-hash",
       subject: "raw-user-id"
     } as never)).rejects.toThrow();
