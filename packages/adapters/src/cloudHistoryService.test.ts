@@ -381,6 +381,20 @@ describe("cloud history service", () => {
     );
   });
 
+  it("does not create an account as a side effect of an unknown project operation", async () => {
+    const historyStore = store({
+      findAccountByAuthSubjectHash: vi.fn(async () => null)
+    });
+    const service = createCloudHistoryService(historyStore, { now: fixedNow });
+
+    await expect(service.getProject(principal, projectId)).rejects.toMatchObject({
+      code: "account-not-found"
+    });
+
+    expect(historyStore.registerAccount).not.toHaveBeenCalled();
+    expect(historyStore.getProject).not.toHaveBeenCalled();
+  });
+
   it("deletes an account only when the authenticated subject hash resolves", async () => {
     const historyStore = store();
     const service = createCloudHistoryService(historyStore, { now: fixedNow });
