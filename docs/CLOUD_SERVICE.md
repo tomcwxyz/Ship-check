@@ -53,6 +53,16 @@ For an existing project, reconnect is intentionally conservative:
 
 Those controls have explicit operations.
 
+## Project directory and timeline reads
+
+`listProjects()` exposes only account-scoped hosted project records. Pages default to 50 projects and are capped at 100.
+
+Pagination is keyset-based. The service encodes the last returned project's `updatedAt + id` pair as an opaque base64url cursor and validates the decoded timestamp/UUID pair before passing it to storage. Invalid cursors are a bounded client error and never reach SQL as arbitrary ordering input.
+
+The directory deliberately does not attach an invented assurance score. Project assurance remains in the source-free history timeline.
+
+`getTimeline()` resolves project ownership, reads stored metadata events and reuses the existing portable `buildProjectHistoryTimeline()` reducer. It therefore returns the same provenance/attention/change semantics as local history tooling rather than introducing a Cloud-only history shape.
+
 ## Existing-project sync
 
 `sync()` requires a hosted project UUID plus strict assurance metadata.
