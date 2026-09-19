@@ -200,11 +200,13 @@ export function toProjectHistoryMetadata(
   };
   const packs = [...new Set(report.packs)].sort();
   const evidenceSources = sortedEvidenceSources(sources);
-  const coverage: ProjectHistoryMetadata["coverage"] = (report.coverage ?? []).map((entry) => ({
-    area: entry.area,
-    status: entry.status,
-    checkCount: entry.checkIds.length
-  }));
+  const coverage: ProjectHistoryMetadata["coverage"] = (report.coverage ?? [])
+    .map((entry) => ({
+      area: entry.area,
+      status: entry.status,
+      checkCount: entry.checkIds.length
+    }))
+    .sort((left, right) => left.area.localeCompare(right.area));
 
   const metadata: ProjectHistoryMetadata = {
     schemaVersion: "0.1",
