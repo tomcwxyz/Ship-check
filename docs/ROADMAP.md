@@ -229,7 +229,8 @@ Goal: create useful Cloud Ship Check without requiring source code to enter Ship
 - [x] Scoped expiring API-token persistence/management foundation for future CLI/CI sync: one-time raw credential, SHA-256-only persistence, revocation/last-used lifecycle and narrow history/project scopes.
 - [x] Bearer API-token authentication with explicit deny-by-default route scope mapping for history read, history sync and project management; scopes do not imply one another and API tokens can never delete the Cloud account.
 - [x] Browser/session API-token management HTTP + Web boundaries for create/list/revoke, with authentication and mutation authorisation before request-body reads; bearer tokens remain unable to self-manage credentials.
-- [ ] Optional report sync from local CLI/desktop with user-selectable data boundary: metadata only, structured findings, or bounded evidence.
+- [x] Explicit CLI assurance-metadata connect/sync/list/timeline client over the scoped bearer API, with HTTPS-by-default endpoints, bounded responses and no token persistence.
+- [ ] Optional post-scan sync from CLI/desktop with user-selectable data boundary beyond the explicit metadata command: metadata only first, then structured findings or bounded evidence only if separately authorised.
 - [x] Bounded account-scoped Cloud project directory + non-download timeline read API foundation, using opaque keyset pagination and the existing portable timeline reducer without inventing a portfolio score.
 - [ ] Hosted/persistent project timeline UI showing explicit newly introduced, persistent, reactivated, accepted and no-longer-active findings/gaps across stored comparable scans; the directory/timeline API foundation is now landed.
 - [ ] GitHub App for repository/project association, webhook triggers and PR/release status surfaces.
