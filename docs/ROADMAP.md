@@ -222,7 +222,8 @@ Goal: create useful Cloud Ship Check without requiring source code to enter Ship
 - [x] Portable source-free project timeline reducer/CLI over metadata events: stable ordering/deduplication, provenance continuity and latest aggregate attention, while transition semantics remain limited to explicit comparison blocks.
 
 - [x] Hosted metadata-history persistence foundation: opaque account identity, account-scoped project identity, Postgres/Neon-compatible schema, idempotent metadata ingestion, portable timeline export, explicit retention and hard-delete semantics. No hosted infrastructure or auth/API is implied.
-- [ ] Hosted auth/session + account/project API for connected projects, using the persistence model above without widening the metadata boundary.
+- [x] Framework-neutral authenticated account/project service boundary over the metadata store: verified auth-subject hashes only, connect/sync/export/rename/retention/delete semantics and bounded domain errors; no HTTP/auth-provider assumptions.
+- [ ] Hosted auth/session verification + HTTP account/project API routes using the service boundary above without widening the metadata boundary.
 - [ ] Optional report sync from local CLI/desktop with user-selectable data boundary: metadata only, structured findings, or bounded evidence.
 - [ ] Hosted/persistent project timeline UI showing explicit newly introduced, persistent, reactivated, accepted and no-longer-active findings/gaps across stored comparable scans; the portable metadata reducer foundation is now landed.
 - [ ] GitHub App for repository/project association, webhook triggers and PR/release status surfaces.
@@ -231,7 +232,7 @@ Goal: create useful Cloud Ship Check without requiring source code to enter Ship
 - [ ] Team review state for accepted exceptions, verification notes and evidence history without turning Ship Check into a generic issue tracker.
 - [x] Keep a source-free metadata-only assurance export as the narrowest future cloud sync mode; the history envelope omits raw project locators and all finding/evidence detail, while OOS remains a separate organisational bridge.
 - [x] Define persistence-layer retention/export/deletion semantics: explicit 30/90/180/365-day or until-deleted project policy, recalculated expiry, source-free timeline export, and project/account hard deletion with cascade receipts.
-- [ ] Expose retention/export/deletion controls through authenticated hosted product/API flows and verify them end-to-end before private-project pilot use.
+- [ ] Expose the landed rename/retention/export/deletion service controls through authenticated hosted HTTP/product flows and verify them end-to-end before private-project pilot use.
 
 Suggested cloud sync levels:
 
