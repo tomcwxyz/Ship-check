@@ -237,7 +237,8 @@ describe("project history metadata adapter", () => {
       provider: "local",
       acquisition: "local",
       executionLocation: "user-device",
-      capabilities: ["git-history", "source-files"]
+      capabilities: ["git-history", "source-files"],
+      count: 1
     }]);
     expect(first.counts).toMatchObject({
       findings: 1,
@@ -320,6 +321,7 @@ describe("project history metadata adapter", () => {
     const ciMetadata = toProjectHistoryMetadata(ci);
 
     expect(ciMetadata.project.identity.value).toBe(cliMetadata.project.identity.value);
+    expect(ciMetadata.scan.identity.value).not.toBe(cliMetadata.scan.identity.value);
     expect(cliMetadata.project.evidenceSources[0]?.acquisition).toBe("transient-checkout");
     expect(ciMetadata.project.evidenceSources[0]?.acquisition).toBe("ci");
   });
@@ -404,6 +406,7 @@ describe("project history metadata adapter", () => {
 
     const metadata = toProjectHistoryMetadata(combined);
     expect(metadata.project.evidenceSources).toHaveLength(2);
+    expect(metadata.project.evidenceSources.every((source) => source.count === 1)).toBe(true);
     expect(metadata.project.evidenceSources.map((source) => source.type).sort()).toEqual(["deployment", "source"]);
     expect(JSON.stringify(metadata)).not.toContain("https://example.com/private");
     expect(JSON.stringify(metadata)).not.toContain("local:/Users/tom/private-client");
