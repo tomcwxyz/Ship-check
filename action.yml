@@ -31,6 +31,10 @@ inputs:
     description: Opt into the OSV networked dependency check. Requires production-ready.
     required: false
     default: "false"
+  pr-comparison:
+    description: On pull_request events, compare source evidence with the exact base commit inside the same runner.
+    required: false
+    default: "true"
 
 outputs:
   report-path:
@@ -48,6 +52,30 @@ outputs:
   snapshot-completeness:
     description: complete, partial or unknown source fingerprint state.
     value: ${{ steps.scan.outputs.snapshot-completeness }}
+  comparison-status:
+    description: compared, unavailable, disabled or not-applicable.
+    value: ${{ steps.scan.outputs.comparison-status }}
+  new-finding-count:
+    description: Active findings introduced relative to the pull request base.
+    value: ${{ steps.scan.outputs.new-finding-count }}
+  reactivated-finding-count:
+    description: Findings that were accepted at the base and are active again.
+    value: ${{ steps.scan.outputs.reactivated-finding-count }}
+  accepted-finding-count:
+    description: Base active findings that are now explicitly accepted exceptions.
+    value: ${{ steps.scan.outputs.accepted-finding-count }}
+  no-longer-active-finding-count:
+    description: Base active findings that are no longer active in the current source scan.
+    value: ${{ steps.scan.outputs.no-longer-active-finding-count }}
+  new-unverified-count:
+    description: Unanswered controls introduced relative to the pull request base.
+    value: ${{ steps.scan.outputs.new-unverified-count }}
+  no-longer-active-unverified-count:
+    description: Base unanswered controls that are no longer active in the current source scan.
+    value: ${{ steps.scan.outputs.no-longer-active-unverified-count }}
+  new-surface-count:
+    description: Newly observed inventory surfaces relative to the pull request base.
+    value: ${{ steps.scan.outputs.new-surface-count }}
 
 runs:
   using: composite
@@ -79,6 +107,7 @@ runs:
         INPUT_REPORT_PATH: ${{ inputs.report-path }}
         INPUT_DEPLOYMENT_URL: ${{ inputs.deployment-url }}
         INPUT_NETWORKED_DEPENDENCY_SCAN: ${{ inputs.networked-dependency-scan }}
+        INPUT_PR_COMPARISON: ${{ inputs.pr-comparison }}
       run: node "$GITHUB_ACTION_PATH/scripts/github-action.mjs"
 
     - name: Apply Ship Check gate

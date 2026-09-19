@@ -154,6 +154,8 @@ steps:
 
 The Action records the checked-out source as `github · ci · ci-runner`, writes the JSON report into the caller workspace, and does not upload source to Ship Check infrastructure. During the alpha, pin an exact reviewed commit or release tag rather than following a mutable branch.
 
+On `pull_request` events it also compares the current source with the exact PR base SHA inside the same runner, using the same Ship Check revision and rule set. The step summary distinguishes new, persistent, reactivated, accepted and no-longer-active findings, unanswered controls and newly observed inventory surfaces without claiming that disappearance proves remediation.
+
 The OSV dependency network check remains opt-in. Report artifact upload is also a separate explicit choice because the full report can contain bounded evidence and repair guidance.
 
 See [`docs/CI.md`](./docs/CI.md) for inputs, outputs and the trust boundary.
