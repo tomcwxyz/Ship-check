@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CloudAccountSchema, CloudAuthenticatedPrincipalSchema, CloudHistoryHttpErrorSchema, CloudHistoryIngestRequestSchema, CloudProjectConnectRequestSchema, CloudProjectListPageSchema, CloudProjectListRequestSchema, CloudProjectNameUpdateRequestSchema, CloudProjectSchema, CloudRetentionUpdateRequestSchema, ProjectHistoryMetadataSchema, ProjectHistoryTimelineSchema, ScanReportSchema, ShipCheckConfigSchema } from "./index.js";
+import { CloudAccountSchema, CloudApiTokenCreateRequestSchema, CloudApiTokenCreateResultSchema, CloudApiTokenRecordSchema, CloudApiTokenValueSchema, CloudAuthenticatedPrincipalSchema, CloudHistoryHttpErrorSchema, CloudHistoryIngestRequestSchema, CloudProjectConnectRequestSchema, CloudProjectListPageSchema, CloudProjectListRequestSchema, CloudProjectNameUpdateRequestSchema, CloudProjectSchema, CloudRetentionUpdateRequestSchema, ProjectHistoryMetadataSchema, ProjectHistoryTimelineSchema, ScanReportSchema, ShipCheckConfigSchema } from "./index.js";
 
 const baseReport = {
   schemaVersion: "0.1" as const,
@@ -685,6 +685,63 @@ describe("Cloud history contracts", () => {
       schemaVersion: "0.1",
       projectId: "22222222-2222-4222-8222-222222222222",
       event: { type: "full-scan-report" }
+    })).toThrow();
+  });
+});
+
+describe("Cloud API token contracts", () => {
+  const record = {
+    schemaVersion: "0.1",
+    id: "22222222-2222-4222-8222-222222222222",
+    accountId: "11111111-1111-4111-8111-111111111111",
+    tokenPrefix: "shipcheck_ABCDEFGH",
+    label: "CI sync",
+    scopes: ["history:read", "history:sync"],
+    createdAt: "2026-09-19T12:00:00.000Z",
+    expiresAt: "2026-12-18T12:00:00.000Z",
+    revokedAt: null,
+    lastUsedAt: null
+  };
+
+  it("accepts only scoped expiring token metadata and one-time raw token results", () => {
+    expect(CloudApiTokenRecordSchema.parse(record).tokenPrefix).toBe("shipcheck_ABCDEFGH");
+    expect(CloudApiTokenValueSchema.parse(
+      `shipcheck_${"A".repeat(43)}`
+    )).toHaveLength(53);
+
+    const request = CloudApiTokenCreateRequestSchema.parse({
+      schemaVersion: "0.1",
+      scopes: ["history:sync"]
+    });
+    expect(request.expiresInDays).toBe(90);
+
+    expect(CloudApiTokenCreateResultSchema.parse({
+      schemaVersion: "0.1",
+      token: `shipcheck_${"A".repeat(43)}`,
+      record
+    }).record.scopes).toEqual(["history:read", "history:sync"]);
+  });
+
+  it("rejects duplicate/unknown scopes, non-standard expiry and secret-looking record fields", () => {
+    expect(() => CloudApiTokenCreateRequestSchema.parse({
+      schemaVersion: "0.1",
+      scopes: ["history:sync", "history:sync"]
+    })).toThrow();
+
+    expect(() => CloudApiTokenCreateRequestSchema.parse({
+      schemaVersion: "0.1",
+      scopes: ["history:admin"]
+    })).toThrow();
+
+    expect(() => CloudApiTokenCreateRequestSchema.parse({
+      schemaVersion: "0.1",
+      scopes: ["history:read"],
+      expiresInDays: 999
+    })).toThrow();
+
+    expect(() => CloudApiTokenRecordSchema.parse({
+      ...record,
+      tokenHash: "f".repeat(64)
     })).toThrow();
   });
 });
