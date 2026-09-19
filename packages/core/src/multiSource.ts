@@ -12,6 +12,7 @@ import {
   type MultiSourceScanReport,
   type ResolvedAssessmentGap
 } from "@ship-check/schemas/multiSource";
+import { createRulesetProvenance } from "./ruleset.js";
 
 const areas: AssessmentArea[] = [
   "secrets",
@@ -29,6 +30,27 @@ const statusRank = {
   partial: 1,
   assessed: 2
 } as const;
+
+function assertCompatibleChecks(reports: ScanReport[]): void {
+  const seen = new Map<string, { version: string; pack: string }>();
+  for (const check of reports.flatMap((report) => report.checks)) {
+    const signature = {
+      version: check.checkVersion ?? "1",
+      pack: check.pack
+    };
+    const existing = seen.get(check.checkId);
+    if (
+      existing &&
+      (existing.version !== signature.version || existing.pack !== signature.pack)
+    ) {
+      throw new Error(
+        `Cannot combine conflicting rule definitions for ${check.checkId}: ` +
+        `${existing.version}/${existing.pack} vs ${signature.version}/${signature.pack}.`
+      );
+    }
+    seen.set(check.checkId, signature);
+  }
+}
 
 function uniqueBy<T>(items: T[], key: (item: T) => string): T[] {
   const seen = new Set<string>();
@@ -155,6 +177,7 @@ export function combineScanReports(
     throw new Error("Combined project reports need at least two distinct evidence sources with recorded provenance.");
   }
 
+  assertCompatibleChecks(reports);
   const rawChecks = uniqueBy(reports.flatMap((report) => report.checks), (check) => check.checkId);
   const findings = uniqueBy(reports.flatMap((report) => report.findings), (finding) => finding.id)
     .sort((a, b) => `${a.severity}:${a.id}`.localeCompare(`${b.severity}:${b.id}`));
@@ -176,6 +199,11 @@ export function combineScanReports(
     },
     packs: [...new Set(reports.flatMap((report) => report.packs))],
     checks,
+    ruleset: createRulesetProvenance(checks.map((check) => ({
+      id: check.checkId,
+      version: check.checkVersion,
+      pack: check.pack
+    }))),
     findings,
     suppressedFindings,
     gaps: gapReconciliation.active,
