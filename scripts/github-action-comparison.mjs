@@ -154,7 +154,7 @@ export function formatPullRequestComparison(comparison, context = {}) {
   const gaps = comparison.gaps;
   const surfaces = comparison.surfaces;
   const baseLabel = context.baseRef
-    ? ``${cleanTitle(context.baseRef)}`${context.baseSha ? ` at \\`${cleanTitle(context.baseSha).slice(0, 8)}\\`` : ""}`
+    ? "`" + cleanTitle(context.baseRef) + "`" + (context.baseSha ? " at `" + cleanTitle(context.baseSha).slice(0, 8) + "`" : "")
     : "the pull request base";
 
   const snapshotLabels = {
