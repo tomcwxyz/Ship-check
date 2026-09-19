@@ -601,6 +601,71 @@ export const CloudAuthenticatedPrincipalSchema = z.object({
 }).strict();
 export type CloudAuthenticatedPrincipal = z.infer<typeof CloudAuthenticatedPrincipalSchema>;
 
+export const CloudApiTokenScopeSchema = z.enum([
+  "history:read",
+  "history:sync",
+  "project:manage"
+]);
+export type CloudApiTokenScope = z.infer<typeof CloudApiTokenScopeSchema>;
+
+export const CloudApiTokenScopesSchema = z.array(CloudApiTokenScopeSchema)
+  .min(1)
+  .max(3)
+  .refine((scopes) => new Set(scopes).size === scopes.length, {
+    message: "API token scopes must be unique."
+  });
+export type CloudApiTokenScopes = z.infer<typeof CloudApiTokenScopesSchema>;
+
+export const CloudApiTokenExpiryDaysSchema = z.union([
+  z.literal(30),
+  z.literal(90),
+  z.literal(180),
+  z.literal(365)
+]);
+export type CloudApiTokenExpiryDays = z.infer<typeof CloudApiTokenExpiryDaysSchema>;
+
+export const CloudApiTokenValueSchema = z.string()
+  .regex(/^shipcheck_[A-Za-z0-9_-]{43}$/);
+export type CloudApiTokenValue = z.infer<typeof CloudApiTokenValueSchema>;
+
+export const CloudApiTokenRecordSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  id: z.string().uuid(),
+  accountId: z.string().uuid(),
+  tokenPrefix: z.string().regex(/^shipcheck_[A-Za-z0-9_-]{8}$/),
+  label: z.string().trim().min(1).max(80).optional(),
+  scopes: CloudApiTokenScopesSchema,
+  createdAt: z.string().datetime(),
+  expiresAt: z.string().datetime(),
+  revokedAt: z.string().datetime().nullable(),
+  lastUsedAt: z.string().datetime().nullable()
+}).strict();
+export type CloudApiTokenRecord = z.infer<typeof CloudApiTokenRecordSchema>;
+
+export const CloudApiTokenCreateRequestSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  label: z.string().trim().min(1).max(80).optional(),
+  scopes: CloudApiTokenScopesSchema,
+  expiresInDays: CloudApiTokenExpiryDaysSchema.default(90)
+}).strict();
+export type CloudApiTokenCreateRequest = z.infer<typeof CloudApiTokenCreateRequestSchema>;
+
+export const CloudApiTokenCreateResultSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  token: CloudApiTokenValueSchema,
+  record: CloudApiTokenRecordSchema
+}).strict();
+export type CloudApiTokenCreateResult = z.infer<typeof CloudApiTokenCreateResultSchema>;
+
+export const CloudApiTokenAuthenticationSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  tokenId: z.string().uuid(),
+  accountId: z.string().uuid(),
+  authSubjectHash: z.string().regex(/^[a-f0-9]{64}$/),
+  scopes: CloudApiTokenScopesSchema
+}).strict();
+export type CloudApiTokenAuthentication = z.infer<typeof CloudApiTokenAuthenticationSchema>;
+
 export const CloudProjectConnectRequestSchema = z.object({
   schemaVersion: z.literal("0.1"),
   event: ProjectHistoryMetadataSchema,
