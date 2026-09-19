@@ -112,6 +112,20 @@ It deliberately does not implement token/session verification, CSRF, rate limiti
 
 See [`CLOUD_HTTP.md`](./CLOUD_HTTP.md).
 
+### Web Request/Response binding
+
+A thin `CloudHistoryWebHandler` now adapts the framework-neutral HTTP transport to the standard Web `Request` / `Response` APIs used by modern Node runtimes, Next.js route handlers and Vercel functions.
+
+Authentication remains injected. The Web binding receives an authenticator that must verify the outer session/token and return only the hashed principal plus the existing `mutationAuthorised` decision. It never chooses an auth provider or parses provider-specific credentials itself.
+
+The binding authenticates before consuming request bodies. Unauthenticated requests and authenticated-but-unauthorised mutations are rejected without parsing their payloads. For authorised POST/PATCH requests it enforces the same metadata body limit while streaming raw bytes, including an early Content-Length check when available, so a framework adapter cannot accidentally allocate an unbounded body before the transport policy runs.
+
+It copies the bounded transport response into a Web `Response`, preserving no-store/nosniff/error semantics, and routes on URL pathname only. Authentication infrastructure failures fail closed with a generic 500 response and can reach only an explicitly supplied internal callback for separately redacted operational logging.
+
+This remains a portable binding, not a deployed service. Next/Vercel route files, authentication/session verification, CSRF or scoped-token policy, rate limiting, origin controls, Neon runtime wiring and infrastructure remain explicit hosted-environment work.
+
+See [`CLOUD_WEB.md`](./CLOUD_WEB.md).
+
 ## Evidence rules
 
 - Never echo detected credential values in findings.
