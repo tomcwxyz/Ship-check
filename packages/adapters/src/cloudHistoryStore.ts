@@ -16,6 +16,7 @@ import {
   type CloudHistoryStoredEvent,
   type CloudProject,
   type CloudProjectDeletionReceipt,
+  type CloudProjectListCursor,
   type CloudProjectHistoryExport,
   type ProjectHistoryMetadata
 } from "@ship-check/schemas";
@@ -174,10 +175,16 @@ export type CreateCloudProjectInput = {
   createdAt?: string | Date;
 };
 
+export type ListCloudProjectsInput = {
+  limit: number;
+  before?: CloudProjectListCursor;
+};
+
 export type CloudHistoryStore = {
   registerAccount(input: RegisterCloudAccountInput): Promise<CloudAccount>;
   findAccountByAuthSubjectHash(authSubjectHash: string): Promise<CloudAccount | null>;
   createProject(input: CreateCloudProjectInput): Promise<CloudProject>;
+  listProjects(accountId: string, input: ListCloudProjectsInput): Promise<CloudProject[]>;
   findProjectByIdentity(accountId: string, projectIdentity: string): Promise<CloudProject | null>;
   getProject(accountId: string, projectId: string): Promise<CloudProject | null>;
   ingest(
@@ -341,6 +348,35 @@ export function createCloudHistoryStore(database: CloudHistoryDatabase): CloudHi
         throw new Error("Existing hosted project uses a different project identity basis.");
       }
       return project;
+    },
+
+    async listProjects(accountId, input) {
+      if (!Number.isInteger(input.limit) || input.limit < 1 || input.limit > 101) {
+        throw new Error("Cloud project list limit must be between 1 and 101.");
+      }
+
+      const result = input.before
+        ? await database.query<ProjectRow>(
+            `SELECT id, account_id, project_identity, identity_basis, display_name,
+                    retention_policy, created_at, updated_at
+             FROM ship_check_projects
+             WHERE account_id = $1
+               AND (updated_at, id) < ($3::timestamptz, $4::uuid)
+             ORDER BY updated_at DESC, id DESC
+             LIMIT $2`,
+            [accountId, input.limit, input.before.updatedAt, input.before.id]
+          )
+        : await database.query<ProjectRow>(
+            `SELECT id, account_id, project_identity, identity_basis, display_name,
+                    retention_policy, created_at, updated_at
+             FROM ship_check_projects
+             WHERE account_id = $1
+             ORDER BY updated_at DESC, id DESC
+             LIMIT $2`,
+            [accountId, input.limit]
+          );
+
+      return result.rows.map(projectFromRow);
     },
 
     findProjectByIdentity: loadProjectByIdentity,
