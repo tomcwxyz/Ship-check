@@ -491,6 +491,90 @@ export const ProjectHistoryTimelineSchema = z.object({
 });
 export type ProjectHistoryTimeline = z.infer<typeof ProjectHistoryTimelineSchema>;
 
+export const CloudHistoryRetentionSchema = z.enum([
+  "30-days",
+  "90-days",
+  "180-days",
+  "365-days",
+  "until-deleted"
+]);
+export type CloudHistoryRetention = z.infer<typeof CloudHistoryRetentionSchema>;
+
+export const CloudAccountSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  id: z.string().uuid(),
+  authSubjectHash: z.string().regex(/^[a-f0-9]{64}$/),
+  createdAt: z.string().datetime()
+}).strict();
+export type CloudAccount = z.infer<typeof CloudAccountSchema>;
+
+export const CloudProjectSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  id: z.string().uuid(),
+  accountId: z.string().uuid(),
+  projectIdentity: OpaqueProjectIdentitySchema,
+  identityBasis: z.enum(["primary-evidence", "caller-provided"]),
+  displayName: z.string().trim().min(1).max(120).optional(),
+  syncLevel: z.literal("assurance-metadata"),
+  retention: CloudHistoryRetentionSchema,
+  createdAt: z.string().datetime(),
+  updatedAt: z.string().datetime()
+}).strict();
+export type CloudProject = z.infer<typeof CloudProjectSchema>;
+
+export const CloudHistoryIngestRequestSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  projectId: z.string().uuid(),
+  event: ProjectHistoryMetadataSchema
+}).strict();
+export type CloudHistoryIngestRequest = z.infer<typeof CloudHistoryIngestRequestSchema>;
+
+export const CloudHistoryStoredEventSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  accountId: z.string().uuid(),
+  projectId: z.string().uuid(),
+  event: ProjectHistoryMetadataSchema,
+  ingestedAt: z.string().datetime(),
+  expiresAt: z.string().datetime().nullable()
+}).strict();
+export type CloudHistoryStoredEvent = z.infer<typeof CloudHistoryStoredEventSchema>;
+
+export const CloudHistoryIngestResultSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  projectId: z.string().uuid(),
+  scan: OpaqueScanIdentitySchema,
+  status: z.enum(["stored", "duplicate", "enriched"]),
+  ingestedAt: z.string().datetime(),
+  expiresAt: z.string().datetime().nullable()
+}).strict();
+export type CloudHistoryIngestResult = z.infer<typeof CloudHistoryIngestResultSchema>;
+
+export const CloudProjectHistoryExportSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  type: z.literal("ship-check-project-history-export"),
+  project: CloudProjectSchema,
+  timeline: ProjectHistoryTimelineSchema,
+  exportedAt: z.string().datetime()
+}).strict();
+export type CloudProjectHistoryExport = z.infer<typeof CloudProjectHistoryExportSchema>;
+
+export const CloudProjectDeletionReceiptSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  projectId: z.string().uuid(),
+  deletedAt: z.string().datetime(),
+  deletedHistoryEvents: z.number().int().nonnegative()
+}).strict();
+export type CloudProjectDeletionReceipt = z.infer<typeof CloudProjectDeletionReceiptSchema>;
+
+export const CloudAccountDeletionReceiptSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  accountId: z.string().uuid(),
+  deletedAt: z.string().datetime(),
+  deletedProjects: z.number().int().nonnegative(),
+  deletedHistoryEvents: z.number().int().nonnegative()
+}).strict();
+export type CloudAccountDeletionReceipt = z.infer<typeof CloudAccountDeletionReceiptSchema>;
+
 export const AssuranceOutcomeSchema = z.enum(["pass", "fail", "uncertain", "incomplete"]);
 export type AssuranceOutcome = z.infer<typeof AssuranceOutcomeSchema>;
 
