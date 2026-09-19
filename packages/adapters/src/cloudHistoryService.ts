@@ -133,11 +133,22 @@ export function createCloudHistoryService(
     });
   };
 
+  const requireExistingAccount = async (
+    value: CloudAuthenticatedPrincipal
+  ): Promise<CloudAccount> => {
+    const principal = CloudAuthenticatedPrincipalSchema.parse(value);
+    const account = await store.findAccountByAuthSubjectHash(principal.authSubjectHash);
+    if (!account) {
+      throw operationError("account-not-found", "Account was not found.");
+    }
+    return account;
+  };
+
   const requireProject = async (
     principal: CloudAuthenticatedPrincipal,
     projectId: string
   ): Promise<{ account: CloudAccount; project: CloudProject }> => {
-    const account = await resolveAccount(principal);
+    const account = await requireExistingAccount(principal);
     const project = await store.getProject(account.id, projectId);
     if (!project) {
       throw operationError("project-not-found", "Project was not found for this account.");
@@ -269,10 +280,7 @@ export function createCloudHistoryService(
 
     async deleteAccount(principalValue) {
       const principal = CloudAuthenticatedPrincipalSchema.parse(principalValue);
-      const account = await store.findAccountByAuthSubjectHash(principal.authSubjectHash);
-      if (!account) {
-        throw operationError("account-not-found", "Account was not found.");
-      }
+      const account = await requireExistingAccount(principal);
 
       try {
         return await store.deleteAccount(account.id, now());
