@@ -224,7 +224,8 @@ Goal: create useful Cloud Ship Check without requiring source code to enter Ship
 - [x] Hosted metadata-history persistence foundation: opaque account identity, account-scoped project identity, Postgres/Neon-compatible schema, idempotent metadata ingestion, portable timeline export, explicit retention and hard-delete semantics. No hosted infrastructure or auth/API is implied.
 - [x] Framework-neutral authenticated account/project service boundary over the metadata store: verified auth-subject hashes only, connect/sync/export/rename/retention/delete semantics and bounded domain errors; no HTTP/auth-provider assumptions.
 - [x] Framework-neutral bounded HTTP transport/router contract over the Cloud history service: verified-principal input, mutation authorisation gate, bounded JSON bodies, no-store responses and safe error/status mapping.
-- [ ] Hosted auth/session verification + framework binding/deployment of the landed HTTP account/project routes, including session/CSRF or scoped-token policy, rate limiting and origin controls.
+- [x] Standard Web `Request` / `Response` binding over the landed HTTP transport, with injected verified authentication, pre-body auth/mutation rejection and streaming byte-limit enforcement suitable for a later Next.js/Vercel adapter.
+- [ ] Hosted auth/session verification + actual Next/Vercel route binding/deployment of the landed Web handler, including session/CSRF or scoped-token policy, rate limiting and origin controls.
 - [ ] Optional report sync from local CLI/desktop with user-selectable data boundary: metadata only, structured findings, or bounded evidence.
 - [ ] Hosted/persistent project timeline UI showing explicit newly introduced, persistent, reactivated, accepted and no-longer-active findings/gaps across stored comparable scans; the portable metadata reducer foundation is now landed.
 - [ ] GitHub App for repository/project association, webhook triggers and PR/release status surfaces.
