@@ -82,7 +82,7 @@ function fingerprintComparison(baseReport, currentReport) {
 
 function comparableChecks(report) {
   return (Array.isArray(report?.checks) ? report.checks : [])
-    .map((check) => \`\${check.checkId}@\${check.checkVersion ?? "1"}\`)
+    .map((check) => `${check.checkId}@${check.checkVersion ?? "1"}`)
     .sort();
 }
 
@@ -127,17 +127,17 @@ function cleanTitle(value) {
 
 function listItems(items, formatter, limit = 6) {
   const shown = items.slice(0, limit);
-  const lines = shown.map((item) => \`- \${formatter(item)}\`);
-  if (items.length > limit) lines.push(\`- …and \${items.length - limit} more\`);
+  const lines = shown.map((item) => `- ${formatter(item)}`);
+  if (items.length > limit) lines.push(`- …and ${items.length - limit} more`);
   return lines;
 }
 
 function findingLabel(finding) {
-  return \`**\${String(finding?.severity ?? "info").toUpperCase()}** · \${cleanTitle(finding?.title)}\`;
+  return `**${String(finding?.severity ?? "info").toUpperCase()}** · ${cleanTitle(finding?.title)}`;
 }
 
 function areaLabel(item) {
-  return \`**\${cleanTitle(item?.area ?? "project")}** · \${cleanTitle(item?.title)}\`;
+  return `**${cleanTitle(item?.area ?? "project")}** · ${cleanTitle(item?.title)}`;
 }
 
 export function formatPullRequestComparison(comparison, context = {}) {
@@ -145,7 +145,7 @@ export function formatPullRequestComparison(comparison, context = {}) {
     return [
       "### Pull request change",
       "",
-      \`Comparison unavailable: \${cleanTitle(comparison?.reason ?? "the scans were not comparable")}.\`,
+      `Comparison unavailable: ${cleanTitle(comparison?.reason ?? "the scans were not comparable")}.`,
       "",
     ].join("\n");
   }
@@ -154,7 +154,7 @@ export function formatPullRequestComparison(comparison, context = {}) {
   const gaps = comparison.gaps;
   const surfaces = comparison.surfaces;
   const baseLabel = context.baseRef
-    ? \`\`\${cleanTitle(context.baseRef)}\`\${context.baseSha ? \` at \\\`\${cleanTitle(context.baseSha).slice(0, 8)}\\\`\` : ""}\`
+    ? ``${cleanTitle(context.baseRef)}`${context.baseSha ? ` at \\`${cleanTitle(context.baseSha).slice(0, 8)}\\`` : ""}`
     : "the pull request base";
 
   const snapshotLabels = {
@@ -167,12 +167,12 @@ export function formatPullRequestComparison(comparison, context = {}) {
   const lines = [
     "### Pull request change",
     "",
-    \`Compared the PR source with \${baseLabel} using the same Ship Check revision, packs and rule versions.\`,
+    `Compared the PR source with ${baseLabel} using the same Ship Check revision, packs and rule versions.`,
     "",
-    \`**Findings:** \${findings.introduced.length} new · \${findings.persistent.length} persistent · \${findings.reactivated.length} reactivated · \${findings.accepted.length} newly accepted · \${findings.noLongerActive.length} no longer active\`,
-    \`**Unanswered controls:** \${gaps.introduced.length} new · \${gaps.persistent.length} persistent · \${gaps.noLongerActive.length} no longer active\`,
-    \`**Observed surfaces:** \${surfaces.introduced.length} newly observed · \${surfaces.persistent.length} persistent · \${surfaces.noLongerActive.length} no longer observed\`,
-    \`**Snapshot:** \${snapshotLabels[comparison.sourceSnapshot] ?? snapshotLabels.unknown}\`,
+    `**Findings:** ${findings.introduced.length} new · ${findings.persistent.length} persistent · ${findings.reactivated.length} reactivated · ${findings.accepted.length} newly accepted · ${findings.noLongerActive.length} no longer active`,
+    `**Unanswered controls:** ${gaps.introduced.length} new · ${gaps.persistent.length} persistent · ${gaps.noLongerActive.length} no longer active`,
+    `**Observed surfaces:** ${surfaces.introduced.length} newly observed · ${surfaces.persistent.length} persistent · ${surfaces.noLongerActive.length} no longer observed`,
+    `**Snapshot:** ${snapshotLabels[comparison.sourceSnapshot] ?? snapshotLabels.unknown}`,
     "",
   ];
 
@@ -188,7 +188,7 @@ export function formatPullRequestComparison(comparison, context = {}) {
 
   for (const [title, items, formatter] of sections) {
     if (!items.length) continue;
-    lines.push(\`#### \${title}\`, "", ...listItems(items, formatter), "");
+    lines.push(`#### ${title}`, "", ...listItems(items, formatter), "");
   }
 
   lines.push(
