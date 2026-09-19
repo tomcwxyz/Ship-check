@@ -1,3 +1,17 @@
+export {
+  createCloudApiTokenStore,
+  generateCloudApiToken,
+  hashCloudApiToken
+} from "./cloudApiTokenStore.js";
+export type {
+  CloudApiTokenStore,
+  CreateCloudApiTokenRecordInput
+} from "./cloudApiTokenStore.js";
+export { createCloudApiTokenService } from "./cloudApiTokenService.js";
+export type {
+  CloudApiTokenService,
+  CloudApiTokenServiceOptions
+} from "./cloudApiTokenService.js";
 export { createCloudHistoryWebHandler } from "./cloudHistoryWeb.js";
 export type {
   CloudHistoryWebAuthenticator,
