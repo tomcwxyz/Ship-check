@@ -1,3 +1,11 @@
+export { createCloudHistoryHttpHandler } from "./cloudHistoryHttp.js";
+export type {
+  CloudHistoryHttpAuthContext,
+  CloudHistoryHttpHandler,
+  CloudHistoryHttpOptions,
+  CloudHistoryHttpRequest,
+  CloudHistoryHttpResponse
+} from "./cloudHistoryHttp.js";
 export { createCloudHistoryService, CloudHistoryServiceOperationError } from "./cloudHistoryService.js";
 export type { CloudHistoryService, CloudHistoryServiceOptions } from "./cloudHistoryService.js";
 export { createCloudHistoryStore, hashCloudAuthSubject, retentionExpiry } from "./cloudHistoryStore.js";
