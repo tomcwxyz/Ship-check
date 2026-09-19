@@ -102,6 +102,29 @@ On pull requests, a successful exact-base source comparison is converted into th
 
 Persisting or sending either file anywhere is a separate workflow choice. Ship Check does not upload the sidecar to a Good Ship service in this implementation.
 
+## Portable timeline reduction
+
+Metadata events can be combined locally without any hosted service:
+
+```bash
+ship-check timeline ./scan-1.json ./scan-2.json ./scan-3.json
+```
+
+The `project-history-timeline/0.1` reducer:
+
+- validates every input event against the strict assurance-metadata contract;
+- requires one opaque project identity and one identity basis;
+- deduplicates repeated identical scan events by deterministic scan identity;
+- rejects conflicting payloads that claim the same scan identity;
+- orders scans chronologically with a stable scan-ID tie-break;
+- records continuity from each previous stored event: ruleset same/changed, engine same/changed, source snapshot changed/unchanged/partial-uncertain/unknown, coverage changed, and evidence-source provenance changed;
+- surfaces the latest aggregate attention snapshot: active/suppressed findings, critical/high counts, unanswered controls, not-assessed checks, check errors and coverage-area counts;
+- preserves any explicit `change` block already produced by a real comparison.
+
+It deliberately does **not** infer new, persistent or resolved findings from aggregate count movement. A drop from four findings to two findings does not reveal which concerns disappeared or why. Transition language therefore appears only when the event already contains a bounded comparison result.
+
+The timeline remains source-free because its entries are the existing metadata envelopes. It is a portable reducer/data contract, not storage, a UI or a cloud sync service.
+
 ## Future control-plane use
 
 This envelope is intended to be the narrowest sync level for a future Ship Check control plane:
