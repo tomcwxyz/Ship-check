@@ -73,6 +73,7 @@ jobs:
           ./dist/ship-check --version
           ./dist/ship-check scan ./test-fixtures/cost-safe --pack cost-aware --fail-on high
           ./dist/ship-check scan ./test-fixtures/cost-safe --pack cost-aware --format metadata > dist/ship-check-metadata.json
+          ./dist/ship-check timeline dist/ship-check-metadata.json > dist/ship-check-timeline.json
           node --input-type=module <<'NODE'
           import assert from "node:assert/strict";
           import { readFile } from "node:fs/promises";
@@ -85,4 +86,12 @@ jobs:
           const serialised = JSON.stringify(metadata);
           assert.equal(serialised.includes(process.cwd()), false);
           assert.equal(serialised.includes("test-fixtures/cost-safe"), false);
+
+          const timeline = JSON.parse(await readFile("dist/ship-check-timeline.json", "utf8"));
+          assert.equal(timeline.type, "project-history-timeline");
+          assert.equal(timeline.eventCount, 1);
+          assert.equal(timeline.latestScan?.value, metadata.scan.identity.value);
+          assert.equal(timeline.events?.[0]?.continuity, undefined);
+          assert.equal(JSON.stringify(timeline).includes(process.cwd()), false);
+          assert.equal(JSON.stringify(timeline).includes("test-fixtures/cost-safe"), false);
           NODE

@@ -325,6 +325,172 @@ export const ProjectHistoryMetadataSchema = z.object({
 });
 export type ProjectHistoryMetadata = z.infer<typeof ProjectHistoryMetadataSchema>;
 
+export const ProjectHistoryContinuitySchema = z.object({
+  previousScan: OpaqueScanIdentitySchema,
+  ruleset: z.enum(["same", "changed"]),
+  engine: z.enum(["same", "changed"]),
+  sourceSnapshot: z.enum(["changed", "unchanged", "uncertain", "unknown"]),
+  coverageChanged: z.boolean(),
+  evidenceSourcesChanged: z.boolean()
+}).strict();
+export type ProjectHistoryContinuity = z.infer<typeof ProjectHistoryContinuitySchema>;
+
+export const ProjectHistoryAttentionSchema = z.object({
+  findings: z.number().int().nonnegative(),
+  suppressed: z.number().int().nonnegative(),
+  critical: z.number().int().nonnegative(),
+  high: z.number().int().nonnegative(),
+  unverified: z.number().int().nonnegative(),
+  notAssessed: z.number().int().nonnegative(),
+  checkErrors: z.number().int().nonnegative(),
+  coverage: z.object({
+    assessed: z.number().int().nonnegative(),
+    partial: z.number().int().nonnegative(),
+    notAssessed: z.number().int().nonnegative()
+  }).strict()
+}).strict();
+export type ProjectHistoryAttention = z.infer<typeof ProjectHistoryAttentionSchema>;
+
+export const ProjectHistoryTimelineEntrySchema = z.object({
+  event: ProjectHistoryMetadataSchema,
+  continuity: ProjectHistoryContinuitySchema.optional()
+}).strict();
+export type ProjectHistoryTimelineEntry = z.infer<typeof ProjectHistoryTimelineEntrySchema>;
+
+export const ProjectHistoryTimelineSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  type: z.literal("project-history-timeline"),
+  provider: z.literal("ship-check"),
+  project: z.object({
+    identity: OpaqueProjectIdentitySchema,
+    identityBasis: z.enum(["primary-evidence", "caller-provided"])
+  }).strict(),
+  eventCount: z.number().int().positive(),
+  firstScan: OpaqueScanIdentitySchema,
+  latestScan: OpaqueScanIdentitySchema,
+  firstAt: z.string().datetime(),
+  latestAt: z.string().datetime(),
+  latestAttention: ProjectHistoryAttentionSchema,
+  events: z.array(ProjectHistoryTimelineEntrySchema).min(1)
+}).strict().superRefine((timeline, ctx) => {
+  if (timeline.eventCount !== timeline.events.length) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["eventCount"],
+      message: "Timeline event count must match the number of timeline entries."
+    });
+  }
+  const first = timeline.events[0]?.event;
+  const latest = timeline.events.at(-1)?.event;
+  if (first && first.scan.identity.value !== timeline.firstScan.value) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["firstScan"],
+      message: "Timeline firstScan must match the first event."
+    });
+  }
+  if (latest && latest.scan.identity.value !== timeline.latestScan.value) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["latestScan"],
+      message: "Timeline latestScan must match the latest event."
+    });
+  }
+  if (first && first.scan.generatedAt !== timeline.firstAt) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["firstAt"],
+      message: "Timeline firstAt must match the first event timestamp."
+    });
+  }
+  if (latest && latest.scan.generatedAt !== timeline.latestAt) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["latestAt"],
+      message: "Timeline latestAt must match the latest event timestamp."
+    });
+  }
+  if (latest) {
+    const attentionPairs: Array<[keyof typeof timeline.latestAttention, number, number]> = [
+      ["findings", timeline.latestAttention.findings, latest.counts.findings],
+      ["suppressed", timeline.latestAttention.suppressed, latest.counts.suppressed],
+      ["critical", timeline.latestAttention.critical, latest.counts.critical],
+      ["high", timeline.latestAttention.high, latest.counts.high],
+      ["unverified", timeline.latestAttention.unverified, latest.counts.unverified],
+      ["notAssessed", timeline.latestAttention.notAssessed, latest.counts.notAssessed],
+      ["checkErrors", timeline.latestAttention.checkErrors, latest.counts.checkErrors]
+    ];
+    for (const [key, actual, expected] of attentionPairs) {
+      if (actual !== expected) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["latestAttention", key],
+          message: "Timeline latest attention must match the latest metadata event."
+        });
+      }
+    }
+    const expectedCoverage = { assessed: 0, partial: 0, notAssessed: 0 };
+    for (const entry of latest.coverage) {
+      if (entry.status === "assessed") expectedCoverage.assessed += 1;
+      else if (entry.status === "partial") expectedCoverage.partial += 1;
+      else expectedCoverage.notAssessed += 1;
+    }
+    if (
+      timeline.latestAttention.coverage.assessed !== expectedCoverage.assessed ||
+      timeline.latestAttention.coverage.partial !== expectedCoverage.partial ||
+      timeline.latestAttention.coverage.notAssessed !== expectedCoverage.notAssessed
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["latestAttention", "coverage"],
+        message: "Timeline latest coverage attention must match the latest metadata event."
+      });
+    }
+  }
+  timeline.events.forEach((entry, index) => {
+    if (entry.event.project.identity.value !== timeline.project.identity.value) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["events", index, "event", "project", "identity"],
+        message: "Every timeline event must use the timeline project identity."
+      });
+    }
+    if (entry.event.project.identityBasis !== timeline.project.identityBasis) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["events", index, "event", "project", "identityBasis"],
+        message: "Every timeline event must use the timeline project identity basis."
+      });
+    }
+    if (index === 0) {
+      if (entry.continuity) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["events", index, "continuity"],
+          message: "The first timeline event cannot have previous-scan continuity."
+        });
+      }
+      return;
+    }
+    const previous = timeline.events[index - 1]!.event;
+    if (entry.event.scan.generatedAt < previous.scan.generatedAt) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["events", index, "event", "scan", "generatedAt"],
+        message: "Timeline events must be ordered chronologically."
+      });
+    }
+    if (!entry.continuity || entry.continuity.previousScan.value !== previous.scan.identity.value) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["events", index, "continuity", "previousScan"],
+        message: "Timeline continuity must point to the immediately previous scan."
+      });
+    }
+  });
+});
+export type ProjectHistoryTimeline = z.infer<typeof ProjectHistoryTimelineSchema>;
+
 export const AssuranceOutcomeSchema = z.enum(["pass", "fail", "uncertain", "incomplete"]);
 export type AssuranceOutcome = z.infer<typeof AssuranceOutcomeSchema>;
 

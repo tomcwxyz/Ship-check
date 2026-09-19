@@ -219,10 +219,11 @@ Goal: stop treating `repository` as the only useful unit of inspection without w
 Goal: create useful Cloud Ship Check without requiring source code to enter Ship Check infrastructure.
 
 - [x] Portable metadata-only project-history event contract with opaque project/scan identities, engine/ruleset/source provenance, aggregate counts/coverage and optional scoped change counts; available via CLI `--format metadata` and the GitHub Action sidecar without network sync.
+- [x] Portable source-free project timeline reducer/CLI over metadata events: stable ordering/deduplication, provenance continuity and latest aggregate attention, while transition semantics remain limited to explicit comparison blocks.
 
 - [ ] Hosted account/project model for connected projects and assurance history.
 - [ ] Optional report sync from local CLI/desktop with user-selectable data boundary: metadata only, structured findings, or bounded evidence.
-- [ ] Project timeline showing newly introduced, persistent, resolved and accepted findings/gaps across comparable scans.
+- [ ] Hosted/persistent project timeline UI showing explicit newly introduced, persistent, reactivated, accepted and no-longer-active findings/gaps across stored comparable scans; the portable metadata reducer foundation is now landed.
 - [ ] GitHub App for repository/project association, webhook triggers and PR/release status surfaces.
 - [x] Ship Check GitHub Action using the canonical engine inside the repository owner's CI runner, with source remaining in the caller checkout, explicit CI provenance, bounded step-summary metadata and a portable JSON report retained in the caller workspace.
 - [x] PR change summaries in the GitHub Action compare the exact base SHA with the current source using the same engine/rules, distinguishing new/persistent/reactivated findings, newly accepted exceptions, no-longer-active findings/gaps, still-unverified controls and newly observed inventory surfaces without treating disappearance as proof of remediation.
@@ -285,7 +286,7 @@ Goal: move from repeated scans towards a durable, evidence-backed assurance reco
 - [x] Surface first local project-level attention across comparable desktop scans: new, persistent and resolved active findings/gaps, plus source snapshot changed/unchanged/uncertain state.
 - [ ] Add platform-evidence correlation and more cross-source relationships only where they are defensible.
 - [ ] Keep contradictory evidence visible rather than automatically choosing one source as truth.
-- [ ] Surface project-level attention across history: what changed, what was resolved, what remains unknown and what has become newly relevant.
+- [ ] Surface project-level attention across persisted history in product UI: the portable reducer now exposes latest aggregate attention and preserves explicit change blocks, but storage/UI and richer linked-history presentation remain future work.
 - [ ] Add scheduled and event-triggered checks with change-aware scope rather than blindly rescanning all evidence sources on every event.
 - [ ] Provide team/portfolio views across projects using counts, change and coverage rather than an invented assurance score.
 

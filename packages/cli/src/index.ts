@@ -1,6 +1,8 @@
 #!/usr/bin/env node
+import { promises as fs } from "node:fs";
 import { parseArgs } from "node:util";
 import {
+  buildProjectHistoryTimeline,
   evaluateAssuranceGate,
   toOrganisationalAssuranceSummary,
   toProjectHistoryMetadata,
@@ -23,10 +25,12 @@ import { runtimeHttpChecks } from "@ship-check/runtime-checks";
 import {
   AssuranceGateIdSchema,
   CheckPackSchema,
+  ProjectHistoryMetadataSchema,
   type AssessmentArea,
   type AssuranceGateId,
   type CheckPack,
   type ProjectEvidenceSource,
+  type ProjectHistoryMetadata,
   type ScanReport,
   type Severity
 } from "@ship-check/schemas";
@@ -241,9 +245,35 @@ async function main(): Promise<void> {
     return;
   }
   const command = positionals[0];
-  if (values.help || (command !== "scan" && command !== "discover-ai")) {
+  if (values.help || (command !== "scan" && command !== "discover-ai" && command !== "timeline")) {
     console.log(usage());
     process.exitCode = values.help ? 0 : 1;
+    return;
+  }
+
+  if (command === "timeline") {
+    const metadataFiles = positionals.slice(1);
+    if (metadataFiles.length === 0) {
+      throw new Error("ship-check timeline requires at least one metadata JSON file.");
+    }
+
+    const events: ProjectHistoryMetadata[] = [];
+    for (const file of metadataFiles) {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(await fs.readFile(file, "utf8"));
+      } catch (error) {
+        throw new Error(
+          `Could not read project history metadata from ${file}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
+      const candidates = Array.isArray(parsed) ? parsed : [parsed];
+      for (const candidate of candidates) {
+        events.push(ProjectHistoryMetadataSchema.parse(candidate));
+      }
+    }
+
+    console.log(JSON.stringify(buildProjectHistoryTimeline(events), null, 2));
     return;
   }
 

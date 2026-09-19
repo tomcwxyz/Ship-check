@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ProjectHistoryMetadataSchema, ScanReportSchema, ShipCheckConfigSchema } from "./index.js";
+import { ProjectHistoryMetadataSchema, ProjectHistoryTimelineSchema, ScanReportSchema, ShipCheckConfigSchema } from "./index.js";
 
 const baseReport = {
   schemaVersion: "0.1" as const,
@@ -404,6 +404,122 @@ describe("ProjectHistoryMetadataSchema", () => {
       },
       coverage: []
     })).toThrow();
+  });
+});
+
+describe("ProjectHistoryTimelineSchema", () => {
+  const event = ProjectHistoryMetadataSchema.parse({
+    schemaVersion: "0.1",
+    type: "assurance-metadata",
+    provider: "ship-check",
+    project: {
+      identity: {
+        algorithm: "sha256",
+        scope: "project-source-v1",
+        value: "a".repeat(64)
+      },
+      identityBasis: "primary-evidence",
+      evidenceSources: [{
+        type: "source",
+        provider: "github",
+        acquisition: "ci",
+        executionLocation: "ci-runner",
+        capabilities: ["source-files", "ci-context"]
+      }]
+    },
+    scan: {
+      identity: {
+        algorithm: "sha256",
+        scope: "scan-event-v1",
+        value: "b".repeat(64)
+      },
+      generatedAt: "2026-09-19T09:00:00.000Z",
+      engineVersion: "test",
+      ruleset: {
+        algorithm: "sha256",
+        scope: "check-ruleset-v1",
+        value: "c".repeat(64),
+        checkCount: 1
+      },
+      packs: ["secure-build"],
+      checkCount: 1
+    },
+    counts: {
+      findings: 0,
+      suppressed: 0,
+      critical: 0,
+      high: 0,
+      medium: 0,
+      low: 0,
+      info: 0,
+      unverified: 0,
+      resolved: 0,
+      observed: 0,
+      notAssessed: 0,
+      checkErrors: 0
+    },
+    coverage: [{
+      area: "secrets",
+      status: "assessed",
+      checkCount: 1
+    }]
+  });
+
+  const timeline = {
+    schemaVersion: "0.1",
+    type: "project-history-timeline",
+    provider: "ship-check",
+    project: {
+      identity: event.project.identity,
+      identityBasis: event.project.identityBasis
+    },
+    eventCount: 1,
+    firstScan: event.scan.identity,
+    latestScan: event.scan.identity,
+    firstAt: event.scan.generatedAt,
+    latestAt: event.scan.generatedAt,
+    latestAttention: {
+      findings: 0,
+      suppressed: 0,
+      critical: 0,
+      high: 0,
+      unverified: 0,
+      notAssessed: 0,
+      checkErrors: 0,
+      coverage: {
+        assessed: 1,
+        partial: 0,
+        notAssessed: 0
+      }
+    },
+    events: [{ event }]
+  };
+
+  it("accepts a source-free timeline envelope", () => {
+    expect(ProjectHistoryTimelineSchema.parse(timeline).eventCount).toBe(1);
+  });
+
+  it("rejects inconsistent event counts and scan pointers", () => {
+    expect(() => ProjectHistoryTimelineSchema.parse({
+      ...timeline,
+      eventCount: 2
+    })).toThrow(/event count/i);
+
+    expect(() => ProjectHistoryTimelineSchema.parse({
+      ...timeline,
+      firstScan: {
+        ...event.scan.identity,
+        value: "d".repeat(64)
+      }
+    })).toThrow(/firstScan/i);
+
+    expect(() => ProjectHistoryTimelineSchema.parse({
+      ...timeline,
+      latestAttention: {
+        ...timeline.latestAttention,
+        findings: 1
+      }
+    })).toThrow(/latest attention/i);
   });
 });
 
