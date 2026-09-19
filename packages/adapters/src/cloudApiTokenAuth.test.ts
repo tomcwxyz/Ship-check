@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { CloudApiTokenStore } from "./cloudApiTokenStore.js";
+import type { CloudHistoryService } from "./cloudHistoryService.js";
+import { createCloudHistoryWebHandler } from "./cloudHistoryWeb.js";
 import {
   createCloudApiTokenWebAuthenticator,
   requiredCloudApiTokenScope
@@ -132,6 +134,24 @@ describe("cloud API token Web authenticator", () => {
     }))).toBeNull();
 
     expect(tokenStore.authenticateToken).not.toHaveBeenCalled();
+  });
+
+  it("feeds under-scoped bearer auth into the Web transport as a bounded 403", async () => {
+    const tokenStore = store(["history:sync"]);
+    const listProjects = vi.fn();
+    const historyService = {
+      listProjects
+    } as unknown as CloudHistoryService;
+    const handler = createCloudHistoryWebHandler(historyService, {
+      authenticate: createCloudApiTokenWebAuthenticator(tokenStore)
+    });
+
+    const response = await handler(request("/v1/projects"));
+    const body = await response.json() as { code: string };
+
+    expect(response.status).toBe(403);
+    expect(body.code).toBe("operation-not-authorised");
+    expect(listProjects).not.toHaveBeenCalled();
   });
 
   it("returns unauthenticated when a syntactically valid token is inactive", async () => {
