@@ -522,6 +522,26 @@ export const CloudProjectSchema = z.object({
 }).strict();
 export type CloudProject = z.infer<typeof CloudProjectSchema>;
 
+export const CloudProjectListCursorSchema = z.object({
+  updatedAt: z.string().datetime(),
+  id: z.string().uuid()
+}).strict();
+export type CloudProjectListCursor = z.infer<typeof CloudProjectListCursorSchema>;
+
+export const CloudProjectListRequestSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  limit: z.number().int().min(1).max(100).default(50),
+  cursor: z.string().regex(/^[A-Za-z0-9_-]+$/).max(512).optional()
+}).strict();
+export type CloudProjectListRequest = z.infer<typeof CloudProjectListRequestSchema>;
+
+export const CloudProjectListPageSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  projects: z.array(CloudProjectSchema).max(100),
+  nextCursor: z.string().regex(/^[A-Za-z0-9_-]+$/).max(512).optional()
+}).strict();
+export type CloudProjectListPage = z.infer<typeof CloudProjectListPageSchema>;
+
 export const CloudHistoryIngestRequestSchema = z.object({
   schemaVersion: z.literal("0.1"),
   projectId: z.string().uuid(),
