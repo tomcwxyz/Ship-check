@@ -112,6 +112,9 @@ export function createCloudApiTokenStore(
         revokedAt: null,
         lastUsedAt: null
       });
+      if (new Date(expiresAt).getTime() <= new Date(createdAt).getTime()) {
+        throw new Error("Cloud API token expiry must be after creation.");
+      }
       if (!/^[a-f0-9]{64}$/.test(input.tokenHash)) {
         throw new Error("Cloud API token hash must be a lowercase SHA-256 digest.");
       }
@@ -146,7 +149,8 @@ export function createCloudApiTokenStore(
                 created_at, expires_at, revoked_at, last_used_at
          FROM ship_check_api_tokens
          WHERE account_id = $1
-         ORDER BY created_at DESC, id DESC`,
+         ORDER BY created_at DESC, id DESC
+         LIMIT 100`,
         [accountId]
       );
       return result.rows.map(tokenRecordFromRow);
@@ -165,7 +169,12 @@ export function createCloudApiTokenStore(
     },
 
     async authenticateToken(value, usedAt = new Date()) {
-      const tokenHash = hashCloudApiToken(value);
+      let tokenHash: string;
+      try {
+        tokenHash = hashCloudApiToken(value);
+      } catch {
+        return null;
+      }
       const when = iso(usedAt);
       const result = await database.query<AuthenticatedTokenRow>(
         `UPDATE ship_check_api_tokens t
