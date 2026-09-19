@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CloudAccountSchema, CloudAuthenticatedPrincipalSchema, CloudHistoryIngestRequestSchema, CloudProjectConnectRequestSchema, CloudProjectNameUpdateRequestSchema, CloudProjectSchema, CloudRetentionUpdateRequestSchema, ProjectHistoryMetadataSchema, ProjectHistoryTimelineSchema, ScanReportSchema, ShipCheckConfigSchema } from "./index.js";
+import { CloudAccountSchema, CloudAuthenticatedPrincipalSchema, CloudHistoryHttpErrorSchema, CloudHistoryIngestRequestSchema, CloudProjectConnectRequestSchema, CloudProjectNameUpdateRequestSchema, CloudProjectSchema, CloudRetentionUpdateRequestSchema, ProjectHistoryMetadataSchema, ProjectHistoryTimelineSchema, ScanReportSchema, ShipCheckConfigSchema } from "./index.js";
 
 const baseReport = {
   schemaVersion: "0.1" as const,
@@ -653,6 +653,27 @@ describe("Cloud history contracts", () => {
       schemaVersion: "0.1",
       projectId: "22222222-2222-4222-8222-222222222222",
       event: { type: "full-scan-report" }
+    })).toThrow();
+  });
+});
+
+describe("Cloud history HTTP contracts", () => {
+  it("accepts only the bounded HTTP error envelope", () => {
+    const error = CloudHistoryHttpErrorSchema.parse({
+      schemaVersion: "0.1",
+      type: "cloud-history-http-error",
+      code: "conflict",
+      message: "Project metadata conflicts with stored history."
+    });
+
+    expect(error.code).toBe("conflict");
+    expect(() => CloudHistoryHttpErrorSchema.parse({
+      ...error,
+      detail: "postgresql://private/internal"
+    })).toThrow();
+    expect(() => CloudHistoryHttpErrorSchema.parse({
+      ...error,
+      code: "database-error"
     })).toThrow();
   });
 });

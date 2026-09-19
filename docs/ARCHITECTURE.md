@@ -102,6 +102,16 @@ Actual authentication verification, HTTP routing, rate limiting, CSRF/session po
 
 See [`CLOUD_SERVICE.md`](./CLOUD_SERVICE.md).
 
+### HTTP transport policy
+
+A bounded `CloudHistoryHttpHandler` now defines framework-neutral route policy above the service layer. It receives only a verified hashed principal plus an outer `mutationAuthorised` decision; raw tokens/cookies and auth-provider claims never enter the handler.
+
+The transport owns stable concerns that future framework routes should not reinvent: UUID/path-body matching, JSON/content-type/body-size limits, mutation gating, no-store/nosniff response headers, method guidance and safe 4xx/5xx error mapping. Unexpected infrastructure errors are reduced to a generic 500 response and may only reach a separately supplied internal-error callback.
+
+It deliberately does not implement token/session verification, CSRF, rate limiting, CORS policy or a live framework route. Those remain deployment boundaries around the transport.
+
+See [`CLOUD_HTTP.md`](./CLOUD_HTTP.md).
+
 ## Evidence rules
 
 - Never echo detected credential values in findings.
