@@ -86,6 +86,20 @@ The scan identity makes ingestion idempotent, with one deliberate enrichment cas
 
 The store therefore cannot silently overwrite one assurance event with materially different content.
 
+## Project directory reads
+
+`listProjects(accountId, { limit, before? })` provides the storage primitive for the hosted project directory.
+
+The query is always account-scoped and ordered by:
+
+```text
+updated_at DESC, id DESC
+```
+
+Continuation uses the same `updatedAt + project UUID` pair as a keyset boundary rather than offset pagination. The service layer turns that pair into an opaque client cursor; raw SQL ordering state does not become an HTTP query contract.
+
+The store accepts at most 101 rows in one call because the service fetches one extra row only to decide whether another bounded page exists. Public pages remain capped at 100 projects.
+
 ## Export
 
 `exportProject()` reconstructs the portable `project-history-timeline/0.1` envelope from stored metadata events.
