@@ -6,18 +6,6 @@ import type { CloudHistoryHttpAuthContext } from "./cloudHistoryHttp.js";
 import type { CloudHistoryWebAuthenticator } from "./cloudHistoryWeb.js";
 import type { CloudApiTokenStore } from "./cloudApiTokenStore.js";
 
-function pathname(request: Request): string {
-  try {
-    return new URL(request.url).pathname;
-  } catch {
-    return "/";
-  }
-}
-
-function parts(request: Request): string[] {
-  return pathname(request).split("/").filter(Boolean);
-}
-
 function isProjectIdPath(parts: string[]): boolean {
   return parts.length >= 3 && parts[0] === "v1" && parts[1] === "projects";
 }
