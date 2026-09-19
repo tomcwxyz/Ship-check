@@ -410,6 +410,43 @@ export const ProjectHistoryTimelineSchema = z.object({
       message: "Timeline latestAt must match the latest event timestamp."
     });
   }
+  if (latest) {
+    const attentionPairs: Array<[keyof typeof timeline.latestAttention, number, number]> = [
+      ["findings", timeline.latestAttention.findings, latest.counts.findings],
+      ["suppressed", timeline.latestAttention.suppressed, latest.counts.suppressed],
+      ["critical", timeline.latestAttention.critical, latest.counts.critical],
+      ["high", timeline.latestAttention.high, latest.counts.high],
+      ["unverified", timeline.latestAttention.unverified, latest.counts.unverified],
+      ["notAssessed", timeline.latestAttention.notAssessed, latest.counts.notAssessed],
+      ["checkErrors", timeline.latestAttention.checkErrors, latest.counts.checkErrors]
+    ];
+    for (const [key, actual, expected] of attentionPairs) {
+      if (actual !== expected) {
+        ctx.addIssue({
+          code: "custom",
+          path: ["latestAttention", key],
+          message: "Timeline latest attention must match the latest metadata event."
+        });
+      }
+    }
+    const expectedCoverage = { assessed: 0, partial: 0, notAssessed: 0 };
+    for (const entry of latest.coverage) {
+      if (entry.status === "assessed") expectedCoverage.assessed += 1;
+      else if (entry.status === "partial") expectedCoverage.partial += 1;
+      else expectedCoverage.notAssessed += 1;
+    }
+    if (
+      timeline.latestAttention.coverage.assessed !== expectedCoverage.assessed ||
+      timeline.latestAttention.coverage.partial !== expectedCoverage.partial ||
+      timeline.latestAttention.coverage.notAssessed !== expectedCoverage.notAssessed
+    ) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["latestAttention", "coverage"],
+        message: "Timeline latest coverage attention must match the latest metadata event."
+      });
+    }
+  }
   timeline.events.forEach((entry, index) => {
     if (entry.event.project.identity.value !== timeline.project.identity.value) {
       ctx.addIssue({
