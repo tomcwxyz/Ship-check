@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   CloudAccountDeletionReceiptSchema,
   CloudAccountSchema,
@@ -68,6 +69,17 @@ const RETENTION_DAYS: Record<Exclude<CloudHistoryRetention, "until-deleted">, nu
 
 function iso(value: string | Date): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+export function hashCloudAuthSubject(issuer: string, subject: string): string {
+  const normalisedIssuer = issuer.trim();
+  const normalisedSubject = subject.trim();
+  if (!normalisedIssuer || !normalisedSubject) {
+    throw new Error("Cloud auth subject hashing requires both issuer and subject.");
+  }
+  return createHash("sha256")
+    .update(`ship-check-auth-subject-v1\0${normalisedIssuer}\0${normalisedSubject}`)
+    .digest("hex");
 }
 
 function canonical(value: unknown): string {
