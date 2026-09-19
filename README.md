@@ -140,6 +140,14 @@ pnpm ship-check -- scan ./my-project --format json > ship-check-report.json
 
 Every newly generated report also carries a `check-ruleset-v1` SHA-256 fingerprint over the selected check IDs, rule versions and packs. Engine version remains separate, so history/CI can distinguish “same rules under a newer Ship Check build” from an actual ruleset change without retaining source content.
 
+For history or future metadata-only sync, emit the source-free assurance envelope instead:
+
+```bash
+pnpm ship-check -- scan ./my-project --format metadata > ship-check-metadata.json
+```
+
+This retains opaque project/scan identities, commit/source/ruleset fingerprints, evidence-source provenance, aggregate counts and coverage, but omits raw project locators plus finding, gap, observation, evidence and remediation detail. See [project history metadata](./docs/HISTORY_METADATA.md).
+
 ## GitHub Actions
 
 Ship Check can run inside the repository owner's GitHub Actions runner using the same canonical engine:
@@ -155,7 +163,7 @@ steps:
       fail-on: high
 ```
 
-The Action records the checked-out source as `github · ci · ci-runner`, writes the JSON report into the caller workspace, and does not upload source to Ship Check infrastructure. During the alpha, pin an exact reviewed commit or release tag rather than following a mutable branch.
+The Action records the checked-out source as `github · ci · ci-runner`, writes both the full JSON report and a separate source-free metadata sidecar into the caller workspace, and does not upload either to Ship Check infrastructure. During the alpha, pin an exact reviewed commit or release tag rather than following a mutable branch.
 
 On `pull_request` events it also compares the current source with the exact PR base SHA inside the same runner, using the same Ship Check revision and rule set. The step summary distinguishes new, persistent, reactivated, accepted and no-longer-active findings, unanswered controls and newly observed inventory surfaces without claiming that disappearance proves remediation.
 
