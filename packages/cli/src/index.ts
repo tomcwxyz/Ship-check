@@ -30,6 +30,7 @@ import {
   type AssuranceGateId,
   type CheckPack,
   type ProjectEvidenceSource,
+  type ProjectHistoryMetadata,
   type ScanReport,
   type Severity
 } from "@ship-check/schemas";
@@ -256,7 +257,7 @@ async function main(): Promise<void> {
       throw new Error("ship-check timeline requires at least one metadata JSON file.");
     }
 
-    const events = [];
+    const events: ProjectHistoryMetadata[] = [];
     for (const file of metadataFiles) {
       let parsed: unknown;
       try {
