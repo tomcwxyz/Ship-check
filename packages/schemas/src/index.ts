@@ -649,6 +649,7 @@ export const CloudApiTokenCreateRequestSchema = z.object({
   expiresInDays: CloudApiTokenExpiryDaysSchema.default(90)
 }).strict();
 export type CloudApiTokenCreateRequest = z.infer<typeof CloudApiTokenCreateRequestSchema>;
+export type CloudApiTokenCreateRequestInput = z.input<typeof CloudApiTokenCreateRequestSchema>;
 
 export const CloudApiTokenCreateResultSchema = z.object({
   schemaVersion: z.literal("0.1"),
