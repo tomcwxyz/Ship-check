@@ -25,6 +25,7 @@ import {
   type ShipCheckConfig
 } from "@ship-check/schemas";
 import { createProjectSnapshot, resolveProjectEvidenceSource } from "./projectEvidence.js";
+import { createRulesetProvenance } from "./ruleset.js";
 
 const execFileAsync = promisify(execFile);
 const MAX_TEXT_BYTES = 512 * 1024;
@@ -511,6 +512,7 @@ export async function scanProject(
     },
     packs: [...new Set(checks.map((check) => check.pack))],
     checks: results,
+    ruleset: createRulesetProvenance(checks),
     findings: findings.sort((a, b) => `${a.severity}:${a.id}`.localeCompare(`${b.severity}:${b.id}`)),
     suppressedFindings: suppressedFindings.sort((a, b) => a.finding.id.localeCompare(b.finding.id)),
     gaps: gaps.sort((a, b) => `${a.area}:${a.id}`.localeCompare(`${b.area}:${b.id}`)),
