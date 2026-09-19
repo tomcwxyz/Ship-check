@@ -148,6 +148,14 @@ pnpm ship-check -- scan ./my-project --format metadata > ship-check-metadata.jso
 
 This retains opaque project/scan identities, commit/source/ruleset fingerprints, evidence-source provenance, aggregate counts and coverage, but omits raw project locators plus finding, gap, observation, evidence and remediation detail. See [project history metadata](./docs/HISTORY_METADATA.md).
 
+Multiple metadata events can be reduced into a source-free project timeline without a database:
+
+```bash
+pnpm ship-check -- timeline ./scan-1-metadata.json ./scan-2-metadata.json > ship-check-timeline.json
+```
+
+The reducer deduplicates and orders events, reports ruleset/engine/source/coverage continuity and surfaces the latest aggregate attention snapshot. It preserves explicit comparison deltas when an event has them, but never invents new/resolved findings from changes in aggregate counts.
+
 ## GitHub Actions
 
 Ship Check can run inside the repository owner's GitHub Actions runner using the same canonical engine:
