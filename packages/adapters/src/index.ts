@@ -1,3 +1,9 @@
+export { createCloudHistoryWebHandler } from "./cloudHistoryWeb.js";
+export type {
+  CloudHistoryWebAuthenticator,
+  CloudHistoryWebHandler,
+  CloudHistoryWebOptions
+} from "./cloudHistoryWeb.js";
 export { createCloudHistoryHttpHandler } from "./cloudHistoryHttp.js";
 export type {
   CloudHistoryHttpAuthContext,

@@ -41,7 +41,7 @@ export type CloudHistoryHttpHandler = (
   request: CloudHistoryHttpRequest
 ) => Promise<CloudHistoryHttpResponse>;
 
-const DEFAULT_MAX_BODY_BYTES = 256 * 1024;
+export const CLOUD_HISTORY_DEFAULT_MAX_BODY_BYTES = 256 * 1024;
 
 function baseHeaders(): Record<string, string> {
   return {
@@ -146,7 +146,7 @@ export function createCloudHistoryHttpHandler(
   service: CloudHistoryService,
   options: CloudHistoryHttpOptions = {}
 ): CloudHistoryHttpHandler {
-  const maxBodyBytes = options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
+  const maxBodyBytes = options.maxBodyBytes ?? CLOUD_HISTORY_DEFAULT_MAX_BODY_BYTES;
   if (!Number.isInteger(maxBodyBytes) || maxBodyBytes < 1024) {
     throw new Error("Cloud history HTTP maxBodyBytes must be an integer of at least 1024 bytes.");
   }
