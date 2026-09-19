@@ -88,7 +88,7 @@ That retains the previously defined:
 - export attachment header;
 - bounded error envelopes.
 
-The binding uses only the URL pathname for routing. Query strings are not part of project route identity.
+The binding forwards the URL pathname **plus query string** to the bounded transport. The transport still uses only the pathname for route identity, while explicitly defined read routes such as the project directory can parse bounded query parameters such as `limit` and opaque `cursor`.
 
 ## Next.js / Vercel fit
 
