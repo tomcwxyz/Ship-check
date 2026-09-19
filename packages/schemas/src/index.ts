@@ -325,6 +325,80 @@ export const ProjectHistoryMetadataSchema = z.object({
 });
 export type ProjectHistoryMetadata = z.infer<typeof ProjectHistoryMetadataSchema>;
 
+export const ProjectHistoryContinuitySchema = z.object({
+  previousScan: OpaqueScanIdentitySchema,
+  ruleset: z.enum(["same", "changed"]),
+  engine: z.enum(["same", "changed"]),
+  sourceSnapshot: z.enum(["changed", "unchanged", "uncertain", "unknown"]),
+  coverageChanged: z.boolean(),
+  evidenceSourcesChanged: z.boolean()
+}).strict();
+export type ProjectHistoryContinuity = z.infer<typeof ProjectHistoryContinuitySchema>;
+
+export const ProjectHistoryAttentionSchema = z.object({
+  findings: z.number().int().nonnegative(),
+  suppressed: z.number().int().nonnegative(),
+  critical: z.number().int().nonnegative(),
+  high: z.number().int().nonnegative(),
+  unverified: z.number().int().nonnegative(),
+  notAssessed: z.number().int().nonnegative(),
+  checkErrors: z.number().int().nonnegative(),
+  coverage: z.object({
+    assessed: z.number().int().nonnegative(),
+    partial: z.number().int().nonnegative(),
+    notAssessed: z.number().int().nonnegative()
+  }).strict()
+}).strict();
+export type ProjectHistoryAttention = z.infer<typeof ProjectHistoryAttentionSchema>;
+
+export const ProjectHistoryTimelineEntrySchema = z.object({
+  event: ProjectHistoryMetadataSchema,
+  continuity: ProjectHistoryContinuitySchema.optional()
+}).strict();
+export type ProjectHistoryTimelineEntry = z.infer<typeof ProjectHistoryTimelineEntrySchema>;
+
+export const ProjectHistoryTimelineSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  type: z.literal("project-history-timeline"),
+  provider: z.literal("ship-check"),
+  project: z.object({
+    identity: OpaqueProjectIdentitySchema,
+    identityBasis: z.enum(["primary-evidence", "caller-provided"])
+  }).strict(),
+  eventCount: z.number().int().positive(),
+  firstScan: OpaqueScanIdentitySchema,
+  latestScan: OpaqueScanIdentitySchema,
+  firstAt: z.string().datetime(),
+  latestAt: z.string().datetime(),
+  latestAttention: ProjectHistoryAttentionSchema,
+  events: z.array(ProjectHistoryTimelineEntrySchema).min(1)
+}).strict().superRefine((timeline, ctx) => {
+  if (timeline.eventCount !== timeline.events.length) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["eventCount"],
+      message: "Timeline event count must match the number of timeline entries."
+    });
+  }
+  const first = timeline.events[0]?.event;
+  const latest = timeline.events.at(-1)?.event;
+  if (first && first.scan.identity.value !== timeline.firstScan.value) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["firstScan"],
+      message: "Timeline firstScan must match the first event."
+    });
+  }
+  if (latest && latest.scan.identity.value !== timeline.latestScan.value) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["latestScan"],
+      message: "Timeline latestScan must match the latest event."
+    });
+  }
+});
+export type ProjectHistoryTimeline = z.infer<typeof ProjectHistoryTimelineSchema>;
+
 export const AssuranceOutcomeSchema = z.enum(["pass", "fail", "uncertain", "incomplete"]);
 export type AssuranceOutcome = z.infer<typeof AssuranceOutcomeSchema>;
 
