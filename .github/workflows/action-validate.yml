@@ -8,6 +8,7 @@ on:
       - "scripts/github-action.mjs"
       - "scripts/github-action-comparison.mjs"
       - "scripts/github-action-comparison.test.mjs"
+      - "packages/adapters/**"
       - "packages/cli/**"
       - "packages/core/**"
       - "packages/schemas/**"
@@ -20,6 +21,7 @@ on:
       - "scripts/github-action.mjs"
       - "scripts/github-action-comparison.mjs"
       - "scripts/github-action-comparison.test.mjs"
+      - "packages/adapters/**"
       - "packages/cli/**"
       - "packages/core/**"
       - "packages/schemas/**"
@@ -44,10 +46,12 @@ jobs:
         with:
           fail-on: never
           report-path: .ship-check-ci/report.json
+          metadata-path: .ship-check-ci/metadata.json
 
       - name: Verify CI provenance and report boundary
         env:
           REPORT_PATH: ${{ steps.ship-check.outputs.report-path }}
+          METADATA_PATH: ${{ steps.ship-check.outputs.metadata-path }}
           COMPARISON_STATUS: ${{ steps.ship-check.outputs.comparison-status }}
           EVENT_NAME: ${{ github.event_name }}
           NEW_FINDING_COUNT: ${{ steps.ship-check.outputs.new-finding-count }}
@@ -60,6 +64,7 @@ jobs:
           import { readFile } from "node:fs/promises";
 
           const report = JSON.parse(await readFile(process.env.REPORT_PATH, "utf8"));
+          const metadata = JSON.parse(await readFile(process.env.METADATA_PATH, "utf8"));
           assert.equal(
             process.env.COMPARISON_STATUS,
             process.env.EVENT_NAME === "pull_request" ? "compared" : "not-applicable",
@@ -80,6 +85,26 @@ jobs:
           assert.match(fingerprint?.value ?? "", /^[a-f0-9]{64}$/);
           assert.ok(["complete", "partial"].includes(fingerprint?.completeness));
 
+          assert.equal(metadata.schemaVersion, "0.1");
+          assert.equal(metadata.type, "assurance-metadata");
+          assert.equal(metadata.provider, "ship-check");
+          assert.match(metadata.project?.identity?.value ?? "", /^[a-f0-9]{64}$/);
+          assert.match(metadata.scan?.identity?.value ?? "", /^[a-f0-9]{64}$/);
+          assert.equal(metadata.scan?.ruleset?.value, process.env.RULESET_FINGERPRINT);
+          assert.equal(metadata.project?.evidenceSources?.[0]?.provider, "github");
+          assert.equal("id" in metadata.project.evidenceSources[0], false);
+          assert.equal("label" in metadata.project.evidenceSources[0], false);
+          assert.equal("ref" in metadata.project.evidenceSources[0], false);
+          if (process.env.EVENT_NAME === "pull_request") {
+            assert.equal(metadata.change?.basis, "pull-request-base");
+            assert.equal(metadata.change?.scope, "source");
+          } else {
+            assert.equal(metadata.change, undefined);
+          }
+
           const serialised = JSON.stringify(report);
           assert.equal(serialised.includes(process.env.GITHUB_WORKSPACE), false);
+          const metadataSerialised = JSON.stringify(metadata);
+          assert.equal(metadataSerialised.includes(process.env.GITHUB_WORKSPACE), false);
+          assert.equal(metadataSerialised.includes(process.env.GITHUB_REPOSITORY), false);
           NODE
