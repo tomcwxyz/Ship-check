@@ -575,6 +575,53 @@ export const CloudAccountDeletionReceiptSchema = z.object({
 }).strict();
 export type CloudAccountDeletionReceipt = z.infer<typeof CloudAccountDeletionReceiptSchema>;
 
+export const CloudAuthenticatedPrincipalSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  authSubjectHash: z.string().regex(/^[a-f0-9]{64}$/)
+}).strict();
+export type CloudAuthenticatedPrincipal = z.infer<typeof CloudAuthenticatedPrincipalSchema>;
+
+export const CloudProjectConnectRequestSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  event: ProjectHistoryMetadataSchema,
+  retention: CloudHistoryRetentionSchema,
+  displayName: z.string().trim().min(1).max(120).optional()
+}).strict();
+export type CloudProjectConnectRequest = z.infer<typeof CloudProjectConnectRequestSchema>;
+
+export const CloudProjectConnectResultSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  account: CloudAccountSchema,
+  project: CloudProjectSchema,
+  ingest: CloudHistoryIngestResultSchema
+}).strict();
+export type CloudProjectConnectResult = z.infer<typeof CloudProjectConnectResultSchema>;
+
+export const CloudRetentionUpdateRequestSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  projectId: z.string().uuid(),
+  retention: CloudHistoryRetentionSchema
+}).strict();
+export type CloudRetentionUpdateRequest = z.infer<typeof CloudRetentionUpdateRequestSchema>;
+
+export const CloudHistoryServiceErrorCodeSchema = z.enum([
+  "project-retention-conflict",
+  "project-name-conflict",
+  "project-identity-conflict",
+  "project-not-found",
+  "account-not-found",
+  "history-conflict",
+  "history-empty"
+]);
+export type CloudHistoryServiceErrorCode = z.infer<typeof CloudHistoryServiceErrorCodeSchema>;
+
+export const CloudHistoryServiceErrorSchema = z.object({
+  schemaVersion: z.literal("0.1"),
+  code: CloudHistoryServiceErrorCodeSchema,
+  message: z.string().min(1)
+}).strict();
+export type CloudHistoryServiceError = z.infer<typeof CloudHistoryServiceErrorSchema>;
+
 export const AssuranceOutcomeSchema = z.enum(["pass", "fail", "uncertain", "incomplete"]);
 export type AssuranceOutcome = z.infer<typeof AssuranceOutcomeSchema>;
 
