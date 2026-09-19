@@ -276,6 +276,54 @@ describe("project history metadata adapter", () => {
     expect(second.scan.identity.value).not.toBe(first.scan.identity.value);
   });
 
+  it("canonicalises the same GitHub repository across CLI and CI source forms", () => {
+    const base = sourceReport();
+    const cli = ScanReportSchema.parse({
+      ...base,
+      project: {
+        ...base.project,
+        path: "https://github.com/TomCWXYZ/Ship-check",
+        snapshot: {
+          ...base.project.snapshot!,
+          source: {
+            ...base.project.snapshot!.source,
+            id: "github:https://github.com/TomCWXYZ/Ship-check",
+            provider: "github",
+            label: "https://github.com/TomCWXYZ/Ship-check",
+            acquisition: "transient-checkout",
+            executionLocation: "user-device"
+          }
+        }
+      }
+    });
+    const ci = ScanReportSchema.parse({
+      ...base,
+      project: {
+        ...base.project,
+        path: "tomcwxyz/Ship-check",
+        snapshot: {
+          ...base.project.snapshot!,
+          source: {
+            ...base.project.snapshot!.source,
+            id: "github:tomcwxyz/Ship-check",
+            provider: "github",
+            label: "tomcwxyz/Ship-check",
+            acquisition: "ci",
+            executionLocation: "ci-runner",
+            capabilities: ["source-files", "git-history", "ci-context"]
+          }
+        }
+      }
+    });
+
+    const cliMetadata = toProjectHistoryMetadata(cli);
+    const ciMetadata = toProjectHistoryMetadata(ci);
+
+    expect(ciMetadata.project.identity.value).toBe(cliMetadata.project.identity.value);
+    expect(cliMetadata.project.evidenceSources[0]?.acquisition).toBe("transient-checkout");
+    expect(ciMetadata.project.evidenceSources[0]?.acquisition).toBe("ci");
+  });
+
   it("drops deployment query strings from project identity but keeps distinct paths distinct", () => {
     const first = toProjectHistoryMetadata(runtimeReport("https://example.com/app?token=one"));
     const samePath = toProjectHistoryMetadata(runtimeReport("https://example.com/app?token=two"));
