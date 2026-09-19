@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CloudAccountSchema, CloudAuthenticatedPrincipalSchema, CloudHistoryHttpErrorSchema, CloudHistoryIngestRequestSchema, CloudProjectConnectRequestSchema, CloudProjectNameUpdateRequestSchema, CloudProjectSchema, CloudRetentionUpdateRequestSchema, ProjectHistoryMetadataSchema, ProjectHistoryTimelineSchema, ScanReportSchema, ShipCheckConfigSchema } from "./index.js";
+import { CloudAccountSchema, CloudAuthenticatedPrincipalSchema, CloudHistoryHttpErrorSchema, CloudHistoryIngestRequestSchema, CloudProjectConnectRequestSchema, CloudProjectListPageSchema, CloudProjectListRequestSchema, CloudProjectNameUpdateRequestSchema, CloudProjectSchema, CloudRetentionUpdateRequestSchema, ProjectHistoryMetadataSchema, ProjectHistoryTimelineSchema, ScanReportSchema, ShipCheckConfigSchema } from "./index.js";
 
 const baseReport = {
   schemaVersion: "0.1" as const,
@@ -625,6 +625,38 @@ describe("Cloud history contracts", () => {
       authSubjectHash: "d".repeat(64),
       issuer: "https://auth.example",
       subject: "raw-user"
+    })).toThrow();
+  });
+
+  it("bounds cloud project directory page size and cursor syntax", () => {
+    expect(CloudProjectListRequestSchema.parse({
+      schemaVersion: "0.1"
+    }).limit).toBe(50);
+
+    expect(CloudProjectListRequestSchema.parse({
+      schemaVersion: "0.1",
+      limit: 100,
+      cursor: "eyJpZCI6Im9wYXF1ZSJ9"
+    }).limit).toBe(100);
+
+    expect(() => CloudProjectListRequestSchema.parse({
+      schemaVersion: "0.1",
+      limit: 101
+    })).toThrow();
+
+    expect(() => CloudProjectListPageSchema.parse({
+      schemaVersion: "0.1",
+      projects: Array.from({ length: 101 }, () => ({
+        schemaVersion: "0.1",
+        id: "22222222-2222-4222-8222-222222222222",
+        accountId: "11111111-1111-4111-8111-111111111111",
+        projectIdentity: metadata.project.identity,
+        identityBasis: metadata.project.identityBasis,
+        syncLevel: "assurance-metadata",
+        retention: "90-days",
+        createdAt: "2026-09-19T09:00:00.000Z",
+        updatedAt: "2026-09-19T09:00:00.000Z"
+      }))
     })).toThrow();
   });
 
