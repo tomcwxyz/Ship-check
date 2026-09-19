@@ -65,6 +65,7 @@ The source snapshot still receives the bounded `source-inventory-v1` fingerprint
     report-path: .ship-check/report.json
     deployment-url: https://example.com
     networked-dependency-scan: "false"
+    pr-comparison: "true"
 ```
 
 `path` and `report-path` must remain inside the checked-out GitHub workspace. The Action refuses paths that escape that boundary.
@@ -72,6 +73,25 @@ The source snapshot still receives the bounded `source-inventory-v1` fingerprint
 `networked-dependency-scan: "true"` explicitly enables OSV and therefore permits dependency identifiers/versions to leave the runner for the OSV service. It requires the `production-ready` pack.
 
 A deployment URL adds the same bounded, non-mutating runtime evidence used by the CLI. The URL is an explicit network target supplied by the workflow author.
+
+### Pull request change summary
+
+On a `pull_request` workflow, `pr-comparison: "true"` is the default. Ship Check reads the exact base SHA from GitHub's event payload, fetches that commit into the same Actions runner, creates a temporary detached Git worktree, and scans the same project path with the same Ship Check revision, packs and rule versions.
+
+The comparison is **source-to-source**. An optional deployment URL is not included in the base/current delta because the live deployment does not represent the historical base commit.
+
+The step summary distinguishes:
+
+- newly introduced, persistent and reactivated active findings;
+- findings moved into an explicit accepted exception;
+- findings that are no longer active, without claiming that disappearance proves a fix;
+- newly introduced and no-longer-active unanswered controls;
+- newly observed and no-longer-observed inventory surfaces;
+- changed, unchanged, partial/uncertain or unavailable source-snapshot comparison.
+
+The base worktree is removed after comparison. Neither base nor current source is uploaded to Ship Check infrastructure. Failure to fetch or scan the exact base does **not** replace or fail the normal current-source Ship Check result; the comparison is marked unavailable and the configured current-scan severity gate remains authoritative.
+
+Set `pr-comparison: "false"` to disable the additional base scan.
 
 Live database inspection is deliberately not exposed through the first Action surface. It needs a separate secrets/least-privilege design rather than turning a database URL into an Action input.
 
@@ -84,6 +104,15 @@ The Action exposes:
 - `finding-count`;
 - `unverified-count`;
 - `snapshot-completeness` — `complete`, `partial` or `unknown`.
+
+For pull-request comparison it also exposes:
+
+- `comparison-status` — `compared`, `unavailable`, `disabled` or `not-applicable`;
+- `new-finding-count`, `reactivated-finding-count`, `accepted-finding-count`, `no-longer-active-finding-count`;
+- `new-unverified-count`, `no-longer-active-unverified-count`;
+- `new-surface-count`.
+
+These are metadata outputs only; raw finding IDs, evidence excerpts and source paths are not added to Action outputs.
 
 The report remains in the caller workspace. Uploading it as an Actions artifact is a separate choice:
 
