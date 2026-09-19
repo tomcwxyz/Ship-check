@@ -147,6 +147,15 @@ export function createCloudHistoryWebHandler(
     }
 
     const method = request.method.trim().toUpperCase();
+    if (auth.requestAuthorised === false) {
+      return responseFromTransport(await transport({
+        method: request.method,
+        path: requestPath(request),
+        contentType: request.headers.get("content-type") ?? undefined,
+        auth
+      }));
+    }
+
     if (isMutation(method) && auth.mutationAuthorised !== true) {
       return responseFromTransport(await transport({
         method: request.method,
