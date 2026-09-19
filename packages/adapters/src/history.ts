@@ -39,7 +39,29 @@ function canonicalRuntimeIdentity(value: string): string {
   }
 }
 
+function canonicalGithubIdentity(source: ProjectEvidenceSource): string {
+  const candidates = [source.id, source.label];
+  for (const candidate of candidates) {
+    const cleaned = String(candidate)
+      .replace(/^github:/i, "")
+      .replace(/^https:\/\/[^/@]+@github\.com\//i, "")
+      .replace(/^https:\/\/github\.com\//i, "")
+      .replace(/^git@github\.com:/i, "")
+      .replace(/^ssh:\/\/git@github\.com\//i, "")
+      .replace(/\.git$/i, "")
+      .replace(/\/+$/, "");
+    const parts = cleaned.split("/").filter(Boolean);
+    if (parts.length >= 2) {
+      return `${parts.at(-2)!.toLowerCase()}/${parts.at(-1)!.toLowerCase()}`;
+    }
+  }
+  return source.id.toLowerCase();
+}
+
 function canonicalProjectSourceKey(source: ProjectEvidenceSource): string {
+  if (source.provider === "github") {
+    return `source:github:${canonicalGithubIdentity(source)}`;
+  }
   if (source.type === "deployment" || source.provider === "url") {
     return `runtime:${canonicalRuntimeIdentity(source.id || source.label)}`;
   }
