@@ -60,6 +60,11 @@ describe("runtime URL evidence", () => {
 
     expect(report.project.path).toBe("http://example.com/");
     expect(report.project.fileCount).toBe(0);
+    expect(report.ruleset).toMatchObject({
+      algorithm: "sha256",
+      scope: "check-ruleset-v1",
+      checkCount: 2
+    });
     expect(report.project.snapshot?.source).toMatchObject({
       type: "deployment",
       provider: "url",
