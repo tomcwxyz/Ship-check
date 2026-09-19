@@ -192,6 +192,12 @@ export type CloudHistoryStore = {
     projectId: string,
     exportedAt?: string | Date
   ): Promise<CloudProjectHistoryExport>;
+  updateDisplayName(
+    accountId: string,
+    projectId: string,
+    displayName: string | null,
+    updatedAt?: string | Date
+  ): Promise<CloudProject>;
   updateRetention(
     accountId: string,
     projectId: string,
@@ -458,6 +464,25 @@ export function createCloudHistoryStore(database: CloudHistoryDatabase): CloudHi
         timeline: buildProjectHistoryTimeline(stored.map((entry) => entry.event)),
         exportedAt: iso(exportedAt)
       });
+    },
+
+    async updateDisplayName(accountId, projectId, displayName, updatedAt = new Date()) {
+      const when = iso(updatedAt);
+      const parsedName = displayName === null
+        ? null
+        : CloudProjectSchema.shape.displayName.unwrap().parse(displayName);
+
+      const result = await database.query<ProjectRow>(
+        `UPDATE ship_check_projects
+         SET display_name = $3, updated_at = $4
+         WHERE id = $1 AND account_id = $2
+         RETURNING id, account_id, project_identity, identity_basis, display_name,
+                   retention_policy, created_at, updated_at`,
+        [projectId, accountId, parsedName, when]
+      );
+      const row = result.rows[0];
+      if (!row) throw new Error("Cloud project was not found for this account.");
+      return projectFromRow(row);
     },
 
     async updateRetention(accountId, projectId, value, updatedAt = new Date()) {
