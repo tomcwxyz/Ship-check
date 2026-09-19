@@ -172,11 +172,12 @@ async function appendPullRequestSummary(comparison, context) {
   );
 }
 
-function historyChangeForComparison(comparison) {
+function historyChangeForComparison(comparison, context) {
   if (!comparison?.comparable) return undefined;
   return {
     basis: "pull-request-base",
     scope: "source",
+    ...(context?.baseSha ? { baselineCommit: context.baseSha } : {}),
     sourceSnapshot: comparison.sourceSnapshot,
     findings: {
       introduced: comparison.findings.introduced.length,
@@ -412,7 +413,7 @@ async function main() {
 
   const delta = comparisonOutputs(comparison);
   const historyMetadata = toProjectHistoryMetadata(report, {
-    ...(comparison?.comparable ? { change: historyChangeForComparison(comparison) } : {}),
+    ...(comparison?.comparable ? { change: historyChangeForComparison(comparison, comparisonContext) } : {}),
   });
   await fs.mkdir(path.dirname(metadataPath), { recursive: true });
   await fs.writeFile(metadataPath, JSON.stringify(historyMetadata, null, 2) + "\n");
