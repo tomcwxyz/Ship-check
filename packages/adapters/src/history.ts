@@ -139,6 +139,8 @@ function stableScanIdentity(input: {
   commit?: string;
   packs: string[];
   counts: ProjectHistoryMetadata["counts"];
+  evidenceSources: ProjectHistoryMetadata["project"]["evidenceSources"];
+  coverage: ProjectHistoryMetadata["coverage"];
 }): ProjectHistoryMetadata["scan"]["identity"] {
   const material = JSON.stringify({
     projectIdentity: input.projectIdentity,
@@ -149,7 +151,9 @@ function stableScanIdentity(input: {
     sourceFingerprintCompleteness: input.sourceFingerprintCompleteness ?? null,
     commit: input.commit ?? null,
     packs: [...input.packs].sort(),
-    counts: input.counts
+    counts: input.counts,
+    evidenceSources: input.evidenceSources,
+    coverage: input.coverage
   });
   return {
     algorithm: "sha256",
@@ -193,6 +197,12 @@ export function toProjectHistoryMetadata(
     checkErrors: report.checks.filter((check) => check.status === "error").length
   };
   const packs = [...new Set(report.packs)].sort();
+  const evidenceSources = sortedEvidenceSources(sources);
+  const coverage: ProjectHistoryMetadata["coverage"] = (report.coverage ?? []).map((entry) => ({
+    area: entry.area,
+    status: entry.status,
+    checkCount: entry.checkIds.length
+  }));
 
   const metadata: ProjectHistoryMetadata = {
     schemaVersion: "0.1",
@@ -201,7 +211,7 @@ export function toProjectHistoryMetadata(
     project: {
       identity: project.identity,
       identityBasis: project.identityBasis,
-      evidenceSources: sortedEvidenceSources(sources),
+      evidenceSources,
       ...(sourceFingerprint ? { sourceFingerprint } : {}),
       ...(commit ? { commit } : {})
     },
@@ -215,7 +225,9 @@ export function toProjectHistoryMetadata(
         sourceFingerprintCompleteness: sourceFingerprint?.completeness,
         commit,
         packs,
-        counts
+        counts,
+        evidenceSources,
+        coverage
       }),
       generatedAt: report.generatedAt,
       engineVersion: report.tool.version,
@@ -224,11 +236,7 @@ export function toProjectHistoryMetadata(
       checkCount: report.checks.length
     },
     counts,
-    coverage: (report.coverage ?? []).map((entry) => ({
-      area: entry.area,
-      status: entry.status,
-      checkCount: entry.checkIds.length
-    })),
+    coverage,
     ...(options.change ? { change: ProjectHistoryChangeSchema.parse(options.change) } : {})
   };
 
