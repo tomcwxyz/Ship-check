@@ -1,3 +1,12 @@
+export { createCloudR0WebHandler } from "./cloudR0Web.js";
+export type {
+  CloudR0CredentialKind,
+  CloudR0RateLimitContext,
+  CloudR0RateLimitDecision,
+  CloudR0RouteFamily,
+  CloudR0WebHandler,
+  CloudR0WebOptions
+} from "./cloudR0Web.js";
 export { createCloudApiTokenHttpHandler, CLOUD_API_TOKEN_DEFAULT_MAX_BODY_BYTES } from "./cloudApiTokenHttp.js";
 export type {
   CloudApiTokenHttpAuthContext,
