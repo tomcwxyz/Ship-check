@@ -218,6 +218,23 @@ describe("cloud history HTTP transport", () => {
     expect(cloudService.getProject).not.toHaveBeenCalled();
   });
 
+  it("rejects authenticated callers explicitly denied for the requested operation", async () => {
+    const cloudService = service();
+    const handler = createCloudHistoryHttpHandler(cloudService);
+
+    const response = await handler(request({
+      auth: {
+        principal,
+        requestAuthorised: false,
+        mutationAuthorised: false
+      }
+    }));
+
+    expect(response.status).toBe(403);
+    expect(parsedBody(response).code).toBe("operation-not-authorised");
+    expect(cloudService.getProject).not.toHaveBeenCalled();
+  });
+
   it("requires mutation authorisation for state-changing routes", async () => {
     const cloudService = service();
     const handler = createCloudHistoryHttpHandler(cloudService);

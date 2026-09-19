@@ -39,11 +39,21 @@ The first scope vocabulary is intentionally narrow:
 
 - `history:read` — read connected project/history metadata;
 - `history:sync` — connect/sync metadata history;
-- `project:manage` — project-level administrative changes such as name/retention/deletion.
+- `project:manage` — project-level administrative changes such as name/retention/project deletion.
 
-No API-token scope grants account deletion.
+Scopes do not imply one another. A sync token cannot read history unless it also has `history:read`.
 
-The Web/bearer authenticator that maps scopes to concrete routes is a separate next step. Until that lands, these scopes are persistence/management contracts rather than live network authorisation.
+The bearer Web authenticator now maps only explicitly supported routes:
+
+| Scope | Routes |
+| --- | --- |
+| `history:read` | `GET /v1/projects`, project record, timeline and export |
+| `history:sync` | `POST /v1/projects/connect`, `POST /v1/projects/:id/events` |
+| `project:manage` | project name/retention updates and project deletion |
+
+Unknown/future routes are denied until deliberately mapped.
+
+**No API-token scope grants account deletion.** `DELETE /v1/account` always fails token authorisation even for a `project:manage` credential.
 
 ## Expiry
 
@@ -112,12 +122,28 @@ A missing token ID is surfaced as the explicit `api-token-not-found` service sta
 
 Account deletion cascades through all API-token rows.
 
+## Bearer authentication
+
+`createCloudApiTokenWebAuthenticator()` accepts only a syntactically valid:
+
+```text
+Authorization: Bearer shipcheck_...
+```
+
+It authenticates through the active-token store, then returns the existing pseudonymous account principal plus an explicit per-operation authorisation decision.
+
+The distinction is intentional:
+
+- missing, malformed, unknown, expired or revoked credential → unauthenticated / 401;
+- valid credential without the required route scope → authenticated but denied / 403 `operation-not-authorised`;
+- valid credential with the exact required scope → authorised.
+
+The Web binding evaluates explicit denial before consuming POST/PATCH request bodies.
+
 ## Still to do
 
 This foundation deliberately does not yet add:
 
-- `Authorization: Bearer` parsing;
-- route-by-route scope mapping;
 - token-management HTTP routes;
 - CLI token storage;
 - CLI/CI metadata sync;
