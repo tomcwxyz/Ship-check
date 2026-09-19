@@ -370,6 +370,7 @@ describe("project history metadata adapter", () => {
     const metadata = toProjectHistoryMetadata(sourceReport(), {
       change: {
         basis: "previous-comparable-scan",
+        scope: "project",
         sourceSnapshot: "changed",
         findings: {
           introduced: 1,
