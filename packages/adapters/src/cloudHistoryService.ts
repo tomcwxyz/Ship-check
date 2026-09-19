@@ -5,6 +5,7 @@ import {
   CloudHistoryServiceErrorSchema,
   CloudProjectConnectRequestSchema,
   CloudProjectConnectResultSchema,
+  CloudProjectNameUpdateRequestSchema,
   CloudRetentionUpdateRequestSchema,
   type CloudAccount,
   type CloudAccountDeletionReceipt,
@@ -18,6 +19,7 @@ import {
   type CloudProjectConnectResult,
   type CloudProjectDeletionReceipt,
   type CloudProjectHistoryExport,
+  type CloudProjectNameUpdateRequest,
   type CloudRetentionUpdateRequest
 } from "@ship-check/schemas";
 import type { CloudHistoryStore } from "./cloudHistoryStore.js";
@@ -63,6 +65,10 @@ export type CloudHistoryService = {
     principal: CloudAuthenticatedPrincipal,
     projectId: string
   ): Promise<CloudProjectHistoryExport>;
+  updateDisplayName(
+    principal: CloudAuthenticatedPrincipal,
+    request: CloudProjectNameUpdateRequest
+  ): Promise<CloudProject>;
   updateRetention(
     principal: CloudAuthenticatedPrincipal,
     request: CloudRetentionUpdateRequest
@@ -189,7 +195,7 @@ export function createCloudHistoryService(
           ) {
             throw operationError(
               "project-name-conflict",
-              "Connected project already has a different display name; rename it explicitly."
+              "Connected project already has a different display name; update the name explicitly."
             );
           }
         } else {
@@ -247,6 +253,23 @@ export function createCloudHistoryService(
       const { account } = await requireProject(principal, projectId);
       try {
         return await store.exportProject(account.id, projectId, now());
+      } catch (error) {
+        mapStoreError(error);
+      }
+    },
+
+    async updateDisplayName(principalValue, requestValue) {
+      const principal = CloudAuthenticatedPrincipalSchema.parse(principalValue);
+      const request = CloudProjectNameUpdateRequestSchema.parse(requestValue);
+      const { account } = await requireProject(principal, request.projectId);
+
+      try {
+        return await store.updateDisplayName(
+          account.id,
+          request.projectId,
+          request.displayName,
+          now()
+        );
       } catch (error) {
         mapStoreError(error);
       }
