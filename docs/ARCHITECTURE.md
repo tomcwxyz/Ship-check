@@ -84,6 +84,24 @@ All ordinary queries are account-scoped. Expiry pruning is the only system-level
 
 This layer does not provision infrastructure or create a network API. See [`CLOUD_HISTORY.md`](./CLOUD_HISTORY.md).
 
+### Authenticated service boundary
+
+A framework-neutral `CloudHistoryService` now sits above the store. It accepts only a verified 64-character auth-subject hash, never raw issuer/subject/email claims.
+
+The service owns application semantics that should not be reimplemented independently by future HTTP routes:
+
+- explicit account create-if-needed only through account resolution/project connect;
+- no ghost-account creation from project reads/sync/delete;
+- connect-by-opaque-project-identity;
+- sync cannot silently rename projects or change retention;
+- explicit account-scoped rename, retention, export and deletion operations;
+- bounded portable domain errors for expected conflicts/not-found states;
+- unexpected infrastructure errors remain internal rather than being translated into database detail.
+
+Actual authentication verification, HTTP routing, rate limiting, CSRF/session policy and API-token design remain outside this layer.
+
+See [`CLOUD_SERVICE.md`](./CLOUD_SERVICE.md).
+
 ## Evidence rules
 
 - Never echo detected credential values in findings.

@@ -1,3 +1,5 @@
+export { createCloudHistoryService, CloudHistoryServiceOperationError } from "./cloudHistoryService.js";
+export type { CloudHistoryService, CloudHistoryServiceOptions } from "./cloudHistoryService.js";
 export { createCloudHistoryStore, hashCloudAuthSubject, retentionExpiry } from "./cloudHistoryStore.js";
 export type {
   CloudHistoryDatabase,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CloudAccountSchema, CloudHistoryIngestRequestSchema, CloudProjectSchema, ProjectHistoryMetadataSchema, ProjectHistoryTimelineSchema, ScanReportSchema, ShipCheckConfigSchema } from "./index.js";
+import { CloudAccountSchema, CloudAuthenticatedPrincipalSchema, CloudHistoryIngestRequestSchema, CloudProjectConnectRequestSchema, CloudProjectNameUpdateRequestSchema, CloudProjectSchema, CloudRetentionUpdateRequestSchema, ProjectHistoryMetadataSchema, ProjectHistoryTimelineSchema, ScanReportSchema, ShipCheckConfigSchema } from "./index.js";
 
 const baseReport = {
   schemaVersion: "0.1" as const,
@@ -593,6 +593,39 @@ describe("Cloud history contracts", () => {
     expect(account.authSubjectHash).toHaveLength(64);
     expect(project.syncLevel).toBe("assurance-metadata");
     expect(project.retention).toBe("90-days");
+  });
+
+  it("accepts only verified-hash service principals and metadata-only connect/update requests", () => {
+    expect(CloudAuthenticatedPrincipalSchema.parse({
+      schemaVersion: "0.1",
+      authSubjectHash: "d".repeat(64)
+    }).authSubjectHash).toHaveLength(64);
+
+    expect(CloudProjectConnectRequestSchema.parse({
+      schemaVersion: "0.1",
+      event: metadata,
+      retention: "90-days",
+      displayName: "Example project"
+    }).event.type).toBe("assurance-metadata");
+
+    expect(CloudRetentionUpdateRequestSchema.parse({
+      schemaVersion: "0.1",
+      projectId: "22222222-2222-4222-8222-222222222222",
+      retention: "30-days"
+    }).retention).toBe("30-days");
+
+    expect(CloudProjectNameUpdateRequestSchema.parse({
+      schemaVersion: "0.1",
+      projectId: "22222222-2222-4222-8222-222222222222",
+      displayName: null
+    }).displayName).toBeNull();
+
+    expect(() => CloudAuthenticatedPrincipalSchema.parse({
+      schemaVersion: "0.1",
+      authSubjectHash: "d".repeat(64),
+      issuer: "https://auth.example",
+      subject: "raw-user"
+    })).toThrow();
   });
 
   it("rejects raw auth subject fields, unsupported retention and non-metadata ingest", () => {

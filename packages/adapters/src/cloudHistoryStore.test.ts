@@ -186,6 +186,37 @@ describe("cloud history store", () => {
     expect(db.calls[1]?.text).toMatch(/account_id/i);
   });
 
+  it("looks up accounts only by the persisted subject hash", async () => {
+    const authSubjectHash = "d".repeat(64);
+    const db = new FakeDatabase([
+      {
+        rows: [{
+          id: accountId,
+          auth_subject_hash: authSubjectHash,
+          created_at: "2026-09-19T08:00:00.000Z"
+        }]
+      }
+    ]);
+    const store = createCloudHistoryStore(db);
+
+    const found = await store.findAccountByAuthSubjectHash(authSubjectHash);
+
+    expect(found?.id).toBe(accountId);
+    expect(db.calls[0]?.values).toEqual([authSubjectHash]);
+    expect(db.calls[0]?.text).toMatch(/WHERE auth_subject_hash = \$1/i);
+  });
+
+  it("looks up an opaque project identity only inside the account scope", async () => {
+    const db = new FakeDatabase([{ rows: [projectRow] }]);
+    const store = createCloudHistoryStore(db);
+
+    const found = await store.findProjectByIdentity(accountId, projectIdentity);
+
+    expect(found?.id).toBe(projectId);
+    expect(db.calls[0]?.values).toEqual([accountId, projectIdentity]);
+    expect(db.calls[0]?.text).toMatch(/WHERE account_id = \$1 AND project_identity = \$2/i);
+  });
+
   it("stores matching metadata with expiry derived from project retention", async () => {
     const value = event();
     const db = new FakeDatabase([
@@ -356,6 +387,48 @@ describe("cloud history store", () => {
     expect(exported.timeline.latestScan.value).toBe("2".repeat(64));
     expect(exported.project.displayName).toBe("Example project");
     expect(JSON.stringify(exported)).not.toContain("github.com");
+  });
+
+  it("updates or clears the optional project display name inside the account scope", async () => {
+    const renamedRow = {
+      ...projectRow,
+      display_name: "Renamed explicitly",
+      updated_at: "2026-09-19T11:00:00.000Z"
+    };
+    const db = new FakeDatabase([{ rows: [renamedRow] }]);
+    const store = createCloudHistoryStore(db);
+
+    const renamed = await store.updateDisplayName(
+      accountId,
+      projectId,
+      "  Renamed explicitly  ",
+      "2026-09-19T11:00:00.000Z"
+    );
+
+    expect(renamed.displayName).toBe("Renamed explicitly");
+    expect(db.calls[0]?.values).toEqual([
+      projectId,
+      accountId,
+      "Renamed explicitly",
+      "2026-09-19T11:00:00.000Z"
+    ]);
+    expect(db.calls[0]?.text).toMatch(/WHERE id = \$1 AND account_id = \$2/i);
+
+    const clearedDb = new FakeDatabase([{
+      rows: [{
+        ...projectRow,
+        display_name: null,
+        updated_at: "2026-09-19T11:05:00.000Z"
+      }]
+    }]);
+    const cleared = await createCloudHistoryStore(clearedDb).updateDisplayName(
+      accountId,
+      projectId,
+      null,
+      "2026-09-19T11:05:00.000Z"
+    );
+    expect(cleared.displayName).toBeUndefined();
+    expect(clearedDb.calls[0]?.values[2]).toBeNull();
   });
 
   it("updates retention for the project and all existing history rows", async () => {
