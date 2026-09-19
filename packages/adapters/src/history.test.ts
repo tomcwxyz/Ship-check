@@ -324,6 +324,49 @@ describe("project history metadata adapter", () => {
     expect(ciMetadata.project.evidenceSources[0]?.acquisition).toBe("ci");
   });
 
+  it("keeps GitHub monorepo subprojects distinct", () => {
+    const base = sourceReport();
+    const root = ScanReportSchema.parse({
+      ...base,
+      project: {
+        ...base.project,
+        snapshot: {
+          ...base.project.snapshot!,
+          source: {
+            ...base.project.snapshot!.source,
+            id: "github:tomcwxyz/Ship-check",
+            provider: "github",
+            label: "tomcwxyz/Ship-check",
+            acquisition: "ci",
+            executionLocation: "ci-runner",
+            capabilities: ["source-files", "git-history", "ci-context"]
+          }
+        }
+      }
+    });
+    const subproject = ScanReportSchema.parse({
+      ...base,
+      project: {
+        ...base.project,
+        snapshot: {
+          ...base.project.snapshot!,
+          source: {
+            ...base.project.snapshot!.source,
+            id: "github:tomcwxyz/Ship-check:packages/cli",
+            provider: "github",
+            label: "tomcwxyz/Ship-check:packages/cli",
+            acquisition: "ci",
+            executionLocation: "ci-runner",
+            capabilities: ["source-files", "git-history", "ci-context"]
+          }
+        }
+      }
+    });
+
+    expect(toProjectHistoryMetadata(subproject).project.identity.value)
+      .not.toBe(toProjectHistoryMetadata(root).project.identity.value);
+  });
+
   it("drops deployment query strings from project identity but keeps distinct paths distinct", () => {
     const first = toProjectHistoryMetadata(runtimeReport("https://example.com/app?token=one"));
     const samePath = toProjectHistoryMetadata(runtimeReport("https://example.com/app?token=two"));
