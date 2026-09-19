@@ -218,6 +218,8 @@ Goal: stop treating `repository` as the only useful unit of inspection without w
 
 Goal: create useful Cloud Ship Check without requiring source code to enter Ship Check infrastructure.
 
+- [x] Portable metadata-only project-history event contract with opaque project/scan identities, engine/ruleset/source provenance, aggregate counts/coverage and optional scoped change counts; available via CLI `--format metadata` and the GitHub Action sidecar without network sync.
+
 - [ ] Hosted account/project model for connected projects and assurance history.
 - [ ] Optional report sync from local CLI/desktop with user-selectable data boundary: metadata only, structured findings, or bounded evidence.
 - [ ] Project timeline showing newly introduced, persistent, resolved and accepted findings/gaps across comparable scans.
@@ -225,7 +227,7 @@ Goal: create useful Cloud Ship Check without requiring source code to enter Ship
 - [x] Ship Check GitHub Action using the canonical engine inside the repository owner's CI runner, with source remaining in the caller checkout, explicit CI provenance, bounded step-summary metadata and a portable JSON report retained in the caller workspace.
 - [x] PR change summaries in the GitHub Action compare the exact base SHA with the current source using the same engine/rules, distinguishing new/persistent/reactivated findings, newly accepted exceptions, no-longer-active findings/gaps, still-unverified controls and newly observed inventory surfaces without treating disappearance as proof of remediation.
 - [ ] Team review state for accepted exceptions, verification notes and evidence history without turning Ship Check into a generic issue tracker.
-- [ ] Keep metadata-only organisational assurance output available as the narrowest cloud sync mode.
+- [x] Keep a source-free metadata-only assurance export as the narrowest future cloud sync mode; the history envelope omits raw project locators and all finding/evidence detail, while OOS remains a separate organisational bridge.
 - [ ] Define explicit retention/export/deletion controls before private-project pilot use.
 
 Suggested cloud sync levels:
