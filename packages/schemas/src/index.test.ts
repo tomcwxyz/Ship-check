@@ -512,6 +512,14 @@ describe("ProjectHistoryTimelineSchema", () => {
         value: "d".repeat(64)
       }
     })).toThrow(/firstScan/i);
+
+    expect(() => ProjectHistoryTimelineSchema.parse({
+      ...timeline,
+      latestAttention: {
+        ...timeline.latestAttention,
+        findings: 1
+      }
+    })).toThrow(/latest attention/i);
   });
 });
 
