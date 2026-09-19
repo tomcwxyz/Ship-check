@@ -57,6 +57,34 @@ describe("ScanReportSchema", () => {
     expect(report.summary.suppressed).toBe(0);
   });
 
+  it("accepts bounded ruleset provenance and rejects malformed fingerprints", () => {
+    const report = ScanReportSchema.parse({
+      ...baseReport,
+      ruleset: {
+        algorithm: "sha256",
+        scope: "check-ruleset-v1",
+        value: "a".repeat(64),
+        checkCount: 1
+      }
+    });
+    expect(report.ruleset).toEqual({
+      algorithm: "sha256",
+      scope: "check-ruleset-v1",
+      value: "a".repeat(64),
+      checkCount: 1
+    });
+
+    expect(() => ScanReportSchema.parse({
+      ...baseReport,
+      ruleset: {
+        algorithm: "sha256",
+        scope: "check-ruleset-v1",
+        value: "not-a-digest",
+        checkCount: 1
+      }
+    })).toThrow();
+  });
+
   it("accepts an unverified control separately from findings", () => {
     const report = ScanReportSchema.parse({
       ...baseReport,
