@@ -40,6 +40,7 @@ The default run:
 - enables Secure Build, Production Ready and Cost Aware;
 - fails when an active finding is `high` or `critical`;
 - writes the full portable JSON report to `.ship-check/report.json`;
+- writes the source-free project-history metadata sidecar to `.ship-check/metadata.json`;
 - writes bounded counts and provenance to the GitHub step summary;
 - does not run the networked OSV dependency check unless explicitly enabled.
 
@@ -63,12 +64,13 @@ The source snapshot still receives the bounded `source-inventory-v1` fingerprint
     packs: secure-build,production-ready,cost-aware
     fail-on: high
     report-path: .ship-check/report.json
+    metadata-path: .ship-check/metadata.json
     deployment-url: https://example.com
     networked-dependency-scan: "false"
     pr-comparison: "true"
 ```
 
-`path` and `report-path` must remain inside the checked-out GitHub workspace. The Action refuses paths that escape that boundary.
+`path`, `report-path` and `metadata-path` must remain inside the checked-out GitHub workspace. The report and metadata paths must differ. The Action refuses paths that escape that boundary.
 
 `networked-dependency-scan: "true"` explicitly enables OSV and therefore permits dependency identifiers/versions to leave the runner for the OSV service. It requires the `production-ready` pack.
 
@@ -99,7 +101,8 @@ Live database inspection is deliberately not exposed through the first Action su
 
 The Action exposes:
 
-- `report-path` — repository-relative JSON report path;
+- `report-path` — repository-relative full JSON report path;
+- `metadata-path` — repository-relative source-free assurance metadata path;
 - `exit-code` — Ship Check's threshold result;
 - `finding-count`;
 - `unverified-count`;
@@ -115,7 +118,11 @@ For pull-request comparison it also exposes:
 
 These are metadata outputs only; raw finding IDs, evidence excerpts and source paths are not added to Action outputs.
 
-The report remains in the caller workspace. Uploading it as an Actions artifact is a separate choice:
+Both files remain in the caller workspace. The metadata sidecar is the narrow future sync surface: it omits raw repository/project locators and all finding/evidence detail while retaining opaque identities, commit/source/ruleset fingerprints, aggregate counts and coverage. On a successful PR base comparison it also carries source-scoped aggregate change counts.
+
+The metadata envelope is pseudonymous rather than anonymous; commit hashes and deterministic fingerprints are still project metadata. See [project history metadata](./HISTORY_METADATA.md).
+
+Uploading either file as an Actions artifact is a separate choice. The example below persists the full report:
 
 ```yaml
 - uses: actions/upload-artifact@v4
@@ -139,4 +146,4 @@ The Action:
 
 Source is not sent to a Good Ship or Ship Check service. Normal GitHub Actions, package-install and any explicitly enabled network-check boundaries still apply.
 
-This is the first CI foundation. Future work can add change-aware PR summaries and optional metadata sync without requiring a managed source scanner.
+This CI foundation now produces the portable metadata envelope needed for optional future sync, but performs no network sync itself. Accounts, retention/deletion controls and any hosted ingestion API remain separate future work.

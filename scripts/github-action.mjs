@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { toProjectHistoryMetadata } from "../packages/adapters/dist/index.js";
 import {
   compareReports,
   formatPullRequestComparison,
@@ -171,6 +172,33 @@ async function appendPullRequestSummary(comparison, context) {
   );
 }
 
+function historyChangeForComparison(comparison, context) {
+  if (!comparison?.comparable) return undefined;
+  return {
+    basis: "pull-request-base",
+    scope: "source",
+    ...(context?.baseSha ? { baselineCommit: context.baseSha } : {}),
+    sourceSnapshot: comparison.sourceSnapshot,
+    findings: {
+      introduced: comparison.findings.introduced.length,
+      persistent: comparison.findings.persistent.length,
+      reactivated: comparison.findings.reactivated.length,
+      accepted: comparison.findings.accepted.length,
+      noLongerActive: comparison.findings.noLongerActive.length,
+    },
+    gaps: {
+      introduced: comparison.gaps.introduced.length,
+      persistent: comparison.gaps.persistent.length,
+      noLongerActive: comparison.gaps.noLongerActive.length,
+    },
+    surfaces: {
+      introduced: comparison.surfaces.introduced.length,
+      persistent: comparison.surfaces.persistent.length,
+      noLongerObserved: comparison.surfaces.noLongerActive.length,
+    },
+  };
+}
+
 function comparisonOutputs(comparison) {
   if (!comparison?.comparable) {
     return {
@@ -256,6 +284,14 @@ async function main() {
     input("report-path", ".ship-check/report.json"),
     "report-path",
   );
+  const metadataPath = resolveWorkspacePath(
+    workspace,
+    input("metadata-path", ".ship-check/metadata.json"),
+    "metadata-path",
+  );
+  if (metadataPath === reportPath) {
+    throw new Error("metadata-path must be different from report-path.");
+  }
   const failOn = input("fail-on", "high").trim().toLowerCase();
   if (!allowedFailOn.has(failOn)) {
     throw new Error(`Unknown fail-on severity: ${failOn}`);
@@ -376,7 +412,15 @@ async function main() {
   }
 
   const delta = comparisonOutputs(comparison);
+  const historyMetadata = toProjectHistoryMetadata(report, {
+    ...(comparison?.comparable ? { change: historyChangeForComparison(comparison, comparisonContext) } : {}),
+  });
+  await fs.mkdir(path.dirname(metadataPath), { recursive: true });
+  await fs.writeFile(metadataPath, JSON.stringify(historyMetadata, null, 2) + "\n");
+  const relativeMetadata = path.relative(workspace, metadataPath).replace(/\\/g, "/");
+
   await Promise.all([
+    writeOutput("metadata-path", relativeMetadata),
     writeOutput("comparison-status", comparisonStatus === "compared" ? delta.status : comparisonStatus),
     writeOutput("new-finding-count", delta.newFindings),
     writeOutput("reactivated-finding-count", delta.reactivatedFindings),

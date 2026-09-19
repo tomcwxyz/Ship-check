@@ -1,3 +1,5 @@
+export { toProjectHistoryMetadata } from "./history.js";
+export type { ProjectHistoryMetadataOptions } from "./history.js";
 import {
   AssuranceGateResultSchema,
   RackStepResultSchema,

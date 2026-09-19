@@ -72,3 +72,17 @@ jobs:
         run: |
           ./dist/ship-check --version
           ./dist/ship-check scan ./test-fixtures/cost-safe --pack cost-aware --fail-on high
+          ./dist/ship-check scan ./test-fixtures/cost-safe --pack cost-aware --format metadata > dist/ship-check-metadata.json
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+
+          const metadata = JSON.parse(await readFile("dist/ship-check-metadata.json", "utf8"));
+          assert.equal(metadata.type, "assurance-metadata");
+          assert.match(metadata.project?.identity?.value ?? "", /^[a-f0-9]{64}$/);
+          assert.match(metadata.scan?.identity?.value ?? "", /^[a-f0-9]{64}$/);
+          assert.match(metadata.scan?.ruleset?.value ?? "", /^[a-f0-9]{64}$/);
+          const serialised = JSON.stringify(metadata);
+          assert.equal(serialised.includes(process.cwd()), false);
+          assert.equal(serialised.includes("test-fixtures/cost-safe"), false);
+          NODE
