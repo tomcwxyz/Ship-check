@@ -20,7 +20,7 @@ function store(scopes: Array<"history:read" | "history:sync" | "project:manage">
     listTokens: vi.fn(async () => []),
     revokeToken: vi.fn(async () => null),
     authenticateToken: vi.fn(async () => ({
-      schemaVersion: "0.1",
+      schemaVersion: "0.1" as const,
       tokenId,
       accountId,
       authSubjectHash,
