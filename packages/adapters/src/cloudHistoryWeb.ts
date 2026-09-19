@@ -132,6 +132,15 @@ export function createCloudHistoryWebHandler(
       return errorResponse(500, "internal-error", "Unexpected Cloud history server error.");
     }
 
+    if (!auth) {
+      return responseFromTransport(await transport({
+        method: request.method,
+        path: requestPath(request),
+        contentType: request.headers.get("content-type") ?? undefined,
+        auth: null
+      }));
+    }
+
     let body: string | undefined;
     if (shouldReadBody(request.method.trim().toUpperCase())) {
       try {
