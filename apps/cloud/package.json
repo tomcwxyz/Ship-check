@@ -1,0 +1,23 @@
+{
+  "name": "@ship-check/cloud",
+  "version": "0.0.0-alpha.1",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "check": "tsc --noEmit",
+    "dev": "next dev",
+    "start": "next start",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ship-check/adapters": "workspace:*",
+    "@ship-check/cloud-runtime": "workspace:*",
+    "next": "15.5.9",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.17",
+    "@types/react-dom": "19.1.11"
+  }
+}
