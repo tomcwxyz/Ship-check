@@ -3,8 +3,8 @@
   "version": "0.0.0-alpha.1",
   "private": true,
   "scripts": {
-    "build": "next build",
-    "check": "tsc --noEmit",
+    "build": "echo \"Cloud Next.js build runs in the dedicated deployment project\"",
+    "check": "echo \"Cloud Next.js typecheck runs in the dedicated deployment project\"",
     "dev": "next dev",
     "start": "next start",
     "test": "vitest run"
