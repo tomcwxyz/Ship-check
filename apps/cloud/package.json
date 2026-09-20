@@ -3,15 +3,15 @@
   "version": "0.0.0-alpha.1",
   "private": true,
   "scripts": {
-    "build": "echo \"Cloud Next.js build runs in the dedicated deployment project\"",
-    "check": "echo \"Cloud Next.js typecheck runs in the dedicated deployment project\"",
+    "build": "next build",
+    "check": "tsc --noEmit",
     "dev": "next dev",
     "start": "next start",
     "test": "vitest run"
   },
   "dependencies": {
-    "@ship-check/adapters": "workspace:*",
-    "@ship-check/cloud-runtime": "workspace:*",
+    "@ship-check/adapters": "file:../../packages/adapters",
+    "@ship-check/cloud-runtime": "file:../../packages/cloud-runtime",
     "next": "^15.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
