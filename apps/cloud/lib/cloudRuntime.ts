@@ -1,17 +1,8 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import {
-  type CloudHistoryWebAuthenticator,
-  type CloudR0RateLimitContext,
-  type CloudR0RateLimitDecision
+  type CloudHistoryWebAuthenticator
 } from "@ship-check/adapters";
 import { createCloudRuntime } from "@ship-check/cloud-runtime";
-
-type Window = {
-  startedAt: number;
-  count: number;
-};
-
-const windows = new Map<string, Window>();
+import { cloudSessionPrincipal } from "./auth/server";
 
 function env(name: string): string {
   const value = process.env[name]?.trim();
@@ -26,68 +17,15 @@ function allowedOrigins(): string[] {
     .filter(Boolean);
 }
 
-function hash(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
-}
-
-function sameSecret(left: string, right: string): boolean {
-  const a = Buffer.from(hash(left), "hex");
-  const b = Buffer.from(hash(right), "hex");
-  return timingSafeEqual(a, b);
-}
-
-export const authenticatePilotSession: CloudHistoryWebAuthenticator = async (
-  request
-) => {
-  const expected = process.env.SHIP_CHECK_PILOT_SESSION_SECRET?.trim();
-  if (!expected) return null;
-
-  const supplied = request.headers.get("x-ship-check-pilot-session")?.trim();
-  if (!supplied || !sameSecret(supplied, expected)) return null;
+export const authenticateHostedSession: CloudHistoryWebAuthenticator = async () => {
+  const principal = await cloudSessionPrincipal();
+  if (!principal) return null;
 
   return {
-    principal: {
-      schemaVersion: "0.1",
-      authSubjectHash: hash("ship-check-cloud-pilot")
-    },
+    principal,
     mutationAuthorised: true
   };
 };
-
-function rateKey(context: CloudR0RateLimitContext): string {
-  const forwarded = context.request.headers
-    .get("x-forwarded-for")
-    ?.split(",")[0]
-    ?.trim();
-  const ip = forwarded || context.request.headers.get("x-real-ip") || "unknown";
-  return `${context.credential}:${context.routeFamily}:${hash(ip).slice(0, 16)}`;
-}
-
-export function pilotRateLimit(
-  context: CloudR0RateLimitContext
-): CloudR0RateLimitDecision {
-  const now = Date.now();
-  const durationMs = 60_000;
-  const limit = context.credential === "bearer" ? 120 : 60;
-  const key = rateKey(context);
-  const current = windows.get(key);
-
-  if (!current || now - current.startedAt >= durationMs) {
-    windows.set(key, { startedAt: now, count: 1 });
-    return { allowed: true };
-  }
-
-  current.count += 1;
-  if (current.count <= limit) return { allowed: true };
-
-  return {
-    allowed: false,
-    retryAfterSeconds: Math.max(
-      1,
-      Math.ceil((durationMs - (now - current.startedAt)) / 1000)
-    )
-  };
-}
 
 declare global {
   // eslint-disable-next-line no-var
@@ -105,9 +43,13 @@ export function cloudRuntime() {
         connectionTimeoutMs: 5_000,
         applicationName: "ship-check-cloud"
       },
-      authenticateSession: authenticatePilotSession,
+      authenticateSession: authenticateHostedSession,
       allowedOrigins: allowedOrigins(),
-      rateLimit: pilotRateLimit,
+      persistentRateLimit: {
+        windowSeconds: 60,
+        sessionLimit: 60,
+        bearerLimit: 120
+      },
       onInternalError: (error) => {
         console.error("Ship Check Cloud internal error", error);
       },
