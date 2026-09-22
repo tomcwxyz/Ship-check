@@ -1,6 +1,5 @@
 import { createNeonAuth } from "@neondatabase/auth/next/server";
 import { hashCloudAuthSubject } from "@ship-check/adapters";
-import type { CloudAuthenticatedPrincipal } from "@ship-check/schemas";
 
 const DEFAULT_NEON_AUTH_BASE_URL =
   "https://ep-wispy-king-zabi7c6y.neonauth.c-2.eu-west-2.aws.neon.tech/ship_check/auth";
@@ -33,7 +32,7 @@ type SessionShape = {
   user?: { id?: string } | null;
 };
 
-export async function cloudSessionPrincipal(): Promise<CloudAuthenticatedPrincipal | null> {
+export async function cloudSessionPrincipal(): Promise<{ schemaVersion: "0.1"; authSubjectHash: string } | null> {
   const result = (await auth.getSession()) as SessionShape;
   const user = result.data?.user ?? result.user;
   if (!user?.id) return null;
