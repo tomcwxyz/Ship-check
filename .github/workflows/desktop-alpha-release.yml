@@ -63,7 +63,7 @@ jobs:
           }
           NODE
 
-      - run: pnpm install
+      - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
@@ -75,7 +75,7 @@ jobs:
           node --check apps/desktop/ui/components.js
           node --check apps/desktop/ui/review.js
           node --check apps/desktop/ui/diagnostics.js
-          node --test apps/desktop/ui/diagnostics.test.mjs apps/desktop/ui/review.test.mjs
+          node --test apps/desktop/ui/brand.test.mjs apps/desktop/ui/diagnostics.test.mjs apps/desktop/ui/database-privacy.test.mjs apps/desktop/ui/review.test.mjs
           node --check scripts/generate-desktop-assets.cjs
           node --check scripts/install-deep-scanners.cjs
       - run: pnpm desktop:assets
@@ -97,7 +97,7 @@ jobs:
           set -euo pipefail
           tag="ship-check-desktop-v${VERSION}"
           title="Ship Check ${VERSION} · desktop alpha"
-          notes="Local-first Ship Check desktop alpha for Windows x64, Linux x64 and macOS Apple Silicon. The matching deterministic engine and pinned Gitleaks 8.30.1 binary are bundled with the app; repository source remains local during normal scans. OSV-Scanner 2.5.1 is also bundled but its dependency-vulnerability lookup is off by default and requires explicit user consent because package identifiers and versions may be queried against OSV. Windows installers are unsigned and the macOS build is ad-hoc signed rather than Apple-notarised, so operating-system warnings may appear. This build presents potential issues and unanswered questions in plain language, with expandable technical evidence and copyable repair instructions. Ship Check findings are evidence for human review, not a security or compliance certification."
+          notes="Ship Check desktop alpha.8 is a local-first testing build for Windows x64, Linux x64 and macOS Apple Silicon. It broadens repository evidence while making the review calmer and clearer: confirmed findings, unanswered questions and coverage are kept distinct; the recommended review is the default path; and technical evidence remains expandable rather than dominating the first view. The matching deterministic engine and pinned Gitleaks 8.30.1 binary are bundled with the app; repository source remains local during normal scans. OSV-Scanner 2.5.1 is also bundled but its dependency-vulnerability lookup is off by default and requires explicit user consent because package identifiers and versions may be queried against OSV. Windows installers are unsigned and the macOS build is ad-hoc signed rather than Apple-notarised, so operating-system warnings may appear. This alpha also carries the new Ship Check inspection-instrument identity and survey-ring icon. Ship Check findings are evidence for human review, not a security or compliance certification."
 
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             is_draft="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
@@ -183,7 +183,7 @@ jobs:
             libwebkit2gtk-4.1-dev \
             wget
 
-      - run: pnpm install
+      - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm desktop:assets
 
