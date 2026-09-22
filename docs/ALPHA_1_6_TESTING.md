@@ -1,10 +1,10 @@
-# Alpha 1.6 testing protocol
+# Desktop alpha.8 testing protocol
 
-`0.0.0-alpha.7` supersedes alpha.6 as the Alpha 1.6 test build. It retains the expanded evidence model and adds clearer review guidance, honest not-applicable statuses, public-key classification and the repaired macOS packaging path.
+`0.0.0-alpha.8` is the current desktop calibration build. It keeps the expanded evidence model, adds the broader alpha.8 repository checks, and tests the clearer default review flow, distinct Finding/Observed/Unverified/Coverage language, and the new Ship Check inspection-instrument identity.
 
-The implementation phase is complete when the pinned local Semgrep adapter is merged and the matching desktop build is produced. The work below is **dogfood/testing**, and should tune Alpha 1.6 before Database Ready work begins.
+The work below is **dogfood/testing** for alpha.8. It should tune evidence quality, language and the packaged desktop experience before Database Ready work begins.
 
-## What Alpha 1.6 is testing
+## What alpha.8 is testing
 
 A useful scan should make four different evidence states understandable:
 
@@ -56,7 +56,7 @@ Confirm:
 - any match includes file/line and repair guidance but never matched source text;
 - rerunning after a repair resolves the finding cleanly.
 
-Alpha.6 does **not** bundle Semgrep itself. Use a trusted Semgrep `1.176.x` installation or `SHIP_CHECK_SEMGREP_PATH`.
+alpha.8 does **not** bundle Semgrep itself. Use a trusted Semgrep `1.176.x` installation or `SHIP_CHECK_SEMGREP_PATH`.
 
 CLI equivalent:
 
@@ -85,7 +85,7 @@ At minimum:
 - Windows x64: local folder and GitHub repository scans, bundled Gitleaks, opt-in OSV, diagnostics copy/clear and rerun;
 - macOS Apple Silicon: local folder and GitHub repository scans, including one private repository using existing Git credentials, bundled Gitleaks and opt-in OSV.
 
-Operating-system signing warnings are expected for this alpha. Signing/notarisation remains a pilot-distribution task rather than an Alpha 1.6 evidence-quality blocker.
+Operating-system signing warnings are expected for this alpha. Signing/notarisation remains a pilot-distribution task rather than an alpha.8 evidence-quality blocker.
 
 ## What to record
 
@@ -109,18 +109,18 @@ For each repository capture the metadata-only **Copy diagnostics** receipt after
 
 ## Cross-product check
 
-Before declaring Alpha 1.6 calibrated, run the existing RACK/Ship Check practice-evidence path against:
+Before declaring alpha.8 calibrated, run the existing RACK/Ship Check practice-evidence path against:
 
 1. a deliberately risky fixture; and
 2. one real Good Ship repository.
 
 The result should preserve `pass | fail | uncertain | incomplete` semantics and must not turn a narrow Ship Check non-finding into a broad practice-level pass.
 
-## Exit criteria for Alpha 1.6 testing
+## Exit criteria for alpha.8 testing
 
-Alpha 1.6 is ready to freeze and move to Database Ready when:
+alpha.8 is ready to freeze and move to Database Ready when:
 
-- the representative corpus has been scanned with the default Alpha 1.6 build;
+- the representative corpus has been scanned with the default alpha.8 build;
 - recurring high/medium findings have been classified and obvious false positives tuned;
 - obvious manually discovered misses have been reviewed for whether a defensible deterministic check is possible;
 - Gitleaks has been exercised on Windows and macOS without secret/match persistence;
@@ -129,4 +129,4 @@ Alpha 1.6 is ready to freeze and move to Database Ready when:
 - no recurring scan error or misleading coverage state remains unresolved;
 - the first RACK + Ship Check cross-product run has been completed.
 
-Do not delay Alpha 1.7 for broad new feature ideas. New packs remain later work unless the corpus reveals a repeated, high-value risk with a clear evidence boundary.
+Do not delay the next alpha for broad new feature ideas. New packs remain later work unless the corpus reveals a repeated, high-value risk with a clear evidence boundary.
