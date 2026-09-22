@@ -10,6 +10,7 @@ export {
   redactCloudRuntimeError
 } from "./runtime.js";
 export type {
+  CloudPersistentRateLimitOptions,
   CloudRuntime,
   CloudRuntimeOptions
 } from "./runtime.js";
