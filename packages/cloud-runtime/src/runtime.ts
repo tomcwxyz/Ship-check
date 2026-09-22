@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import {
   createCloudApiTokenService,
   createCloudApiTokenStore,
@@ -17,6 +18,12 @@ import {
   type PgCloudHistoryDatabaseOptions
 } from "./postgres.js";
 
+export type CloudPersistentRateLimitOptions = {
+  windowSeconds?: number;
+  sessionLimit?: number;
+  bearerLimit?: number;
+};
+
 export type CloudRuntimeOptions = {
   authenticateSession: CloudHistoryWebAuthenticator;
   database?: CloudHistoryDatabase;
@@ -25,6 +32,7 @@ export type CloudRuntimeOptions = {
   rateLimit?: (
     context: CloudR0RateLimitContext
   ) => Promise<CloudR0RateLimitDecision> | CloudR0RateLimitDecision;
+  persistentRateLimit?: CloudPersistentRateLimitOptions;
   maxHistoryBodyBytes?: number;
   maxTokenBodyBytes?: number;
   onInternalError?: (error: unknown) => void;
@@ -55,10 +63,110 @@ export function redactCloudRuntimeError(error: unknown): unknown {
   return redacted;
 }
 
+
+function boundedRateLimitInteger(
+  value: number | undefined,
+  fallback: number,
+  minimum: number,
+  maximum: number,
+  label: string
+): number {
+  const resolved = value ?? fallback;
+  if (!Number.isInteger(resolved) || resolved < minimum || resolved > maximum) {
+    throw new Error(`${label} must be an integer between ${minimum} and ${maximum}.`);
+  }
+  return resolved;
+}
+
+function hashRateLimitKey(value: string): string {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function clientAddress(request: Request): string {
+  return (
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    request.headers.get("x-real-ip")?.trim() ||
+    "unknown"
+  );
+}
+
+function createPersistentRateLimit(
+  database: CloudHistoryDatabase,
+  options: CloudPersistentRateLimitOptions
+): (context: CloudR0RateLimitContext) => Promise<CloudR0RateLimitDecision> {
+  const windowSeconds = boundedRateLimitInteger(
+    options.windowSeconds,
+    60,
+    10,
+    3600,
+    "Cloud rate-limit windowSeconds"
+  );
+  const sessionLimit = boundedRateLimitInteger(
+    options.sessionLimit,
+    60,
+    1,
+    10_000,
+    "Cloud session rate limit"
+  );
+  const bearerLimit = boundedRateLimitInteger(
+    options.bearerLimit,
+    120,
+    1,
+    10_000,
+    "Cloud bearer rate limit"
+  );
+
+  return async (context) => {
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    const bucket = Math.floor(nowSeconds / windowSeconds);
+    const keyHash = hashRateLimitKey(
+      [
+        context.credential,
+        context.routeFamily,
+        hashRateLimitKey(clientAddress(context.request))
+      ].join(":")
+    );
+
+    const result = await database.query<{ request_count: number | string }>(
+      `INSERT INTO ship_check_rate_limits (
+         key_hash, window_bucket, request_count, updated_at
+       )
+       VALUES ($1, $2, 1, now())
+       ON CONFLICT (key_hash) DO UPDATE
+       SET window_bucket = EXCLUDED.window_bucket,
+           request_count = CASE
+             WHEN ship_check_rate_limits.window_bucket = EXCLUDED.window_bucket
+               THEN ship_check_rate_limits.request_count + 1
+             ELSE 1
+           END,
+           updated_at = now()
+       RETURNING request_count`,
+      [keyHash, bucket]
+    );
+
+    const count = Number(result.rows[0]?.request_count ?? 1);
+    const limit = context.credential === "bearer" ? bearerLimit : sessionLimit;
+    if (count <= limit) return { allowed: true };
+
+    return {
+      allowed: false,
+      retryAfterSeconds: Math.max(
+        1,
+        windowSeconds - (nowSeconds % windowSeconds)
+      )
+    };
+  };
+}
+
 export function createCloudRuntime(options: CloudRuntimeOptions): CloudRuntime {
   if (options.database && options.postgres) {
     throw new Error(
       "Provide either an existing Cloud database or Postgres configuration, not both."
+    );
+  }
+  if (options.rateLimit && options.persistentRateLimit) {
+    throw new Error(
+      "Provide either a custom Cloud rate limiter or persistentRateLimit configuration, not both."
     );
   }
 
@@ -73,6 +181,12 @@ export function createCloudRuntime(options: CloudRuntimeOptions): CloudRuntime {
   const tokenStore = createCloudApiTokenStore(database);
   const historyService = createCloudHistoryService(historyStore);
   const tokenService = createCloudApiTokenService(historyStore, tokenStore);
+
+  const effectiveRateLimit =
+    options.rateLimit ??
+    (options.persistentRateLimit
+      ? createPersistentRateLimit(database, options.persistentRateLimit)
+      : undefined);
 
   const reportInternalError = options.onInternalError
     ? (error: unknown) =>
@@ -92,7 +206,7 @@ export function createCloudRuntime(options: CloudRuntimeOptions): CloudRuntime {
       ...(options.allowedOrigins
         ? { allowedOrigins: options.allowedOrigins }
         : {}),
-      ...(options.rateLimit ? { rateLimit: options.rateLimit } : {}),
+      ...(effectiveRateLimit ? { rateLimit: effectiveRateLimit } : {}),
       ...(options.maxHistoryBodyBytes !== undefined
         ? { maxHistoryBodyBytes: options.maxHistoryBodyBytes }
         : {}),
