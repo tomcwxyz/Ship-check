@@ -7,7 +7,7 @@
     "check": "tsc --noEmit",
     "dev": "next dev",
     "start": "next start",
-    "test": "vitest run"
+    "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
     "@ship-check/adapters": "workspace:*",
