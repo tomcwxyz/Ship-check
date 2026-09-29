@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import type { ProjectEvidenceSourceInput } from "@ship-check/schemas";
+import type { ProjectEvidenceCapability, ProjectEvidenceSourceInput } from "@ship-check/schemas";
 import { prepareArchiveSource } from "./archiveSource.js";
 
 const execFileAsync = promisify(execFile);
@@ -104,6 +104,26 @@ async function localDirectory(value: string): Promise<string | null> {
   }
 }
 
+async function hasCompleteLocalGitHistory(root: string): Promise<boolean> {
+  try {
+    const { stdout: inside } = await execFileAsync(
+      "git",
+      ["-C", root, "rev-parse", "--is-inside-work-tree"],
+      { encoding: "utf8", windowsHide: true },
+    );
+    if (inside.trim() !== "true") return false;
+
+    const { stdout: shallow } = await execFileAsync(
+      "git",
+      ["-C", root, "rev-parse", "--is-shallow-repository"],
+      { encoding: "utf8", windowsHide: true },
+    );
+    return shallow.trim() !== "true";
+  } catch {
+    return false;
+  }
+}
+
 export function sourceExecutionContextFromEnvironment(
   environment: NodeJS.ProcessEnv = process.env,
 ): SourceExecutionContext | undefined {
@@ -143,6 +163,10 @@ export async function prepareRepositorySource(
   const local = await localDirectory(input);
   if (local) {
     const executionContext = options.executionContext;
+    const capabilities: ProjectEvidenceCapability[] = ["source-files"];
+    if (await hasCompleteLocalGitHistory(local)) capabilities.push("git-history");
+    if (executionContext) capabilities.push("ci-context");
+
     return {
       kind: "local",
       projectPath: local,
@@ -155,7 +179,7 @@ export async function prepareRepositorySource(
             label: executionContext.label,
             acquisition: "ci",
             executionLocation: "ci-runner",
-            capabilities: ["source-files", "ci-context"],
+            capabilities,
             ephemeral: true,
             ...(executionContext.ref ? { ref: executionContext.ref } : {})
           }
@@ -165,7 +189,7 @@ export async function prepareRepositorySource(
             label: local,
             acquisition: "local",
             executionLocation: "user-device",
-            capabilities: ["source-files"],
+            capabilities,
             ephemeral: false
           },
       cleanup: async () => {},
