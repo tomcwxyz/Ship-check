@@ -570,7 +570,8 @@ async function main(): Promise<void> {
 
   const source = await prepareRepositorySource(sourceValue, {
     ref: values.ref,
-    executionContext: sourceExecutionContextFromEnvironment()
+    executionContext: sourceExecutionContextFromEnvironment(),
+    fullHistory: gitHistorySecrets
   });
   try {
     const sourceReport = await scanProject(
