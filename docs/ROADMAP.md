@@ -224,6 +224,7 @@ discover projects
 - [x] **Scanner availability as attention:** make requested-but-unavailable Gitleaks/OSV/Semgrep evidence prominent at project and estate level rather than allowing it to disappear among ordinary unanswered controls.
 - [ ] **Reliable zero-install CLI:** make the public CLI publishable through npm/npx, remove monorepo-only `workspace:*` installation assumptions from the published artefact and give npm users equivalent scanner capability to the desktop where practical.
   - [x] Stage a self-contained `@good-ship/ship-check` npm artefact by bundling the canonical CLI so published users do not depend on monorepo `workspace:*` packages.
+  - [x] Add an explicit main-only, manually confirmed npm alpha publication workflow that publishes the per-platform scanner packages first, uses npm provenance and safely skips packages already published at the requested version.
   - [ ] Publish the package. Scanner-binary parity is staged and behaviourally validated across Windows x64, Linux x64 and macOS Apple Silicon before publication.
 - [x] **Pinned scanner delivery:** resolve Gitleaks reliably for npx use; keep OSV explicitly opt-in because it crosses a network boundary; retain Semgrep as an explicit optional local capability until a defensible bundled route is chosen.
 - [x] **Git-history secret evidence:** add an explicit history scan boundary for repositories with `.git`, separate current-source credentials from historical exposure and preserve the rule that deletion does not imply rotation/revocation.

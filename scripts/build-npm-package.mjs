@@ -170,7 +170,10 @@ Evidence-led pre-ship software assurance.
 
 \`\`\`bash
 npx --yes @good-ship/ship-check scan . --format markdown
+npx --yes @good-ship/ship-check scan . --git-history-secrets --format markdown
 npx --yes @good-ship/ship-check scan-dir ~/Code --format markdown
+npx --yes @good-ship/ship-check focus ./ship-check-report.json
+npx --yes @good-ship/ship-check skill install .
 \`\`\`
 
 The package contains the bundled JavaScript Ship Check engine rather than depending on the internal monorepo workspace graph.

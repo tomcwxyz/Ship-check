@@ -1,0 +1,187 @@
+name: npm alpha publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "npm alpha version to publish (must match package.json)"
+        required: true
+        type: string
+      confirm:
+        description: "Type PUBLISH_ALPHA to confirm npm publication"
+        required: true
+        type: string
+
+concurrency:
+  group: ship-check-npm-alpha-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  preflight:
+    name: npm alpha preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Require main, explicit confirmation and matching alpha version
+        shell: bash
+        env:
+          EXPECTED_VERSION: ${{ inputs.version }}
+          RELEASE_CONFIRMATION: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "::error::npm alpha publication must be dispatched from main."
+            exit 1
+          fi
+          if [[ "$RELEASE_CONFIRMATION" != "PUBLISH_ALPHA" ]]; then
+            echo "::error::Type PUBLISH_ALPHA in the confirmation input."
+            exit 1
+          fi
+          node - <<'NODE'
+          const fs = require("node:fs");
+          const manifest = JSON.parse(fs.readFileSync("package.json", "utf8"));
+          const expected = process.env.EXPECTED_VERSION;
+          if (manifest.version !== expected) {
+            console.error(`package.json is ${manifest.version}, expected ${expected}`);
+            process.exit(1);
+          }
+          if (!/^0\.0\.0-alpha\.\d+$/.test(expected)) {
+            console.error(`Refusing to publish non-alpha version through the alpha workflow: ${expected}`);
+            process.exit(1);
+          }
+          NODE
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - run: pnpm test
+      - run: pnpm build:npm
+
+      - name: Inspect staged main package
+        shell: bash
+        run: npm pack --dry-run ./dist/npm/node_modules/@good-ship/ship-check
+
+  publish-scanners:
+    name: Publish scanners · ${{ matrix.label }}
+    needs: preflight
+    runs-on: ${{ matrix.platform }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+            label: Windows x64
+            suffix: win32-x64
+          - platform: ubuntu-latest
+            label: Linux x64
+            suffix: linux-x64
+          - platform: macos-14
+            label: macOS Apple Silicon
+            suffix: darwin-arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:npm
+
+      - name: Publish platform scanner packages
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          SUFFIX: ${{ matrix.suffix }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${NODE_AUTH_TOKEN:-}" ]]; then
+            echo "::error::Repository secret NPM_TOKEN is required for npm publication."
+            exit 1
+          fi
+
+          publish_if_missing() {
+            local name="$1"
+            local directory="$2"
+            if npm view "${name}@${VERSION}" version --registry https://registry.npmjs.org >/dev/null 2>&1; then
+              echo "${name}@${VERSION} is already published; leaving it unchanged."
+              return
+            fi
+            npm publish "$directory" --tag alpha --access public --provenance
+          }
+
+          publish_if_missing             "@good-ship/ship-check-gitleaks-${SUFFIX}"             "dist/npm/node_modules/@good-ship/ship-check-gitleaks-${SUFFIX}"
+          publish_if_missing             "@good-ship/ship-check-osv-${SUFFIX}"             "dist/npm/node_modules/@good-ship/ship-check-osv-${SUFFIX}"
+
+  publish-main:
+    name: Publish @good-ship/ship-check
+    needs: publish-scanners
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.15.0
+          run_install: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:npm
+
+      - name: Publish main package
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${NODE_AUTH_TOKEN:-}" ]]; then
+            echo "::error::Repository secret NPM_TOKEN is required for npm publication."
+            exit 1
+          fi
+          if npm view "@good-ship/ship-check@${VERSION}" version --registry https://registry.npmjs.org >/dev/null 2>&1; then
+            echo "@good-ship/ship-check@${VERSION} is already published; leaving it unchanged."
+            exit 0
+          fi
+          npm publish ./dist/npm/node_modules/@good-ship/ship-check             --tag alpha             --access public             --provenance
