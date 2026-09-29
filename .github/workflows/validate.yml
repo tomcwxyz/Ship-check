@@ -78,20 +78,9 @@ jobs:
 
           OSV_FIXTURE="$(mktemp -d)"
           trap 'rm -rf "$OSV_FIXTURE"' EXIT
-          cat > "$OSV_FIXTURE/package-lock.json" <<'JSON'
-          {
-            "name": "ship-check-osv-fixture",
-            "version": "1.0.0",
-            "lockfileVersion": 3,
-            "requires": true,
-            "packages": {
-              "": {
-                "name": "ship-check-osv-fixture",
-                "version": "1.0.0"
-              }
-            }
-          }
-          JSON
+          cat > "$OSV_FIXTURE/requirements.txt" <<'REQ'
+          requests==2.31.0
+          REQ
           node "$MAIN/index.js" scan "$OSV_FIXTURE" --pack production-ready --networked-dependency-scan --format json > dist/npm-osv.json
 
           mkdir -p dist/history-fixture
