@@ -54,6 +54,7 @@
 
           <div class="source-switch" id="source-switch" aria-label="Project evidence source">
             <button class="source-option is-active" type="button" data-source="local">Folder</button>
+            <button class="source-option" type="button" data-source="estate">Folder of projects</button>
             <button class="source-option" type="button" data-source="github">GitHub</button>
             <button class="source-option" type="button" data-source="archive">Project ZIP</button>
             <button class="source-option" type="button" data-source="runtime">Live site</button>
@@ -64,6 +65,21 @@
               <span class="project-path-label">Project</span>
               <span class="project-path-value" id="project-path-value">No folder chosen yet</span>
               <button class="button button-secondary" id="choose-project" type="button">Choose folder</button>
+            </div>
+          </div>
+
+          <div id="estate-source" class="source-panel" hidden>
+            <div class="project-path" id="estate-path" data-empty="true">
+              <span class="project-path-label">Estate</span>
+              <span class="project-path-value" id="estate-path-value">No project folder chosen yet</span>
+              <button class="button button-secondary" id="choose-estate" type="button">Choose folder</button>
+            </div>
+            <div class="estate-options">
+              <label class="repo-field">
+                <span>Discovery depth</span>
+                <input id="estate-max-depth" type="number" min="0" max="12" step="1" value="3" inputmode="numeric" />
+              </label>
+              <p class="source-help">Ship Check discovers project roots under this folder and scans each independently. Dependency, build and hidden folders are skipped. Findings and evidence boundaries are never merged into an estate safety score.</p>
             </div>
           </div>
 
@@ -300,6 +316,18 @@
             </div>
             <div class="suppressions-list" id="suppressions-list"></div>
           </section>
+        </section>
+
+        <section class="results" id="estate-results" aria-labelledby="estate-results-title" hidden>
+          <div class="results-heading">
+            <div>
+              <p class="section-kicker">2 · Estate review</p>
+              <h2 id="estate-results-title">Where attention is needed</h2>
+            </div>
+            <p class="scan-meta" id="estate-meta"></p>
+          </div>
+          <div class="summary-grid estate-summary-grid" id="estate-summary" aria-label="Estate scan summary"></div>
+          <div class="estate-projects" id="estate-projects"></div>
         </section>
       </main>
 

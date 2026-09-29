@@ -234,7 +234,7 @@ discover projects
   - [x] Land the repo-discoverable `.claude/skills/ship-check/SKILL.md` workflow.
   - [x] Package/document installation for use across arbitrary projects via `ship-check skill install`, with the canonical skill carried in the npm artefact and overwrite protection unless `--force` is explicit.
 - [x] **Focused review mode:** `ship-check focus <report.json>` surfaces one active item at a time, prioritising confirmed findings by severity as **FIX** work and only then unanswered controls as **VERIFY** work; an empty queue points back to coverage rather than implying safety.
-- [ ] **Desktop estate entry point:** once the CLI contract is stable, add “Folder of projects” alongside Folder/GitHub/Project ZIP/Live site and reuse the same aggregate contracts.
+- [x] **Desktop estate entry point:** add “Folder of projects” alongside Folder/GitHub/Project ZIP/Live site, invoke the canonical `scan-dir` engine contract, preserve per-project evidence boundaries and show failed/attention/quiet project groups without an estate safety score.
 
 ### Estate triage principles
 

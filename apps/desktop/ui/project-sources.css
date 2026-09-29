@@ -60,3 +60,42 @@
     gap: 13px;
   }
 }
+
+
+.estate-options {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: end;
+}
+
+.estate-options .source-help { margin: 0 0 3px; }
+.estate-summary-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.estate-projects { margin-top: 28px; display: grid; gap: 22px; }
+.estate-group { display: grid; gap: 12px; }
+.estate-group > h3 { margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 25px; font-weight: 500; }
+.estate-project-card { padding: 18px 20px; border: 1px solid var(--soft-line); border-radius: 15px; background: #fffdf8; }
+.estate-project-heading { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; }
+.estate-project-heading h3, .estate-project-card h4 { margin: 0; font-size: 15px; overflow-wrap: anywhere; }
+.estate-project-context { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+.estate-project-details { margin: 10px 0 0; }
+.estate-attention-row { display: grid; gap: 7px; padding: 13px 0; border-top: 1px solid var(--soft-line); }
+.estate-attention-row p, .estate-attention-row small, .estate-failed-card p { margin: 0; color: var(--muted); line-height: 1.5; }
+.estate-attention-row small { display: block; }
+.estate-error-badge { width: fit-content; display: inline-flex; align-items: center; min-height: 25px; padding: 4px 8px; border-radius: 999px; background: var(--red-soft); color: #7b2d1b; font-size: 10px; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.estate-failed-card { border-color: #e8b8a8; background: #fff7f3; }
+.estate-quiet-group { padding: 16px 18px; border: 1px solid var(--soft-line); border-radius: 15px; background: #f8f6f0; }
+.estate-quiet-group > summary { cursor: pointer; font-weight: 800; }
+.estate-quiet-list { columns: 2; margin: 12px 0 0; padding-left: 20px; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.estate-quiet-note { margin: 0; padding: 16px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); background: #faf8f2; }
+
+@media (max-width: 900px) {
+  .estate-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .estate-options { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .estate-summary-grid { grid-template-columns: 1fr; }
+  .estate-project-heading { flex-direction: column; }
+  .estate-quiet-list { columns: 1; }
+}
