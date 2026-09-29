@@ -720,6 +720,7 @@ export const osvDependencyCheck: CheckDefinition = {
       const raw = JSON.parse(result.stdout || "{}");
       return {
         findings: parseOsvReport(raw, mirror, version),
+        scannerVersion: version,
         coverage: [{ area: "supply-chain", status: "assessed" }]
       };
     } finally {
