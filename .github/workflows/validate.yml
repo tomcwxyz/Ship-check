@@ -75,6 +75,22 @@ jobs:
           node "$MAIN/index.js" --version
           node "$MAIN/index.js" scan ./test-fixtures/cost-safe --pack cost-aware --format markdown > dist/npm-smoke.md
           node "$MAIN/index.js" scan ./test-fixtures/safe-next --pack secure-build --format json > dist/npm-secure.json
+
+          mkdir -p dist/history-fixture
+          git -C dist/history-fixture init
+          git -C dist/history-fixture config user.email "ship-check@example.invalid"
+          git -C dist/history-fixture config user.name "Ship Check Test"
+          printf 'const token = "ghp_123456789012345678901234567890123456";\n' > dist/history-fixture/config.js
+          git -C dist/history-fixture add config.js
+          git -C dist/history-fixture commit -m "fixture: historical credential"
+          printf 'export const safe = true;\n' > dist/history-fixture/config.js
+          git -C dist/history-fixture add config.js
+          git -C dist/history-fixture commit -m "fixture: remove credential"
+          node "$MAIN/index.js" scan dist/history-fixture --pack secure-build --git-history-secrets --format json > dist/npm-history.json
+
+          cp dist/npm-secure.json dist/npm-secure-after.json
+          node "$MAIN/index.js" compare dist/npm-secure.json dist/npm-secure-after.json --format markdown > dist/npm-compare.md
+
           node --input-type=module <<'NODE'
           import assert from "node:assert/strict";
           import { readFile } from "node:fs/promises";
@@ -100,6 +116,25 @@ jobs:
             secure.gaps.some((gap) => String(gap.id).includes("gitleaks-unavailable")),
             false
           );
+
+          const history = JSON.parse(await readFile("dist/npm-history.json", "utf8"));
+          assert.ok(
+            history.findings.some((finding) => finding.checkId === "secure.secret-history"),
+            "Expected historical credential finding"
+          );
+          assert.equal(
+            history.findings.some((finding) =>
+              finding.checkId === "secure.secret-pattern" &&
+              String(finding.evidence?.[0]?.path ?? "") === "config.js"
+            ),
+            false,
+            "Removed historical credential must not be presented as a current-tree secret"
+          );
+          assert.equal(JSON.stringify(history).includes("ghp_123456789012345678901234567890123456"), false);
+
+          const comparison = await readFile("dist/npm-compare.md", "utf8");
+          assert.match(comparison, /0 introduced/);
+          assert.match(comparison, /not proof/i);
           NODE
       - name: Smoke standalone engine
         run: |
