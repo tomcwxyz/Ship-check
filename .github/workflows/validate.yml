@@ -87,7 +87,7 @@ jobs:
           git -C dist/history-fixture init
           git -C dist/history-fixture config user.email "ship-check@example.invalid"
           git -C dist/history-fixture config user.name "Ship Check Test"
-          printf 'const token = "ghp_123456789012345678901234567890123456";\n' > dist/history-fixture/config.js
+          printf 'const token = "ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef0123";\n' > dist/history-fixture/config.js
           git -C dist/history-fixture add config.js
           git -C dist/history-fixture commit -m "fixture: historical credential"
           printf 'export const safe = true;\n' > dist/history-fixture/config.js
@@ -155,7 +155,7 @@ jobs:
             false,
             "Removed historical credential must not be presented as a current-tree secret"
           );
-          assert.equal(JSON.stringify(history).includes("ghp_123456789012345678901234567890123456"), false);
+          assert.equal(JSON.stringify(history).includes("ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef0123"), false);
 
           const comparison = await readFile("dist/npm-compare.md", "utf8");
           assert.match(comparison, /0 introduced/);
