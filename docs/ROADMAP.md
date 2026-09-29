@@ -253,7 +253,7 @@ Context must be attributable. Ship Check must not infer that a project is “liv
 
 ### Alpha 0.9 acceptance corpus
 
-Use the 70-project development-directory test as the primary estate-scale acceptance corpus, alongside the existing smaller Good Ship calibration corpus. The gate is not a target number of findings. It is whether Ship Check:
+Use the 70-project development-directory test as the primary estate-scale acceptance corpus, alongside the existing smaller Good Ship calibration corpus. The local-only runner and review worksheet are documented in [`ALPHA_0_9_ESTATE_ACCEPTANCE.md`](./ALPHA_0_9_ESTATE_ACCEPTANCE.md). The gate is not a target number of findings. It is whether Ship Check:
 
 1. discovers the intended project roots without recursing into dependency/build folders;
 2. keeps each project's evidence and coverage separate;
