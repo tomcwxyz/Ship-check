@@ -1,4 +1,4 @@
-import { promises as fs } from "node:fs";
+import { promises as fs, type Dirent } from "node:fs";
 import path from "node:path";
 import type { ScanReport, Severity } from "@ship-check/schemas";
 
@@ -108,7 +108,7 @@ export async function discoverProjectDirectories(
   const projects: DiscoveredProject[] = [];
 
   async function visit(current: string, depth: number): Promise<void> {
-    let entries;
+    let entries: Dirent[];
     try {
       entries = await fs.readdir(current, { withFileTypes: true });
     } catch {
