@@ -126,6 +126,16 @@ Run the optional known-dependency-vulnerability check:
 pnpm ship-check -- scan ./my-project --networked-dependency-scan
 ```
 
+OSV-Scanner is resolved locally but only runs when this flag is supplied; package identifiers and versions may be sent to the OSV service. Results are grouped around the affected package/version so duplicate manifests and advisory aliases do not inflate the first-line dependency count.
+
+Run an explicit Git-history credential review for a real Git repository:
+
+```bash
+pnpm ship-check -- scan ./my-project --git-history-secrets
+```
+
+Historical exposure is kept separate from current-source credential findings. A removed or rewritten historical value still needs revocation/rotation where it was a live credential. GitHub repository inputs remain shallow by default and request full history only when this option is enabled.
+
 Run the optional local Semgrep rules, when a compatible trusted Semgrep CLI is installed:
 
 ```bash
@@ -143,6 +153,17 @@ For a human/developer/agent hand-off that keeps findings, unanswered controls, m
 ```bash
 pnpm ship-check -- scan ./my-project --format markdown > ship-check-review.md
 ```
+
+For a repair loop, retain complete JSON before and after the change and compare with the same Ship Check transition semantics used in CI:
+
+```bash
+pnpm ship-check -- scan ./my-project --format json > before.json
+# make the verified, narrowly scoped repair
+pnpm ship-check -- scan ./my-project --format json > after.json
+pnpm ship-check -- compare before.json after.json --format markdown
+```
+
+The comparison distinguishes introduced, persistent, reactivated, newly accepted and no-longer-active findings/gaps. “No longer active” is intentionally not described as proof of remediation.
 
 ### Estate review
 
@@ -178,10 +199,10 @@ The branch can also stage a self-contained npm artefact without exposing the int
 
 ```bash
 pnpm build:npm
-node dist/npm/index.js --version
+node dist/npm/node_modules/@good-ship/ship-check/index.js --version
 ```
 
-The staged package name is `@good-ship/ship-check`. Publication and bundled external-scanner parity are still required before the npx route is treated as equivalent to the desktop build.
+The staged main package is `@good-ship/ship-check`. Supported platforms also stage separate optional packages for pinned Gitleaks and OSV-Scanner binaries, using the same checksum-verified download path as desktop packaging. This means npm/npx installation can supply the local scanner binaries without making OSV execution automatic. Publication is still a separate release step.
 
 Every newly generated report also carries a `check-ruleset-v1` SHA-256 fingerprint over the selected check IDs, rule versions and packs. Engine version remains separate, so history/CI can distinguish “same rules under a newer Ship Check build” from an actual ruleset change without retaining source content.
 
