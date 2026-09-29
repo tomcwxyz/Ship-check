@@ -185,6 +185,79 @@ Goal: verify controls that source inspection cannot establish, while keeping run
 - [ ] Add declared-route smoke checks that do not mutate data or attempt exploit payloads.
 - [ ] Extend source/runtime correlation beyond the first explicit security-header relationship only where the evidence really verifies the same control.
 
+## Alpha 0.9 — estate review and agent repair loop
+
+Goal: turn Ship Check from a single-project review into a repeatable way to find where attention is needed across a real software estate, then hand deterministic evidence to a developer or coding agent without allowing that agent to rewrite the evidence.
+
+The reference user test for this line scanned roughly 70 project folders under one development directory. The useful outcome was not a larger pile of findings: it was a prioritised work programme that distinguished current files from Git history, live services from deprecated or upstream projects, confirmed evidence from candidates, unavailable scanners from successful checks, and deterministic findings from contextual agent interpretation.
+
+### Product boundary
+
+Ship Check remains the deterministic evidence layer:
+
+- **Finding** remains evidence-backed.
+- **Unverified** remains a question to investigate, not a defect to repair automatically.
+- **Observed** remains context, not assurance.
+- **Coverage** remains explicit, including scanners that could not run.
+- Agent interpretation may prioritise, contextualise and investigate evidence, but must keep its provenance separate and must not silently suppress or rewrite deterministic results.
+
+The intended loop is:
+
+```text
+discover projects
+→ run Ship Check
+→ surface unavailable evidence/tools
+→ aggregate and prioritise attention
+→ hand deterministic evidence to a developer or agent
+→ investigate unanswered controls
+→ make narrowly scoped repairs
+→ run relevant project tests
+→ rerun Ship Check
+→ report resolved, persistent and newly introduced concerns
+```
+
+### Alpha 0.9 implementation order
+
+- [ ] **Estate scanning:** add a bounded local directory-discovery mode that finds project roots, scans each independently with the canonical engine and produces one aggregate report without merging project evidence boundaries.
+- [ ] **Estate output:** provide aggregate JSON plus a human/agent-oriented Markdown report showing project failures, scanner availability, confirmed findings, unanswered controls and per-project coverage before technical detail.
+- [ ] **Project context:** extend tracked `.ship-check.json` with explicit project status/ownership context such as `live | staging | development | deprecated` and `owned | fork | upstream`. Context may affect triage/presentation but must never suppress deterministic findings.
+- [ ] **Scanner availability as attention:** make requested-but-unavailable Gitleaks/OSV/Semgrep evidence prominent at project and estate level rather than allowing it to disappear among ordinary unanswered controls.
+- [ ] **Reliable zero-install CLI:** make the public CLI publishable through npm/npx, remove monorepo-only `workspace:*` installation assumptions from the published artefact and give npm users equivalent scanner capability to the desktop where practical.
+- [ ] **Pinned scanner delivery:** resolve Gitleaks reliably for npx use; keep OSV explicitly opt-in because it crosses a network boundary; retain Semgrep as an explicit optional local capability until a defensible bundled route is chosen.
+- [ ] **Git-history secret evidence:** add an explicit history scan boundary for repositories with `.git`, separate current-source credentials from historical exposure and preserve the rule that deletion does not imply rotation/revocation.
+- [ ] **Dependency consolidation:** present vulnerable package/version units before advisory aliases so GHSA/CVE aliases do not inflate the first-line problem count; preserve underlying advisory provenance.
+- [ ] **Portable agent hand-off:** add Markdown/agent output for a single project and an estate, including exact finding/question IDs, evidence locations, repair/verification instructions, coverage limits and rerun instructions without secret values.
+- [ ] **Comparison/repair loop:** expose comparable before/after semantics outside CI: introduced, persistent, reactivated, accepted and no-longer-active findings/gaps, without treating disappearance as proof of remediation.
+- [ ] **Ship Check Agent Skill:** publish a thin skill that orchestrates the canonical CLI rather than reimplementing checks. The skill may inspect context, run approved complementary tools, repair code and rerun Ship Check, while keeping deterministic and agent-assessed states distinct.
+- [ ] **Focused review mode:** let users work through the next confirmed concern or unanswered question one at a time, preserving the distinction between “fix” and “verify”.
+- [ ] **Desktop estate entry point:** once the CLI contract is stable, add “Folder of projects” alongside Folder/GitHub/Project ZIP/Live site and reuse the same aggregate contracts.
+
+### Estate triage principles
+
+Estate output should not invent a quality score or mechanically rank repositories by raw finding count. Useful attention signals include:
+
+- severity and confidence of deterministic findings;
+- whether a requested scanner failed to run;
+- explicit project status/ownership context;
+- current-source versus Git-history evidence;
+- active/live versus deprecated project context;
+- confirmed findings versus unanswered controls;
+- vulnerable package/version count before advisory alias count.
+
+Context must be attributable. Ship Check must not infer that a project is “live”, “deprecated”, “fork” or “upstream” merely because an agent believes it is.
+
+### Alpha 0.9 acceptance corpus
+
+Use the 70-project development-directory test as the primary estate-scale acceptance corpus, alongside the existing smaller Good Ship calibration corpus. The gate is not a target number of findings. It is whether Ship Check:
+
+1. discovers the intended project roots without recursing into dependency/build folders;
+2. keeps each project's evidence and coverage separate;
+3. makes unavailable scanners impossible to mistake for completed assessment;
+4. avoids presenting duplicated advisory aliases as independent packages;
+5. preserves secret redaction across current and history evidence;
+6. produces a useful aggregate attention view without an invented score;
+7. produces a hand-off a coding agent can act on and then verify by rerunning Ship Check.
+
 ## Alpha 2 — pilot hardening and stronger packs
 
 - [ ] Mature the Gitleaks / OSV / pinned Semgrep adapters based on corpus evidence.
