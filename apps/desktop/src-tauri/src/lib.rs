@@ -1,7 +1,7 @@
 mod engine;
 mod repository;
 
-use engine::{EngineStatus, ScanRequest};
+use engine::{EngineStatus, EstateScanRequest, ScanRequest};
 use serde::Deserialize;
 use serde_json::Value;
 use tauri::AppHandle;
@@ -38,6 +38,18 @@ async fn choose_project() -> Result<Option<String>, String> {
 }
 
 #[tauri::command]
+async fn choose_estate() -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        rfd::FileDialog::new()
+            .set_title("Choose a folder of projects to review")
+            .pick_folder()
+            .map(|path| path.to_string_lossy().to_string())
+    })
+    .await
+    .map_err(|error| format!("Could not open the estate folder picker: {error}"))
+}
+
+#[tauri::command]
 async fn choose_project_archive() -> Result<Option<String>, String> {
     tauri::async_runtime::spawn_blocking(|| {
         rfd::FileDialog::new()
@@ -62,6 +74,13 @@ async fn scan_project(app: AppHandle, request: ScanRequest) -> Result<Value, Str
     tauri::async_runtime::spawn_blocking(move || engine::scan(&app, request))
         .await
         .map_err(|error| format!("Ship Check scan task failed: {error}"))?
+}
+
+#[tauri::command]
+async fn scan_estate(app: AppHandle, request: EstateScanRequest) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || engine::scan_estate(&app, request))
+        .await
+        .map_err(|error| format!("Ship Check estate scan task failed: {error}"))?
 }
 
 #[tauri::command]
@@ -121,9 +140,11 @@ pub fn run() {
     tauri::Builder::default()
         .invoke_handler(tauri::generate_handler![
             choose_project,
+            choose_estate,
             choose_project_archive,
             engine_status,
             scan_project,
+            scan_estate,
             scan_github_repository
         ])
         .run(tauri::generate_context!())
