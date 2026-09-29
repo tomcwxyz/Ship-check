@@ -165,6 +165,14 @@ pnpm ship-check -- compare before.json after.json --format markdown
 
 The comparison distinguishes introduced, persistent, reactivated, newly accepted and no-longer-active findings/gaps. “No longer active” is intentionally not described as proof of remediation.
 
+To work through one item at a time from a complete JSON report:
+
+```bash
+pnpm ship-check -- focus after.json
+```
+
+Focused review keeps action semantics explicit: active findings are **FIX** work (highest severity first); only when there is no active finding does Ship Check surface an unanswered control as **VERIFY** work. An empty focused queue still points back to coverage and unassessed checks rather than claiming the project is safe.
+
 ### Estate review
 
 Alpha 0.9 adds bounded local discovery for a directory containing multiple projects. Each project is scanned independently; Ship Check does not merge evidence boundaries or create a portfolio safety score.

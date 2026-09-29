@@ -233,7 +233,7 @@ discover projects
 - [x] **Ship Check Agent Skill:** publish a thin skill that orchestrates the canonical CLI rather than reimplementing checks. The skill may inspect context, run approved complementary tools, repair code and rerun Ship Check, while keeping deterministic and agent-assessed states distinct.
   - [x] Land the repo-discoverable `.claude/skills/ship-check/SKILL.md` workflow.
   - [x] Package/document installation for use across arbitrary projects via `ship-check skill install`, with the canonical skill carried in the npm artefact and overwrite protection unless `--force` is explicit.
-- [ ] **Focused review mode:** let users work through the next confirmed concern or unanswered question one at a time, preserving the distinction between “fix” and “verify”.
+- [x] **Focused review mode:** `ship-check focus <report.json>` surfaces one active item at a time, prioritising confirmed findings by severity as **FIX** work and only then unanswered controls as **VERIFY** work; an empty queue points back to coverage rather than implying safety.
 - [ ] **Desktop estate entry point:** once the CLI contract is stable, add “Folder of projects” alongside Folder/GitHub/Project ZIP/Live site and reuse the same aggregate contracts.
 
 ### Estate triage principles
@@ -267,7 +267,7 @@ Use the 70-project development-directory test as the primary estate-scale accept
 - [ ] Mature the Gitleaks / OSV / pinned Semgrep adapters based on corpus evidence.
 - [ ] Safe dynamic/local smoke-test adapters where they add evidence beyond repository inspection.
 - [x] Local desktop regression comparison for comparable scans: newly introduced, persistent and resolved active findings/gaps are derived from opaque local identities, without retaining raw finding/gap IDs.
-- [ ] Optional focused one-finding-at-a-time review mode for larger scans.
+- [x] Optional focused one-item-at-a-time CLI review mode for larger scans, with confirmed findings kept distinct from unanswered controls; desktop integration remains separate.
 - [x] Local scan history remains metadata-only and capped; source contents, raw finding/gap IDs and local paths are not retained, while source/project and finding/gap identities are stored as SHA-256 digests for comparison.
 - [x] Stable check/ruleset provenance suitable for team/pilot use: every new report records a `check-ruleset-v1` SHA-256 fingerprint over selected check IDs, versions and packs; engine/source/scanner provenance remain separate and desktop/CI comparisons prefer the fingerprint with legacy fallback.
 
