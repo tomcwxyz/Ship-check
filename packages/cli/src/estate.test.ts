@@ -92,6 +92,64 @@ describe("estate discovery", () => {
 });
 
 describe("estate reporting", () => {
+  it("keeps project order neutral when status or ownership context is absent", () => {
+    const highFinding = {
+      id: "secure.example:high",
+      checkId: "secure.example",
+      pack: "secure-build" as const,
+      area: "code-security" as const,
+      severity: "high" as const,
+      confidence: "high" as const,
+      title: "Higher severity concern",
+      summary: "A confirmed concern.",
+      evidence: [],
+      remediation: {
+        why: "Why.",
+        fix: "Fix it.",
+        verify: "Verify it.",
+        agentPrompt: "Repair it."
+      }
+    };
+    const lowFinding = {
+      ...highFinding,
+      id: "secure.example:low",
+      severity: "low" as const,
+      title: "Lower severity concern"
+    };
+
+    const estate = buildEstateScanReport("/tmp/code", [
+      {
+        relativePath: "z-live-project",
+        status: "scanned",
+        report: report({
+          project: {
+            path: "fixture",
+            gitRepository: false,
+            inventorySource: "filesystem",
+            fileCount: 1,
+            context: { status: "live", ownership: "owned" }
+          },
+          findings: [highFinding],
+          summary: { total: 1, suppressed: 0, critical: 0, high: 1, medium: 0, low: 0, info: 0 }
+        })
+      },
+      {
+        relativePath: "a-unclassified-project",
+        status: "scanned",
+        report: report({
+          findings: [lowFinding],
+          summary: { total: 1, suppressed: 0, critical: 0, high: 0, medium: 0, low: 1, info: 0 }
+        })
+      }
+    ], "0.0.0-alpha.9");
+
+    const markdown = renderEstateMarkdown(estate);
+    expect(markdown.indexOf("### a-unclassified-project")).toBeLessThan(
+      markdown.indexOf("### z-live-project")
+    );
+    expect(markdown).not.toContain("status: development");
+  });
+
   it("makes unavailable scanner evidence prominent in aggregate output", () => {
     const gap = {
       id: "production.osv-vulnerabilities:osv-unavailable",

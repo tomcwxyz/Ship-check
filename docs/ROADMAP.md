@@ -235,7 +235,7 @@ discover projects
   - [x] Land the repo-discoverable `.claude/skills/ship-check/SKILL.md` workflow.
   - [x] Package/document installation for use across arbitrary projects via `ship-check skill install`, with the canonical skill carried in the npm artefact and overwrite protection unless `--force` is explicit.
 - [x] **Focused review mode:** `ship-check focus <report.json>` surfaces one active item at a time, prioritising confirmed findings by severity as **FIX** work and only then unanswered controls as **VERIFY** work; an empty queue points back to coverage rather than implying safety. The desktop now asks the bundled canonical CLI for the same focused selection instead of duplicating prioritisation logic in browser code.
-- [x] **Desktop estate entry point:** add “Folder of projects” alongside Folder/GitHub/Project ZIP/Live site, invoke the canonical `scan-dir` engine contract, preserve per-project evidence boundaries and show failed/attention/quiet project groups without an estate safety score.
+- [x] **Desktop estate entry point:** add “Folder of projects” alongside Folder/GitHub/Project ZIP/Live site, invoke the canonical `scan-dir` engine contract, preserve per-project evidence boundaries and show failed/attention/quiet project groups without an estate safety score. Projects with active findings or unanswered controls can lazily request the same canonical focused **FIX / VERIFY** action used by single-project review.
 
 ### Estate triage principles
 
@@ -249,7 +249,7 @@ Estate output should not invent a quality score or mechanically rank repositorie
 - confirmed findings versus unanswered controls;
 - vulnerable package/version count before advisory alias count.
 
-Context must be attributable. Ship Check must not infer that a project is “live”, “deprecated”, “fork” or “upstream” merely because an agent believes it is.
+Context must be attributable. Ship Check must not infer that a project is “live”, “deprecated”, “fork” or “upstream” merely because an agent believes it is. Estate project ordering is deliberately neutral/alphabetical rather than driven by a hidden numeric attention score; severity may order findings inside a project but does not become an overall project ranking.
 
 ### Alpha 0.9 acceptance corpus
 

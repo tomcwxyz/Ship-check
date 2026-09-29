@@ -1,3 +1,9 @@
+import {
+  assertFocusedReview,
+  renderFocusedReview,
+  renderFocusedReviewError,
+} from "./focus.js";
+
 const severityRank = {
   critical: 5,
   high: 4,
@@ -70,7 +76,15 @@ function metricCard(value, label) {
   return card;
 }
 
-function projectCard(project) {
+export function estateProjectCanFocus(project) {
+  return Boolean(
+    project &&
+      project.status === "scanned" &&
+      (project.report?.findings?.length > 0 || project.report?.gaps?.length > 0),
+  );
+}
+
+function projectCard(project, focusReport) {
   const report = project.report;
   const article = element("article", "estate-project-card");
   const heading = element("div", "estate-project-heading");
@@ -105,6 +119,39 @@ function projectCard(project) {
   }
   heading.append(titleWrap, badges);
   article.append(heading);
+
+  if (estateProjectCanFocus(project) && typeof focusReport === "function") {
+    const focusActions = element("div", "estate-focus-actions");
+    const focusButton = element("button", "button button-quiet", "Focus next action");
+    focusButton.type = "button";
+    const focusPanel = element("section", "focus-panel estate-focus-panel");
+    focusPanel.hidden = true;
+
+    focusButton.addEventListener("click", async () => {
+      focusButton.disabled = true;
+      focusButton.textContent = "Selecting next action…";
+      try {
+        const focused = assertFocusedReview(await focusReport(report));
+        renderFocusedReview(focusPanel, focused);
+        focusButton.textContent = "Focused action below";
+      } catch (error) {
+        renderFocusedReviewError(focusPanel, error);
+        focusButton.textContent = "Could not focus";
+      } finally {
+        focusButton.disabled = false;
+      }
+    });
+
+    focusActions.append(
+      focusButton,
+      element(
+        "span",
+        "source-help",
+        "Uses the same canonical FIX / VERIFY selector as a single-project review, only when requested.",
+      ),
+    );
+    article.append(focusActions, focusPanel);
+  }
 
   const details = element("details", "review-technical estate-project-details");
   details.append(element("summary", "", "Review project attention"));
@@ -151,7 +198,13 @@ function projectCard(project) {
   return article;
 }
 
-export function renderEstateReport({ estate, summaryContainer, projectsContainer, metaElement }) {
+export function renderEstateReport({
+  estate,
+  summaryContainer,
+  projectsContainer,
+  metaElement,
+  focusReport,
+}) {
   assertEstateReport(estate);
   const buckets = estateProjectBuckets(estate);
 
@@ -193,7 +246,9 @@ export function renderEstateReport({ estate, summaryContainer, projectsContainer
       element("p", "estate-quiet-note", "No confirmed findings, unanswered controls or check errors were reported in the areas assessed."),
     );
   } else {
-    for (const project of buckets.attention) attentionSection.append(projectCard(project));
+    for (const project of buckets.attention) {
+      attentionSection.append(projectCard(project, focusReport));
+    }
   }
   projectsContainer.append(attentionSection);
 

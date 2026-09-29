@@ -1,6 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { assertEstateReport, estateProjectBuckets } from "./estate.js";
+import {
+  assertEstateReport,
+  estateProjectBuckets,
+  estateProjectCanFocus,
+} from "./estate.js";
 
 function scan(overrides = {}) {
   return { project: {}, findings: [], gaps: [], checks: [], ...overrides };
@@ -39,4 +43,33 @@ test("estate buckets keep failures, attention and quiet scans distinct", () => {
   assert.deepEqual(result.failed.map((item) => item.relativePath), ["failed"]);
   assert.deepEqual(result.attention.map((item) => item.relativePath), ["finding", "question", "check-error"]);
   assert.deepEqual(result.quiet.map((item) => item.relativePath), ["quiet"]);
+});
+
+
+test("estate focus is offered only for projects with active findings or unanswered controls", () => {
+  assert.equal(
+    estateProjectCanFocus({
+      relativePath: "finding",
+      status: "scanned",
+      report: scan({ findings: [{ severity: "high" }] }),
+    }),
+    true,
+  );
+  assert.equal(
+    estateProjectCanFocus({
+      relativePath: "question",
+      status: "scanned",
+      report: scan({ gaps: [{ id: "q" }] }),
+    }),
+    true,
+  );
+  assert.equal(
+    estateProjectCanFocus({
+      relativePath: "check-error",
+      status: "scanned",
+      report: scan({ checks: [{ status: "error" }] }),
+    }),
+    false,
+  );
+  assert.equal(estateProjectCanFocus({ relativePath: "failed", status: "failed", error: "boom" }), false);
 });

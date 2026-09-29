@@ -654,6 +654,7 @@ async function runScan() {
         summaryContainer: elements.estateSummary,
         projectsContainer: elements.estateProjects,
         metaElement: elements.estateMeta,
+        focusReport: (report) => desktopBridge.focusReport(report),
       });
       elements.estateResults.hidden = false;
       elements.estateResults.scrollIntoView({ behavior: "smooth", block: "start" });

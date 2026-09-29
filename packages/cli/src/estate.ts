@@ -205,28 +205,6 @@ const severityRank: Record<Severity, number> = {
   info: 1
 };
 
-function projectAttention(project: Extract<EstateProjectResult, { status: "scanned" }>): number {
-  const report = project.report;
-  const highest = report.findings.reduce(
-    (current, finding) => Math.max(current, severityRank[finding.severity]),
-    0
-  );
-  const statusWeight = {
-    live: 40,
-    staging: 30,
-    development: 20,
-    deprecated: 0
-  }[report.project.context?.status ?? "development"];
-  const ownershipWeight = {
-    owned: 8,
-    fork: 2,
-    upstream: 0
-  }[report.project.context?.ownership ?? "owned"];
-  const unavailable = unavailableScannerGaps(report) > 0 ? 20 : 0;
-  const errors = report.checks.some((check) => check.status === "error") ? 10 : 0;
-  return highest * 100 + statusWeight + ownershipWeight + unavailable + errors;
-}
-
 function markdownEvidenceLocation(pathValue?: string, line?: number): string {
   if (!pathValue) return "Project evidence";
   return `${pathValue}${line ? `:${line}` : ""}`;
@@ -271,9 +249,12 @@ export function renderEstateMarkdown(estate: EstateScanReport): string {
     lines.push("");
   }
 
+  // Keep project order neutral and attributable. Severity still orders findings within a
+  // project, but the estate must not invent an overall project ranking or infer missing
+  // status/ownership context merely to decide which repository appears first.
   const ordered = estate.projects
     .filter((item): item is Extract<EstateProjectResult, { status: "scanned" }> => item.status === "scanned")
-    .sort((left, right) => projectAttention(right) - projectAttention(left) || left.relativePath.localeCompare(right.relativePath));
+    .sort((left, right) => left.relativePath.localeCompare(right.relativePath));
 
   lines.push("## Projects needing attention", "");
 

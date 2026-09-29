@@ -206,3 +206,29 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+.estate-focus-actions {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.estate-focus-actions .source-help {
+  margin: 0;
+  max-width: 620px;
+}
+
+.estate-focus-panel {
+  margin-top: 12px;
+  background: #f6f9f2;
+}
+
+@media (max-width: 640px) {
+  .estate-focus-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
