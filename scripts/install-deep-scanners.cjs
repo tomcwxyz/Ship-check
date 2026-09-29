@@ -5,14 +5,32 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
 const root = path.resolve(__dirname, "..");
-const destination = path.join(root, "apps", "desktop", "src-tauri", "resources");
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "ship-check-scanners-"));
-const requested = new Set(process.argv.slice(2));
-const allowedArgs = new Set(["--gitleaks-only"]);
-for (const argument of requested) {
-  if (!allowedArgs.has(argument)) throw new Error(`Unknown scanner install option: ${argument}`);
+
+function parseOptions(argv) {
+  let destination = path.join(root, "apps", "desktop", "src-tauri", "resources");
+  let gitleaksOnly = false;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === "--gitleaks-only") {
+      gitleaksOnly = true;
+      continue;
+    }
+    if (argument === "--destination") {
+      const value = argv[index + 1];
+      if (!value) throw new Error("--destination requires a path.");
+      destination = path.resolve(value);
+      index += 1;
+      continue;
+    }
+    throw new Error(`Unknown scanner install option: ${argument}`);
+  }
+
+  return { destination, gitleaksOnly };
 }
-const gitleaksOnly = requested.has("--gitleaks-only");
+
+const { destination, gitleaksOnly } = parseOptions(process.argv.slice(2));
 
 const assets = {
   "win32-x64": {
