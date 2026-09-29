@@ -72,12 +72,20 @@ const platformPackages = {
 await fs.rm(path.join(root, "dist", "npm"), { recursive: true, force: true });
 await fs.mkdir(mainOutput, { recursive: true });
 
+const pnpmCommand = process.platform === "win32"
+  ? (process.env.ComSpec || "cmd.exe")
+  : "pnpm";
+const pnpmArgs = process.platform === "win32"
+  ? ["/d", "/s", "/c", "pnpm build"]
+  : ["build"];
+
 await execFileAsync(
-  process.platform === "win32" ? "pnpm.cmd" : "pnpm",
-  ["build"],
+  pnpmCommand,
+  pnpmArgs,
   {
     cwd: root,
     env: process.env,
+    windowsHide: true,
     maxBuffer: 16 * 1024 * 1024
   }
 );
