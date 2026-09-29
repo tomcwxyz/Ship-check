@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -13,25 +14,58 @@ const rootPackage = JSON.parse(
 
 const platformPackages = {
   "win32-x64": {
-    name: "@good-ship/ship-check-gitleaks-win32-x64",
-    shortName: "ship-check-gitleaks-win32-x64",
     os: "win32",
     cpu: "x64",
-    binary: "gitleaks.exe"
+    scanners: [
+      {
+        name: "@good-ship/ship-check-gitleaks-win32-x64",
+        shortName: "ship-check-gitleaks-win32-x64",
+        binary: "gitleaks.exe",
+        label: "Gitleaks"
+      },
+      {
+        name: "@good-ship/ship-check-osv-win32-x64",
+        shortName: "ship-check-osv-win32-x64",
+        binary: "osv-scanner.exe",
+        label: "OSV-Scanner"
+      }
+    ]
   },
   "linux-x64": {
-    name: "@good-ship/ship-check-gitleaks-linux-x64",
-    shortName: "ship-check-gitleaks-linux-x64",
     os: "linux",
     cpu: "x64",
-    binary: "gitleaks"
+    scanners: [
+      {
+        name: "@good-ship/ship-check-gitleaks-linux-x64",
+        shortName: "ship-check-gitleaks-linux-x64",
+        binary: "gitleaks",
+        label: "Gitleaks"
+      },
+      {
+        name: "@good-ship/ship-check-osv-linux-x64",
+        shortName: "ship-check-osv-linux-x64",
+        binary: "osv-scanner",
+        label: "OSV-Scanner"
+      }
+    ]
   },
   "darwin-arm64": {
-    name: "@good-ship/ship-check-gitleaks-darwin-arm64",
-    shortName: "ship-check-gitleaks-darwin-arm64",
     os: "darwin",
     cpu: "arm64",
-    binary: "gitleaks"
+    scanners: [
+      {
+        name: "@good-ship/ship-check-gitleaks-darwin-arm64",
+        shortName: "ship-check-gitleaks-darwin-arm64",
+        binary: "gitleaks",
+        label: "Gitleaks"
+      },
+      {
+        name: "@good-ship/ship-check-osv-darwin-arm64",
+        shortName: "ship-check-osv-darwin-arm64",
+        binary: "osv-scanner",
+        label: "OSV-Scanner"
+      }
+    ]
   }
 };
 
@@ -62,9 +96,12 @@ if (!entry.startsWith("#!")) {
 }
 await fs.chmod(entryPath, 0o755);
 
-const optionalDependencies = Object.fromEntries(
-  Object.values(platformPackages).map((item) => [item.name, rootPackage.version])
-);
+const optionalDependencies = {};
+for (const platform of Object.values(platformPackages)) {
+  for (const scanner of platform.scanners) {
+    optionalDependencies[scanner.name] = rootPackage.version;
+  }
+}
 
 const packageJson = {
   name: "@good-ship/ship-check",
@@ -112,61 +149,71 @@ npx --yes @good-ship/ship-check scan-dir ~/Code --format markdown
 
 The package contains the bundled JavaScript Ship Check engine rather than depending on the internal monorepo workspace graph.
 
-Pinned Gitleaks is supplied by an OS/CPU-specific optional package and resolved at runtime. Networked dependency checking remains explicitly opt-in.
+Pinned Gitleaks and OSV-Scanner binaries are supplied through OS/CPU-specific optional packages and resolved at runtime. OSV execution still remains explicitly opt-in via \`--networked-dependency-scan\`.
 
 Source: https://github.com/tomcwxyz/Ship-check
 `
 );
 
 const platformKey = `${process.platform}-${process.arch}`;
-const platformPackage = platformPackages[platformKey];
+const platform = platformPackages[platformKey];
 
-if (platformPackage) {
-  const scannerOutput = path.join(npmRoot, platformPackage.shortName);
-  const scannerBin = path.join(scannerOutput, "bin");
-  await fs.mkdir(scannerBin, { recursive: true });
+if (platform) {
+  const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "ship-check-npm-scanners-"));
+  try {
+    await execFileAsync(
+      process.execPath,
+      [
+        "scripts/install-deep-scanners.cjs",
+        "--destination",
+        temporary
+      ],
+      {
+        cwd: root,
+        env: process.env,
+        maxBuffer: 16 * 1024 * 1024
+      }
+    );
 
-  await execFileAsync(
-    process.execPath,
-    [
-      "scripts/install-deep-scanners.cjs",
-      "--gitleaks-only",
-      "--destination",
-      scannerBin
-    ],
-    {
-      cwd: root,
-      env: process.env,
-      maxBuffer: 16 * 1024 * 1024
+    for (const scanner of platform.scanners) {
+      const scannerOutput = path.join(npmRoot, scanner.shortName);
+      const scannerBin = path.join(scannerOutput, "bin");
+      await fs.mkdir(scannerBin, { recursive: true });
+
+      const sourceBinary = path.join(temporary, scanner.binary);
+      const targetBinary = path.join(scannerBin, scanner.binary);
+      await fs.copyFile(sourceBinary, targetBinary);
+      if (process.platform !== "win32") await fs.chmod(targetBinary, 0o755);
+
+      const scannerManifest = {
+        name: scanner.name,
+        version: rootPackage.version,
+        description: `Pinned ${scanner.label} binary for Ship Check on ${platform.os}/${platform.cpu}.`,
+        license: "Apache-2.0",
+        os: [platform.os],
+        cpu: [platform.cpu],
+        files: [`bin/${scanner.binary}`],
+        publishConfig: {
+          access: "public"
+        },
+        repository: {
+          type: "git",
+          url: "git+https://github.com/tomcwxyz/Ship-check.git"
+        }
+      };
+
+      await fs.writeFile(
+        path.join(scannerOutput, "package.json"),
+        `${JSON.stringify(scannerManifest, null, 2)}\n`
+      );
+
+      const stat = await fs.stat(targetBinary);
+      if (!stat.isFile() || stat.size === 0) {
+        throw new Error(`Pinned ${scanner.label} package did not contain ${scanner.binary}.`);
+      }
     }
-  );
-
-  const scannerManifest = {
-    name: platformPackage.name,
-    version: rootPackage.version,
-    description: `Pinned Gitleaks binary for Ship Check on ${platformPackage.os}/${platformPackage.cpu}.`,
-    license: "Apache-2.0",
-    os: [platformPackage.os],
-    cpu: [platformPackage.cpu],
-    files: [`bin/${platformPackage.binary}`],
-    publishConfig: {
-      access: "public"
-    },
-    repository: {
-      type: "git",
-      url: "git+https://github.com/tomcwxyz/Ship-check.git"
-    }
-  };
-
-  await fs.writeFile(
-    path.join(scannerOutput, "package.json"),
-    `${JSON.stringify(scannerManifest, null, 2)}\n`
-  );
-
-  const installedBinary = path.join(scannerBin, platformPackage.binary);
-  const stat = await fs.stat(installedBinary);
-  if (!stat.isFile() || stat.size === 0) {
-    throw new Error(`Pinned Gitleaks package did not contain ${platformPackage.binary}.`);
+  } finally {
+    await fs.rm(temporary, { recursive: true, force: true });
   }
 }
 
