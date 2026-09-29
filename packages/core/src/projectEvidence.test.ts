@@ -194,6 +194,39 @@ describe("project evidence provenance", () => {
     });
   });
 
+  it("marks a history check not assessed when a source checkout does not declare Git history", async () => {
+    const root = await temporaryProject();
+    await execFileAsync("git", ["-C", root, "init"]);
+    await execFileAsync("git", ["-C", root, "add", "package.json"]);
+
+    const historyCheck: CheckDefinition = {
+      id: "test.history-only",
+      pack: "secure-build",
+      title: "History-only test",
+      description: "Requires complete Git history.",
+      requiresEvidence: ["git-history"],
+      async run() {
+        throw new Error("must not run without history evidence");
+      }
+    };
+
+    const report = await scanProject(root, [historyCheck], "0.0.0-test", {
+      type: "source",
+      provider: "github",
+      label: "example/repository",
+      acquisition: "transient-checkout",
+      executionLocation: "user-device",
+      capabilities: ["source-files"],
+      ephemeral: true
+    });
+
+    expect(report.checks[0]).toMatchObject({
+      checkId: "test.history-only",
+      status: "not-assessed",
+      missingEvidence: ["git-history"]
+    });
+  });
+
   it("marks a source check not assessed when only runtime evidence is available", async () => {
     const root = await temporaryProject();
     let executed = false;
