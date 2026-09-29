@@ -75,6 +75,7 @@ jobs:
           node "$MAIN/index.js" --version
           node "$MAIN/index.js" scan ./test-fixtures/cost-safe --pack cost-aware --format markdown > dist/npm-smoke.md
           node "$MAIN/index.js" scan ./test-fixtures/safe-next --pack secure-build --format json > dist/npm-secure.json
+          node "$MAIN/index.js" scan ./test-fixtures/safe-next --pack production-ready --networked-dependency-scan --format json > dist/npm-osv.json
 
           mkdir -p dist/history-fixture
           git -C dist/history-fixture init
@@ -100,13 +101,21 @@ jobs:
           assert.equal(manifest.name, "@good-ship/ship-check");
           assert.equal(manifest.bin?.["ship-check"], "./index.js");
           assert.equal(manifest.optionalDependencies?.["@good-ship/ship-check-gitleaks-linux-x64"], manifest.version);
+          assert.equal(manifest.optionalDependencies?.["@good-ship/ship-check-osv-linux-x64"], manifest.version);
 
-          const scannerManifest = JSON.parse(await readFile(
+          const gitleaksManifest = JSON.parse(await readFile(
             "dist/npm/node_modules/@good-ship/ship-check-gitleaks-linux-x64/package.json",
             "utf8"
           ));
-          assert.equal(scannerManifest.os?.[0], "linux");
-          assert.equal(scannerManifest.cpu?.[0], "x64");
+          assert.equal(gitleaksManifest.os?.[0], "linux");
+          assert.equal(gitleaksManifest.cpu?.[0], "x64");
+
+          const osvManifest = JSON.parse(await readFile(
+            "dist/npm/node_modules/@good-ship/ship-check-osv-linux-x64/package.json",
+            "utf8"
+          ));
+          assert.equal(osvManifest.os?.[0], "linux");
+          assert.equal(osvManifest.cpu?.[0], "x64");
 
           const secure = JSON.parse(await readFile("dist/npm-secure.json", "utf8"));
           const gitleaks = secure.checks.find((check) => check.checkId === "secure.secret-pattern");
@@ -114,6 +123,15 @@ jobs:
           assert.match(gitleaks.scannerVersion ?? "", /8\.30\.1/);
           assert.equal(
             secure.gaps.some((gap) => String(gap.id).includes("gitleaks-unavailable")),
+            false
+          );
+
+          const osv = JSON.parse(await readFile("dist/npm-osv.json", "utf8"));
+          const osvCheck = osv.checks.find((check) => check.checkId === "production.osv-vulnerabilities");
+          assert.ok(osvCheck, "Expected OSV-backed dependency check");
+          assert.match(osvCheck.scannerVersion ?? "", /2\.5\.1/);
+          assert.equal(
+            osv.gaps.some((gap) => String(gap.id).includes("osv-unavailable")),
             false
           );
 
