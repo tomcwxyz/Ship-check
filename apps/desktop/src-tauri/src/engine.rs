@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
     env, fs,
+    io::Write,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
 };
 use tauri::{AppHandle, Manager};
 
@@ -380,6 +381,51 @@ pub fn scan_estate(app: &AppHandle, request: EstateScanRequest) -> Result<Value,
     serde_json::from_slice::<Value>(&output.stdout).map_err(|error| {
         format!(
             "Ship Check returned an invalid estate report: {error}. The desktop and engine versions may not match."
+        )
+    })
+}
+
+pub fn focus_report(app: &AppHandle, report: Value) -> Result<Value, String> {
+    let engine = locate_engine(app)?;
+    let payload = serde_json::to_vec(&report)
+        .map_err(|error| format!("Could not prepare the Ship Check report for focused review: {error}"))?;
+
+    let mut child = Command::new(&engine)
+        .arg("focus")
+        .arg("-")
+        .arg("--format")
+        .arg("json")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("Could not start the Ship Check focused review: {error}"))?;
+
+    let mut stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| "Could not open the Ship Check focused-review input.".to_string())?;
+    stdin
+        .write_all(&payload)
+        .map_err(|error| format!("Could not send the report to the Ship Check focused review: {error}"))?;
+    drop(stdin);
+
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("Could not finish the Ship Check focused review: {error}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if stderr.is_empty() {
+            format!("Ship Check focused review exited with {}.", output.status)
+        } else {
+            stderr
+        });
+    }
+
+    serde_json::from_slice::<Value>(&output.stdout).map_err(|error| {
+        format!(
+            "Ship Check returned an invalid focused review: {error}. The desktop and engine versions may not match."
         )
     })
 }

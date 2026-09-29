@@ -76,7 +76,8 @@ jobs:
           node --check apps/desktop/ui/review.js
           node --check apps/desktop/ui/diagnostics.js
           node --check apps/desktop/ui/estate.js
-          node --test apps/desktop/ui/diagnostics.test.mjs apps/desktop/ui/review.test.mjs apps/desktop/ui/estate.test.mjs
+          node --check apps/desktop/ui/focus.js
+          node --test apps/desktop/ui/diagnostics.test.mjs apps/desktop/ui/review.test.mjs apps/desktop/ui/estate.test.mjs apps/desktop/ui/focus.test.mjs
           node --check scripts/generate-desktop-assets.cjs
           node --check scripts/install-deep-scanners.cjs
       - run: pnpm desktop:assets

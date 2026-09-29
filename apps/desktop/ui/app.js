@@ -1,6 +1,11 @@
 import { desktopBridge } from "./bridge.js";
 import { assertEstateReport, renderEstateReport } from "./estate.js";
 import {
+  assertFocusedReview,
+  renderFocusedReview,
+  renderFocusedReviewError,
+} from "./focus.js";
+import {
   renderCoverage,
   renderFindings,
   renderGaps,
@@ -81,6 +86,7 @@ const elements = {
   estateProjects: document.querySelector("#estate-projects"),
   estateMeta: document.querySelector("#estate-meta"),
   summaryGrid: document.querySelector("#summary-grid"),
+  focusPanel: document.querySelector("#focus-panel"),
   coverageGrid: document.querySelector("#coverage-grid"),
   observationsPanel: document.querySelector("#observations-panel"),
   observationsList: document.querySelector("#observations-list"),
@@ -512,6 +518,7 @@ function sourceMetaLabel(source) {
 
 function renderReport(report, options) {
   state.report = report;
+  elements.focusPanel.hidden = true;
   renderSummary(elements.summaryGrid, report);
   renderCoverage(elements.coverageGrid, report.coverage);
   renderObservations(elements.observationsPanel, elements.observationsList, report.observations);
@@ -550,6 +557,15 @@ function renderReport(report, options) {
 
   renderFindings(elements.findingsList, elements.emptyState, report.findings, state.severityFilter, report.checks);
   elements.results.hidden = false;
+}
+
+async function renderFocus(report) {
+  try {
+    const focused = assertFocusedReview(await desktopBridge.focusReport(report));
+    renderFocusedReview(elements.focusPanel, focused);
+  } catch (error) {
+    renderFocusedReviewError(elements.focusPanel, error);
+  }
 }
 
 async function refreshEngineStatus() {
@@ -666,6 +682,7 @@ async function runScan() {
       button.classList.toggle("is-active", button.dataset.severity === "all");
     }
     renderReport(report, options);
+    await renderFocus(report);
     await recordSuccess(report, packs, options, startedAt);
     elements.results.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {

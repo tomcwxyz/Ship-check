@@ -46,6 +46,10 @@ export const desktopBridge = {
     });
   },
 
+  focusReport(report) {
+    return invokeCommand("focus_report", { report });
+  },
+
   scanEstate(projectPath, packs, options = {}) {
     return invokeCommand("scan_estate", {
       request: {

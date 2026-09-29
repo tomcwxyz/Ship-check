@@ -171,7 +171,7 @@ To work through one item at a time from a complete JSON report:
 pnpm ship-check -- focus after.json
 ```
 
-Focused review keeps action semantics explicit: active findings are **FIX** work (highest severity first); only when there is no active finding does Ship Check surface an unanswered control as **VERIFY** work. An empty focused queue still points back to coverage and unassessed checks rather than claiming the project is safe.
+Focused review keeps action semantics explicit: active findings are **FIX** work (highest severity first); only when there is no active finding does Ship Check surface an unanswered control as **VERIFY** work. An empty focused queue still points back to coverage and unassessed checks rather than claiming the project is safe. The desktop uses this same canonical selector to place one “Next action” card above the full report, with focused repair or verification instructions that can be copied to a developer or coding agent.
 
 ### Estate review
 

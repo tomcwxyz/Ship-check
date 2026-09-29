@@ -77,6 +77,13 @@ async fn scan_project(app: AppHandle, request: ScanRequest) -> Result<Value, Str
 }
 
 #[tauri::command]
+async fn focus_report(app: AppHandle, report: Value) -> Result<Value, String> {
+    tauri::async_runtime::spawn_blocking(move || engine::focus_report(&app, report))
+        .await
+        .map_err(|error| format!("Ship Check focused-review task failed: {error}"))?
+}
+
+#[tauri::command]
 async fn scan_estate(app: AppHandle, request: EstateScanRequest) -> Result<Value, String> {
     tauri::async_runtime::spawn_blocking(move || engine::scan_estate(&app, request))
         .await
@@ -144,6 +151,7 @@ pub fn run() {
             choose_project_archive,
             engine_status,
             scan_project,
+            focus_report,
             scan_estate,
             scan_github_repository
         ])
