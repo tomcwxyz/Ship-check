@@ -68,6 +68,20 @@ jobs:
         run: pnpm dogfood
       - name: Compile standalone engine
         run: bun build packages/cli/src/index.ts --compile --outfile dist/ship-check
+      - name: Stage self-contained npm package
+        run: |
+          pnpm build:npm
+          node dist/npm/index.js --version
+          node dist/npm/index.js scan ./test-fixtures/cost-safe --pack cost-aware --format markdown > dist/npm-smoke.md
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+
+          const manifest = JSON.parse(await readFile("dist/npm/package.json", "utf8"));
+          assert.equal(manifest.name, "@good-ship/ship-check");
+          assert.equal(manifest.bin?.["ship-check"], "./index.js");
+          assert.equal(Array.isArray(manifest.files), true);
+          NODE
       - name: Smoke standalone engine
         run: |
           ./dist/ship-check --version
