@@ -138,7 +138,7 @@ export function sourceExecutionContextFromEnvironment(
 
 export async function prepareRepositorySource(
   input: string,
-  options: { ref?: string; executionContext?: SourceExecutionContext } = {},
+  options: { ref?: string; executionContext?: SourceExecutionContext; fullHistory?: boolean } = {},
 ): Promise<PreparedRepositorySource> {
   const local = await localDirectory(input);
   if (local) {
@@ -185,7 +185,9 @@ export async function prepareRepositorySource(
   const ref = validateRef(options.ref);
   const temporaryRoot = await fs.mkdtemp(path.join(os.tmpdir(), "ship-check-repo-"));
   const checkoutPath = path.join(temporaryRoot, "repository");
-  const args = ["clone", "--depth", "1", "--single-branch"];
+  const args = options.fullHistory
+    ? ["clone"]
+    : ["clone", "--depth", "1", "--single-branch"];
   if (ref) args.push("--branch", ref);
   args.push(github.cloneUrl, checkoutPath);
 
@@ -215,7 +217,7 @@ export async function prepareRepositorySource(
       label: displayName,
       acquisition: "transient-checkout",
       executionLocation: "user-device",
-      capabilities: ["source-files", "git-history"],
+      capabilities: options.fullHistory ? ["source-files", "git-history"] : ["source-files"],
       ephemeral: true,
       ...(ref ? { ref } : {})
     },
