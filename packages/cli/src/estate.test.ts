@@ -23,7 +23,7 @@ afterEach(async () => {
 });
 
 function report(overrides: Partial<ScanReport> = {}): ScanReport {
-  return {
+  const base: ScanReport = {
     schemaVersion: "0.1",
     tool: { name: "ship-check", version: "0.0.0-alpha.9" },
     project: {
@@ -48,9 +48,9 @@ function report(overrides: Partial<ScanReport> = {}): ScanReport {
       low: 0,
       info: 0
     },
-    generatedAt: new Date().toISOString(),
-    ...overrides
+    generatedAt: new Date().toISOString()
   };
+  return { ...base, ...overrides } as ScanReport;
 }
 
 describe("estate discovery", () => {
