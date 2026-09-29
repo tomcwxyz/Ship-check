@@ -1,6 +1,7 @@
 import { promises as fs, type Dirent } from "node:fs";
 import path from "node:path";
 import type { ScanReport, Severity } from "@ship-check/schemas";
+import { isUnavailableScannerGap } from "./reportMarkdown.js";
 
 const ignoredDirectories = new Set([
   ".git",
@@ -145,9 +146,7 @@ export async function discoverProjectDirectories(
 }
 
 function unavailableScannerGaps(report: ScanReport): number {
-  return (report.gaps ?? []).filter((gap) =>
-    /unavailable/i.test(gap.id) || /scanner.+unavailable|scanning.+unavailable/i.test(gap.title)
-  ).length;
+  return (report.gaps ?? []).filter(isUnavailableScannerGap).length;
 }
 
 export function buildEstateScanReport(
@@ -257,9 +256,7 @@ export function renderEstateMarkdown(estate: EstateScanReport): string {
     .filter((item): item is Extract<EstateProjectResult, { status: "scanned" }> => item.status === "scanned")
     .map((project) => ({
       project,
-      gaps: project.report.gaps.filter((gap) =>
-        /unavailable/i.test(gap.id) || /scanner.+unavailable|scanning.+unavailable/i.test(gap.title)
-      )
+      gaps: project.report.gaps.filter(isUnavailableScannerGap)
     }))
     .filter((entry) => entry.gaps.length > 0);
 
@@ -312,9 +309,7 @@ export function renderEstateMarkdown(estate: EstateScanReport): string {
       );
     }
 
-    for (const gap of report.gaps.filter((gap) =>
-      !(/unavailable/i.test(gap.id) || /scanner.+unavailable|scanning.+unavailable/i.test(gap.title))
-    )) {
+    for (const gap of report.gaps.filter((gap) => !isUnavailableScannerGap(gap))) {
       lines.push(
         `- **[VERIFY] ${gap.title}** — ${gap.summary}`,
         `  - Verify: ${gap.verify}`
