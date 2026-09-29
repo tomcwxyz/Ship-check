@@ -76,8 +76,9 @@ jobs:
           node "$MAIN/index.js" scan ./test-fixtures/cost-safe --pack cost-aware --format markdown > dist/npm-smoke.md
           node "$MAIN/index.js" scan ./test-fixtures/safe-next --pack secure-build --format json > dist/npm-secure.json
 
-          mkdir -p dist/osv-fixture
-          cat > dist/osv-fixture/package-lock.json <<'JSON'
+          OSV_FIXTURE="$(mktemp -d)"
+          trap 'rm -rf "$OSV_FIXTURE"' EXIT
+          cat > "$OSV_FIXTURE/package-lock.json" <<'JSON'
           {
             "name": "ship-check-osv-fixture",
             "version": "1.0.0",
@@ -91,7 +92,7 @@ jobs:
             }
           }
           JSON
-          node "$MAIN/index.js" scan dist/osv-fixture --pack production-ready --networked-dependency-scan --format json > dist/npm-osv.json
+          node "$MAIN/index.js" scan "$OSV_FIXTURE" --pack production-ready --networked-dependency-scan --format json > dist/npm-osv.json
 
           mkdir -p dist/history-fixture
           git -C dist/history-fixture init
