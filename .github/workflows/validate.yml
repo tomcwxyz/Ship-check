@@ -87,13 +87,16 @@ jobs:
           git -C dist/history-fixture init
           git -C dist/history-fixture config user.email "ship-check@example.invalid"
           git -C dist/history-fixture config user.name "Ship Check Test"
-          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out dist/history-fixture/test-private-key.pem >/dev/null 2>&1
-          git -C dist/history-fixture add test-private-key.pem
-          git -C dist/history-fixture commit -m "fixture: historical private key"
-          rm dist/history-fixture/test-private-key.pem
+          node --input-type=module <<'NODE'
+          import { writeFile } from "node:fs/promises";
+          const synthetic = "ghp_" + "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789";
+          await writeFile("dist/history-fixture/config.js", `const token = "${synthetic}";\n`);
+          NODE
+          git -C dist/history-fixture add config.js
+          git -C dist/history-fixture commit -m "fixture: historical credential"
           printf 'export const safe = true;\n' > dist/history-fixture/config.js
-          git -C dist/history-fixture add -A
-          git -C dist/history-fixture commit -m "fixture: remove private key"
+          git -C dist/history-fixture add config.js
+          git -C dist/history-fixture commit -m "fixture: remove credential"
           node "$MAIN/index.js" scan dist/history-fixture --pack secure-build --git-history-secrets --format json > dist/npm-history.json
 
           cp dist/npm-secure.json dist/npm-secure-after.json
@@ -151,12 +154,13 @@ jobs:
           assert.equal(
             history.findings.some((finding) =>
               finding.checkId === "secure.secret-pattern" &&
-              String(finding.evidence?.[0]?.path ?? "") === "test-private-key.pem"
+              String(finding.evidence?.[0]?.path ?? "") === "config.js"
             ),
             false,
-            "Removed historical private key must not be presented as a current-tree secret"
+            "Removed historical credential must not be presented as a current-tree secret"
           );
-          assert.equal(JSON.stringify(history).includes("BEGIN PRIVATE KEY"), false);
+          const syntheticHistorySecret = "ghp_" + "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789";
+          assert.equal(JSON.stringify(history).includes(syntheticHistorySecret), false);
 
           const comparison = await readFile("dist/npm-compare.md", "utf8");
           assert.match(comparison, /0 introduced/);

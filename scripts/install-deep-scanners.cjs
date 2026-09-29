@@ -35,8 +35,8 @@ const { destination, gitleaksOnly } = parseOptions(process.argv.slice(2));
 const assets = {
   "win32-x64": {
     gitleaks: {
-      url: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_windows_x64.zip",
-      sha256: "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e",
+      url: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_windows_x64.zip",
+      sha256: "54fe94f644b832dd08e8c3a5915efb3bfa862386d59fb27ca0792cb687a83573",
       archive: "zip",
       member: "gitleaks.exe",
       destination: "gitleaks.exe",
@@ -50,8 +50,8 @@ const assets = {
   },
   "linux-x64": {
     gitleaks: {
-      url: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz",
-      sha256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
+      url: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_x64.tar.gz",
+      sha256: "79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e",
       archive: "tar.gz",
       member: "gitleaks",
       destination: "gitleaks",
@@ -65,8 +65,8 @@ const assets = {
   },
   "darwin-arm64": {
     gitleaks: {
-      url: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_darwin_arm64.tar.gz",
-      sha256: "b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5",
+      url: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_darwin_arm64.tar.gz",
+      sha256: "b251ab2bcd4cd8ba9e56ff37698c033ebf38582b477d21ebd86586d927cf87e7",
       archive: "tar.gz",
       member: "gitleaks",
       destination: "gitleaks",
@@ -149,7 +149,7 @@ async function main() {
     throw new Error(`No pinned Ship Check scanner binaries are configured for ${platformKey}.`);
   }
   fs.mkdirSync(destination, { recursive: true });
-  await install("Gitleaks 8.30.1", selected.gitleaks);
+  await install("Gitleaks 8.30.0", selected.gitleaks);
   if (!gitleaksOnly) await install("OSV-Scanner 2.5.1", selected.osv);
   process.stdout.write(
     gitleaksOnly

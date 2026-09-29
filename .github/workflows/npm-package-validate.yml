@@ -79,7 +79,8 @@ jobs:
           node --input-type=module <<'NODE'
           import assert from "node:assert/strict";
           import { spawnSync } from "node:child_process";
-          import { access, readFile } from "node:fs/promises";
+          import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+          import os from "node:os";
           import path from "node:path";
 
           const root = path.join("dist", "npm", "node_modules", "@good-ship");
@@ -115,4 +116,27 @@ jobs:
             windowsHide: true
           });
           assert.equal(cli.status, 0, cli.stderr);
+
+          const fixture = await mkdtemp(path.join(os.tmpdir(), "ship-check-gitleaks-smoke-"));
+          const synthetic = "ghp_" + "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789";
+          try {
+            await writeFile(path.join(fixture, "config.js"), `const token = "${synthetic}";\n`);
+            const scan = spawnSync(
+              process.execPath,
+              [path.join(main, "index.js"), "scan", fixture, "--pack", "secure-build", "--format", "json"],
+              { encoding: "utf8", windowsHide: true, maxBuffer: 16 * 1024 * 1024 }
+            );
+            assert.equal(scan.status, 0, scan.stderr);
+            const report = JSON.parse(scan.stdout);
+            const secretCheck = report.checks.find((check) => check.checkId === "secure.secret-pattern");
+            assert.ok(secretCheck, "Expected Gitleaks secret check");
+            assert.match(secretCheck.scannerVersion ?? "", /8\.30\.0/);
+            assert.ok(
+              report.findings.some((finding) => finding.checkId === "secure.secret-pattern"),
+              "Pinned Gitleaks must detect the synthetic acceptance credential"
+            );
+            assert.equal(scan.stdout.includes(synthetic), false, "Scanner output must not echo the matched secret");
+          } finally {
+            await rm(fixture, { recursive: true, force: true });
+          }
           NODE

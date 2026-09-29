@@ -11,7 +11,7 @@ const runtimeRequire = createRequire(import.meta.url);
 const TOOL_TIMEOUT_MS = 120_000;
 const MIRROR_MAX_BYTES = 5 * 1024 * 1024;
 
-export const PINNED_GITLEAKS_VERSION = "8.30.1";
+export const PINNED_GITLEAKS_VERSION = "8.30.0";
 export const PINNED_OSV_VERSION = "2.5.1";
 
 function lineNumber(text: string, index: number): number {
