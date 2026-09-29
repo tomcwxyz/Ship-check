@@ -79,6 +79,7 @@ jobs:
           node --input-type=module <<'NODE'
           import assert from "node:assert/strict";
           import { spawnSync } from "node:child_process";
+          import { randomBytes } from "node:crypto";
           import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
           import os from "node:os";
           import path from "node:path";
@@ -143,7 +144,7 @@ jobs:
           }
 
           const fixture = await mkdtemp(path.join(os.tmpdir(), "ship-check-gitleaks-smoke-"));
-          const synthetic = "ghp_" + "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789";
+          const synthetic = "ghp_" + randomBytes(32).toString("hex").slice(0, 36);
           try {
             await writeFile(path.join(fixture, "config.js"), `const token = "${synthetic}";\n`);
             const scan = spawnSync(

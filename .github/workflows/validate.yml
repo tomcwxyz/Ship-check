@@ -88,8 +88,9 @@ jobs:
           git -C dist/history-fixture config user.email "ship-check@example.invalid"
           git -C dist/history-fixture config user.name "Ship Check Test"
           node --input-type=module <<'NODE'
+          import { randomBytes } from "node:crypto";
           import { writeFile } from "node:fs/promises";
-          const synthetic = "ghp_" + "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789";
+          const synthetic = "ghp_" + randomBytes(32).toString("hex").slice(0, 36);
           await writeFile("dist/history-fixture/config.js", `const token = "${synthetic}";\n`);
           NODE
           git -C dist/history-fixture add config.js
@@ -130,7 +131,7 @@ jobs:
           const secure = JSON.parse(await readFile("dist/npm-secure.json", "utf8"));
           const gitleaks = secure.checks.find((check) => check.checkId === "secure.secret-pattern");
           assert.ok(gitleaks, "Expected Gitleaks-backed secret check");
-          assert.match(gitleaks.scannerVersion ?? "", /8\.30\.1/);
+          assert.match(gitleaks.scannerVersion ?? "", /8\.30\.0/);
           assert.equal(
             secure.gaps.some((gap) => String(gap.id).includes("gitleaks-unavailable")),
             false
@@ -159,8 +160,11 @@ jobs:
             false,
             "Removed historical credential must not be presented as a current-tree secret"
           );
-          const syntheticHistorySecret = "ghp_" + "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789";
-          assert.equal(JSON.stringify(history).includes(syntheticHistorySecret), false);
+          assert.equal(
+            JSON.stringify(history).includes("ghp_"),
+            false,
+            "Historical scan output must not echo GitHub PAT-shaped secret material"
+          );
 
           const comparison = await readFile("dist/npm-compare.md", "utf8");
           assert.match(comparison, /0 introduced/);
