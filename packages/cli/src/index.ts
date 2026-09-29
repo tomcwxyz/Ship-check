@@ -67,7 +67,9 @@ const areaNames: Record<AssessmentArea, string> = {
 };
 
 function usage(): string {
-  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-source] [--deployment-url url] [--inspect-database] [--database-url-env ENV_NAME] [--database-platform postgres|supabase|neon] [--database-table-limit 1000] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--local-semgrep-scan] [--networked-dependency-scan] [--format pretty|json|markdown|metadata|rack|oos] [--fail-on critical|high|medium|low|never]\n  ship-check scan-dir [directory] [--max-depth 3] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--local-semgrep-scan] [--networked-dependency-scan] [--format pretty|json|markdown] [--fail-on critical|high|medium|low|never]\n\nEstate review:\n  scan-dir discovers bounded project roots under a local directory, scans each project independently and keeps evidence/coverage separate. It does not infer project importance from raw finding counts. Requested-but-unavailable scanners are called out explicitly in aggregate output.\n\nCloud history (metadata only):\n  ship-check cloud connect <metadata.json> [--cloud-url https://...] [--display-name name] [--retention 30-days|90-days|180-days|365-days|until-deleted]\n  ship-check cloud sync <project-id> <metadata.json> [--cloud-url https://...]\n  ship-check cloud projects [--cloud-url https://...]\n  ship-check cloud timeline <project-id> [--cloud-url https://...]\n    Uses SHIP_CHECK_CLOUD_TOKEN for bearer authentication and sends only the source-free assurance metadata envelope. SHIP_CHECK_CLOUD_URL may provide the endpoint instead of --cloud-url.\n\nAI discovery:\n  ship-check discover-ai [project-source] [--ref branch-or-tag]\n    Emits a metadata-only crux-discovery/0.1 report. Discovery identifies technical AI/workflow signals only; it does not declare organisational purpose or authority.\n\nProject sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  Exported project: C:\\path\\to\\project.zip\n  Deployment URL only: https://example.com\n  Source + deployment: add --deployment-url https://example.com\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nRuntime URL checks:\n  Deployment URLs use a bounded, non-mutating GET probe with manual redirect following. Ship Check records transport, selected browser security headers, cookie flags and a synthetic CORS Origin response. It does not retain response bodies or cookie values. A URL-only run leaves source/database checks not assessed; --deployment-url combines runtime evidence with the supplied source in one project report.\n\nDatabase metadata checks:\n  --inspect-database explicitly opts into a local read-only Postgres metadata inspection and requires Production Ready. The connection URL is read from SHIP_CHECK_DATABASE_URL by default; use --database-url-env NAME to select another environment variable. Do not put a database URL on the command line. Ship Check opens a read-only transaction, runs only its fixed system-catalog metadata queries, reads no application rows, rolls the transaction back and does not retain the connection URL or database role name. --database-platform labels provider-specific evidence; --database-table-limit bounds the table inventory from 1 to 5000 (default 1000).\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  Server-boundary checks trace a bounded local import graph so auth, webhook verification, paid work, object-level authorisation questions and outbound-request questions can include shared helpers.\n  Production Ready records positive server-surface observations separately from findings and checks selected GitHub Actions supply-chain boundaries.\n  --local-semgrep-scan opts into Ship Check's small pinned local Semgrep ruleset and requires Secure Build. It stays offline, disables Semgrep metrics/version checks and never uses Registry/auto rules. Semgrep itself is not bundled in the alpha desktop; use a compatible local CLI or SHIP_CHECK_SEMGREP_PATH.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.\n\nAccepted exceptions:\n  A tracked .ship-check.json may suppress an exact finding ID only when it also names the matching rule version and a substantive rationale. Suppressed findings remain visible in the report and rule-version changes invalidate old suppressions. Runtime-only URL scans do not load repository suppression configuration.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan-dir ~/Code --format markdown\n  ship-check scan-dir ~/Code --max-depth 4 --networked-dependency-scan --format json\n  ship-check discover-ai .\n  ship-check discover-ai tomcwxyz/open-recs-local --ref master\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan ./lovable-export.zip\n  ship-check scan https://example.com\n  ship-check scan ./lovable-export.zip --deployment-url https://example.com\n  ship-check scan tomcwxyz/Ship-check --deployment-url https://ship-check.example\n  SHIP_CHECK_DATABASE_URL=postgresql://... ship-check scan . --inspect-database --database-platform supabase\n  ship-check scan . --inspect-database --database-url-env MY_READONLY_DATABASE_URL --database-platform neon\n  ship-check scan . --pack secure-build --local-semgrep-scan\n  ship-check scan . --networked-dependency-scan\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n  SHIP_CHECK_CLOUD_URL=https://cloud.example SHIP_CHECK_CLOUD_TOKEN=shipcheck_... ship-check cloud connect ./ship-check-metadata.json --display-name "My project"\n`;
+  return `Ship Check ${version}\n\nUsage:\n  ship-check scan [project-source] [--deployment-url url] [--inspect-database] [--database-url-env ENV_NAME] [--database-platform postgres|supabase|neon] [--database-table-limit 1000] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--local-semgrep-scan] [--networked-dependency-scan] [--git-history-secrets] [--format pretty|json|markdown|metadata|rack|oos] [--fail-on critical|high|medium|low|never]\n  ship-check scan-dir [directory] [--max-depth 3] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--local-semgrep-scan] [--networked-dependency-scan] [--git-history-secrets] [--format pretty|json|markdown] [--fail-on critical|high|medium|low|never]\n\nEstate review:\n  scan-dir discovers bounded project roots under a local directory, scans each project independently and keeps evidence/coverage separate. It does not infer project importance from raw finding counts. Requested-but-unavailable scanners are called out explicitly in aggregate output.\n\nCloud history (metadata only):\n  ship-check cloud connect <metadata.json> [--cloud-url https://...] [--display-name name] [--retention 30-days|90-days|180-days|365-days|until-deleted]\n  ship-check cloud sync <project-id> <metadata.json> [--cloud-url https://...]\n  ship-check cloud projects [--cloud-url https://...]\n  ship-check cloud timeline <project-id> [--cloud-url https://...]\n    Uses SHIP_CHECK_CLOUD_TOKEN for bearer authentication and sends only the source-free assurance metadata envelope. SHIP_CHECK_CLOUD_URL may provide the endpoint instead of --cloud-url.\n\nAI discovery:\n  ship-check discover-ai [project-source] [--ref branch-or-tag]\n    Emits a metadata-only crux-discovery/0.1 report. Discovery identifies technical AI/workflow signals only; it does not declare organisational purpose or authority.\n\nProject sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  Exported project: C:\\path\\to\\project.zip\n  Deployment URL only: https://example.com\n  Source + deployment: add --deployment-url https://example.com\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nRuntime URL checks:\n  Deployment URLs use a bounded, non-mutating GET probe with manual redirect following. Ship Check records transport, selected browser security headers, cookie flags and a synthetic CORS Origin response. It does not retain response bodies or cookie values. A URL-only run leaves source/database checks not assessed; --deployment-url combines runtime evidence with the supplied source in one project report.\n\nDatabase metadata checks:\n  --inspect-database explicitly opts into a local read-only Postgres metadata inspection and requires Production Ready. The connection URL is read from SHIP_CHECK_DATABASE_URL by default; use --database-url-env NAME to select another environment variable. Do not put a database URL on the command line. Ship Check opens a read-only transaction, runs only its fixed system-catalog metadata queries, reads no application rows, rolls the transaction back and does not retain the connection URL or database role name. --database-platform labels provider-specific evidence; --database-table-limit bounds the table inventory from 1 to 5000 (default 1000).\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  Server-boundary checks trace a bounded local import graph so auth, webhook verification, paid work, object-level authorisation questions and outbound-request questions can include shared helpers.\n  Production Ready records positive server-surface observations separately from findings and checks selected GitHub Actions supply-chain boundaries.\n  --local-semgrep-scan opts into Ship Check's small pinned local Semgrep ruleset and requires Secure Build. It stays offline, disables Semgrep metrics/version checks and never uses Registry/auto rules. Semgrep itself is not bundled in the alpha desktop; use a compatible local CLI or SHIP_CHECK_SEMGREP_PATH.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.
+  --git-history-secrets opts into a separate Gitleaks scan of Git history and requires Secure Build. Historical exposure remains distinct from current-source credentials; removing a value from history does not establish revocation.\n\nAccepted exceptions:\n  A tracked .ship-check.json may suppress an exact finding ID only when it also names the matching rule version and a substantive rationale. Suppressed findings remain visible in the report and rule-version changes invalidate old suppressions. Runtime-only URL scans do not load repository suppression configuration.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan-dir ~/Code --format markdown\n  ship-check scan-dir ~/Code --max-depth 4 --networked-dependency-scan --format json\n  ship-check discover-ai .\n  ship-check discover-ai tomcwxyz/open-recs-local --ref master\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan ./lovable-export.zip\n  ship-check scan https://example.com\n  ship-check scan ./lovable-export.zip --deployment-url https://example.com\n  ship-check scan tomcwxyz/Ship-check --deployment-url https://ship-check.example\n  SHIP_CHECK_DATABASE_URL=postgresql://... ship-check scan . --inspect-database --database-platform supabase\n  ship-check scan . --inspect-database --database-url-env MY_READONLY_DATABASE_URL --database-platform neon\n  ship-check scan . --pack secure-build --local-semgrep-scan\n  ship-check scan . --networked-dependency-scan
+  ship-check scan . --git-history-secrets\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n  SHIP_CHECK_CLOUD_URL=https://cloud.example SHIP_CHECK_CLOUD_TOKEN=shipcheck_... ship-check cloud connect ./ship-check-metadata.json --display-name "My project"\n`;
 }
 
 function checkVersionFor(report: ScanReport, checkId: string): string {
@@ -169,7 +171,7 @@ function printPretty(report: ScanReport): void {
 
 function checksForRequestedPacks(
   packs: CheckPack[],
-  options: { networkedDependencyScan: boolean; localSemgrepScan: boolean }
+  options: { networkedDependencyScan: boolean; localSemgrepScan: boolean; gitHistorySecrets: boolean }
 ): CheckDefinition[] {
   const standard = packs.filter(
     (pack): pack is "secure-build" | "production-ready" => pack !== "cost-aware"
@@ -188,7 +190,10 @@ function checksForRequestedPacks(
     ...(packs.includes("production-ready") ? [serverSurfaceInventoryCheck] : []),
     ...(packs.includes("cost-aware") ? costAwareChecks : []),
     ...databaseSourceChecks.filter((check) => packs.includes(check.pack)),
-    ...deepChecksForPacks(packs, { networkedDependencyScan: options.networkedDependencyScan }),
+    ...deepChecksForPacks(packs, {
+      networkedDependencyScan: options.networkedDependencyScan,
+      gitHistorySecrets: options.gitHistorySecrets
+    }),
     ...(packs.includes("secure-build") && options.localSemgrepScan ? [semgrepLocalCheck] : [])
   ];
 }
@@ -262,6 +267,7 @@ async function main(): Promise<void> {
       "max-depth": { type: "string" },
       "local-semgrep-scan": { type: "boolean", default: false },
       "networked-dependency-scan": { type: "boolean", default: false },
+      "git-history-secrets": { type: "boolean", default: false },
       "cloud-url": { type: "string" },
       "display-name": { type: "string" },
       retention: { type: "string" },
@@ -406,11 +412,15 @@ async function main(): Promise<void> {
   const gateThreshold = (failOn === "never" ? "high" : failOn) as Severity;
   const localSemgrepScan = Boolean(values["local-semgrep-scan"]);
   const networkedDependencyScan = Boolean(values["networked-dependency-scan"]);
+  const gitHistorySecrets = Boolean(values["git-history-secrets"]);
   if (localSemgrepScan && !requestedPacks.includes("secure-build")) {
     throw new Error("--local-semgrep-scan requires the secure-build pack because the pinned static-analysis rules belong to Secure Build.");
   }
   if (networkedDependencyScan && !requestedPacks.includes("production-ready")) {
     throw new Error("--networked-dependency-scan requires the production-ready pack because OSV findings belong to Production Ready.");
+  }
+  if (gitHistorySecrets && !requestedPacks.includes("secure-build")) {
+    throw new Error("--git-history-secrets requires the secure-build pack because historical credential exposure belongs to Secure Build.");
   }
 
   if (command === "scan-dir") {
@@ -435,7 +445,8 @@ async function main(): Promise<void> {
 
     const sourceChecks = checksForRequestedPacks(requestedPacks, {
       networkedDependencyScan,
-      localSemgrepScan
+      localSemgrepScan,
+      gitHistorySecrets
     });
     const projectResults: EstateProjectResult[] = [];
 
@@ -490,7 +501,11 @@ async function main(): Promise<void> {
 
   const sourceValue = positionals[1] ?? ".";
   const deploymentUrl = values["deployment-url"];
-  const sourceChecks = checksForRequestedPacks(requestedPacks, { networkedDependencyScan, localSemgrepScan });
+  const sourceChecks = checksForRequestedPacks(requestedPacks, {
+    networkedDependencyScan,
+    localSemgrepScan,
+    gitHistorySecrets
+  });
   const selectedRuntimeChecks = runtimeHttpChecks.filter((check) => requestedPacks.includes(check.pack));
 
   if (isRuntimeUrlSource(sourceValue)) {
@@ -498,6 +513,7 @@ async function main(): Promise<void> {
     if (values.ref) throw new Error("--ref applies to GitHub repository sources, not deployment URLs.");
     if (localSemgrepScan) throw new Error("--local-semgrep-scan requires source files and cannot run against a deployment URL alone.");
     if (networkedDependencyScan) throw new Error("--networked-dependency-scan requires dependency manifests and cannot run against a deployment URL alone.");
+    if (gitHistorySecrets) throw new Error("--git-history-secrets requires a local or GitHub Git repository and cannot run against a deployment URL alone.");
     const runtimeReport = await scanRuntimeTarget(
       sourceValue,
       sourceChecks,
