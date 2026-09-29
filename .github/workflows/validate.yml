@@ -87,6 +87,9 @@ jobs:
           git -C dist/history-fixture init
           git -C dist/history-fixture config user.email "ship-check@example.invalid"
           git -C dist/history-fixture config user.name "Ship Check Test"
+          printf 'export const safe = true;\n' > dist/history-fixture/config.js
+          git -C dist/history-fixture add config.js
+          git -C dist/history-fixture commit -m "fixture: baseline"
           node --input-type=module <<'NODE'
           import { randomBytes } from "node:crypto";
           import { writeFile } from "node:fs/promises";
