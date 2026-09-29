@@ -212,9 +212,20 @@ function projectAttention(project: Extract<EstateProjectResult, { status: "scann
     (current, finding) => Math.max(current, severityRank[finding.severity]),
     0
   );
+  const statusWeight = {
+    live: 40,
+    staging: 30,
+    development: 20,
+    deprecated: 0
+  }[report.project.context?.status ?? "development"];
+  const ownershipWeight = {
+    owned: 8,
+    fork: 2,
+    upstream: 0
+  }[report.project.context?.ownership ?? "owned"];
   const unavailable = unavailableScannerGaps(report) > 0 ? 20 : 0;
   const errors = report.checks.some((check) => check.status === "error") ? 10 : 0;
-  return highest * 100 + unavailable + errors;
+  return highest * 100 + statusWeight + ownershipWeight + unavailable + errors;
 }
 
 function markdownEvidenceLocation(pathValue?: string, line?: number): string {
@@ -277,6 +288,13 @@ export function renderEstateMarkdown(estate: EstateScanReport): string {
     }
     attentionProjects += 1;
     lines.push(`### ${project.relativePath}`, "");
+    if (report.project.context) {
+      const declared = [
+        report.project.context.status ? `status: ${report.project.context.status}` : "",
+        report.project.context.ownership ? `ownership: ${report.project.context.ownership}` : ""
+      ].filter(Boolean).join(" · ");
+      lines.push(`Declared project context — ${declared}.`, "");
+    }
     lines.push(
       `${report.summary.total} findings · ${report.gaps.length} unanswered controls · ${report.checks.filter((check) => check.status === "error").length} check errors.`,
       ""
