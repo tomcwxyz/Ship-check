@@ -25,10 +25,10 @@ Do not silently suppress a finding because it looks like a test fixture, fork, e
 
 ## Choose the scan
 
-For one local project, prefer the canonical JSON report:
+For one local project, prefer the canonical JSON report and keep it if repairs may follow:
 
 ```bash
-ship-check scan . --format json
+ship-check scan . --format json > ship-check-before.json
 ```
 
 When working inside the Ship Check repository itself, the local development command is:
@@ -55,6 +55,14 @@ Do not enable networked dependency scanning unless the user has asked for it or 
 ```bash
 ship-check scan . --networked-dependency-scan --format json
 ```
+
+For a comprehensive review of a real Git repository, Git-history secret scanning can be added explicitly:
+
+```bash
+ship-check scan . --git-history-secrets --format json
+```
+
+Historical credential exposure is separate from current-source credentials. Removing or rewriting a historical value does not establish that it was revoked. For GitHub repository inputs, Ship Check requests a full-history checkout only when this option is enabled.
 
 ## Scanner availability
 
@@ -85,8 +93,14 @@ Do not invent those labels when they are absent.
 6. Distinguish your contextual assessment from deterministic scanner state.
 7. If the user asks for fixes, make the smallest useful change that addresses the verified issue and preserve intended behaviour.
 8. Run the relevant project tests/build/type checks after code changes.
-9. Rerun Ship Check.
-10. Report what is resolved, what persists, what is newly introduced, and what still could not be assessed.
+9. Rerun Ship Check to a second JSON report.
+10. Compare the reports with Ship Check rather than inferring transitions yourself:
+
+```bash
+ship-check compare ship-check-before.json ship-check-after.json --format markdown
+```
+
+11. Report what is introduced, persistent, reactivated, newly accepted, no longer active, and what still could not be assessed. “No longer active” is a scan-state change, not automatic proof of remediation.
 
 ## Estate review
 
@@ -98,6 +112,7 @@ For a multi-project directory:
 - surface failed scans and unavailable scanners prominently;
 - use declared live/deprecated and owned/fork/upstream context when present;
 - distinguish current source evidence from historical exposure when Ship Check provides both;
+- use `--git-history-secrets` only where repository history is part of the requested review;
 - consolidate duplicated advisory aliases around the affected package/version where possible.
 
 When prioritising for the user, explain the basis: severity, live/deployed context, ownership, missing evidence, or a verified exposure. Do not imply that this ordering changes the underlying Ship Check severity.
