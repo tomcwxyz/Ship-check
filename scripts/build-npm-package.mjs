@@ -73,6 +73,16 @@ await fs.rm(path.join(root, "dist", "npm"), { recursive: true, force: true });
 await fs.mkdir(mainOutput, { recursive: true });
 
 await execFileAsync(
+  process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+  ["build"],
+  {
+    cwd: root,
+    env: process.env,
+    maxBuffer: 16 * 1024 * 1024
+  }
+);
+
+await execFileAsync(
   "bun",
   [
     "build",
