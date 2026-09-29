@@ -102,8 +102,33 @@ export const FindingSuppressionSchema = z.object({
 }).strict();
 export type FindingSuppression = z.infer<typeof FindingSuppressionSchema>;
 
+export const ProjectStatusSchema = z.enum([
+  "live",
+  "staging",
+  "development",
+  "deprecated"
+]);
+export type ProjectStatus = z.infer<typeof ProjectStatusSchema>;
+
+export const ProjectOwnershipSchema = z.enum([
+  "owned",
+  "fork",
+  "upstream"
+]);
+export type ProjectOwnership = z.infer<typeof ProjectOwnershipSchema>;
+
+export const ProjectTriageContextSchema = z.object({
+  status: ProjectStatusSchema.optional(),
+  ownership: ProjectOwnershipSchema.optional()
+}).strict().refine(
+  (context) => context.status !== undefined || context.ownership !== undefined,
+  "Project context must declare at least status or ownership."
+);
+export type ProjectTriageContext = z.infer<typeof ProjectTriageContextSchema>;
+
 export const ShipCheckConfigSchema = z.object({
   schemaVersion: z.literal("0.1"),
+  project: ProjectTriageContextSchema.optional(),
   suppressions: z.array(FindingSuppressionSchema).default([])
 }).strict();
 export type ShipCheckConfig = z.infer<typeof ShipCheckConfigSchema>;
@@ -195,7 +220,8 @@ export const ScanReportSchema = z.object({
     inventorySource: InventorySourceSchema,
     fileCount: z.number().int().nonnegative(),
     commit: z.string().regex(/^[a-f0-9]{40,64}$/).optional(),
-    snapshot: ProjectSnapshotSchema.optional()
+    snapshot: ProjectSnapshotSchema.optional(),
+    context: ProjectTriageContextSchema.optional()
   }),
   packs: z.array(CheckPackSchema),
   checks: z.array(CheckResultSchema),
