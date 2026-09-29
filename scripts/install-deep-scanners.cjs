@@ -32,6 +32,17 @@ function parseOptions(argv) {
 
 const { destination, gitleaksOnly } = parseOptions(process.argv.slice(2));
 
+const licenses = {
+  gitleaks: {
+    source: path.join(root, "third-party", "licenses", "gitleaks-8.30.0-LICENSE.txt"),
+    destination: "gitleaks-LICENSE.txt",
+  },
+  osv: {
+    source: path.join(root, "third-party", "licenses", "osv-scanner-2.5.1-LICENSE.txt"),
+    destination: "osv-scanner-LICENSE.txt",
+  },
+};
+
 const assets = {
   "win32-x64": {
     gitleaks: {
@@ -129,6 +140,17 @@ function extract(asset, archivePath, outputPath) {
   fs.copyFileSync(extracted, outputPath);
 }
 
+function installLicense(name, license) {
+  if (!fs.existsSync(license.source)) {
+    throw new Error(`Pinned ${name} licence file is missing: ${license.source}`);
+  }
+  const target = path.join(destination, license.destination);
+  fs.copyFileSync(license.source, target);
+  if (!fs.statSync(target).isFile() || fs.statSync(target).size === 0) {
+    throw new Error(`Pinned ${name} licence file was not copied to ${target}.`);
+  }
+}
+
 async function install(name, asset) {
   const archivePath = path.join(temporary, `${name}-${path.basename(new URL(asset.url).pathname)}`);
   const outputPath = path.join(destination, asset.destination);
@@ -150,7 +172,11 @@ async function main() {
   }
   fs.mkdirSync(destination, { recursive: true });
   await install("Gitleaks 8.30.0", selected.gitleaks);
-  if (!gitleaksOnly) await install("OSV-Scanner 2.5.1", selected.osv);
+  installLicense("Gitleaks 8.30.0", licenses.gitleaks);
+  if (!gitleaksOnly) {
+    await install("OSV-Scanner 2.5.1", selected.osv);
+    installLicense("OSV-Scanner 2.5.1", licenses.osv);
+  }
   process.stdout.write(
     gitleaksOnly
       ? `Pinned Gitleaks installed for ${platformKey}; OSV was not downloaded or run.\n`

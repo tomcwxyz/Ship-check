@@ -21,13 +21,17 @@ const platformPackages = {
         name: "@good-ship/ship-check-gitleaks-win32-x64",
         shortName: "ship-check-gitleaks-win32-x64",
         binary: "gitleaks.exe",
-        label: "Gitleaks"
+        label: "Gitleaks",
+        license: "MIT",
+        licenseFile: "gitleaks-LICENSE.txt"
       },
       {
         name: "@good-ship/ship-check-osv-win32-x64",
         shortName: "ship-check-osv-win32-x64",
         binary: "osv-scanner.exe",
-        label: "OSV-Scanner"
+        label: "OSV-Scanner",
+        license: "Apache-2.0",
+        licenseFile: "osv-scanner-LICENSE.txt"
       }
     ]
   },
@@ -39,13 +43,17 @@ const platformPackages = {
         name: "@good-ship/ship-check-gitleaks-linux-x64",
         shortName: "ship-check-gitleaks-linux-x64",
         binary: "gitleaks",
-        label: "Gitleaks"
+        label: "Gitleaks",
+        license: "MIT",
+        licenseFile: "gitleaks-LICENSE.txt"
       },
       {
         name: "@good-ship/ship-check-osv-linux-x64",
         shortName: "ship-check-osv-linux-x64",
         binary: "osv-scanner",
-        label: "OSV-Scanner"
+        label: "OSV-Scanner",
+        license: "Apache-2.0",
+        licenseFile: "osv-scanner-LICENSE.txt"
       }
     ]
   },
@@ -57,13 +65,17 @@ const platformPackages = {
         name: "@good-ship/ship-check-gitleaks-darwin-arm64",
         shortName: "ship-check-gitleaks-darwin-arm64",
         binary: "gitleaks",
-        label: "Gitleaks"
+        label: "Gitleaks",
+        license: "MIT",
+        licenseFile: "gitleaks-LICENSE.txt"
       },
       {
         name: "@good-ship/ship-check-osv-darwin-arm64",
         shortName: "ship-check-osv-darwin-arm64",
         binary: "osv-scanner",
-        label: "OSV-Scanner"
+        label: "OSV-Scanner",
+        license: "Apache-2.0",
+        licenseFile: "osv-scanner-LICENSE.txt"
       }
     ]
   }
@@ -214,14 +226,18 @@ if (platform) {
       await fs.copyFile(sourceBinary, targetBinary);
       if (process.platform !== "win32") await fs.chmod(targetBinary, 0o755);
 
+      const sourceLicense = path.join(temporary, scanner.licenseFile);
+      const targetLicense = path.join(scannerOutput, "LICENSE.txt");
+      await fs.copyFile(sourceLicense, targetLicense);
+
       const scannerManifest = {
         name: scanner.name,
         version: rootPackage.version,
         description: `Pinned ${scanner.label} binary for Ship Check on ${platform.os}/${platform.cpu}.`,
-        license: "Apache-2.0",
+        license: scanner.license,
         os: [platform.os],
         cpu: [platform.cpu],
-        files: [`bin/${scanner.binary}`],
+        files: [`bin/${scanner.binary}`, "LICENSE.txt"],
         publishConfig: {
           access: "public"
         },
@@ -237,8 +253,12 @@ if (platform) {
       );
 
       const stat = await fs.stat(targetBinary);
+      const licenseStat = await fs.stat(targetLicense);
       if (!stat.isFile() || stat.size === 0) {
         throw new Error(`Pinned ${scanner.label} package did not contain ${scanner.binary}.`);
+      }
+      if (!licenseStat.isFile() || licenseStat.size === 0) {
+        throw new Error(`Pinned ${scanner.label} package did not contain its upstream licence.`);
       }
     }
   } finally {
