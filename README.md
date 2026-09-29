@@ -138,6 +138,51 @@ JSON remains the complete portable report:
 pnpm ship-check -- scan ./my-project --format json > ship-check-report.json
 ```
 
+For a human/developer/agent hand-off that keeps findings, unanswered controls, missing scanner evidence and coverage distinct:
+
+```bash
+pnpm ship-check -- scan ./my-project --format markdown > ship-check-review.md
+```
+
+### Estate review
+
+Alpha 0.9 adds bounded local discovery for a directory containing multiple projects. Each project is scanned independently; Ship Check does not merge evidence boundaries or create a portfolio safety score.
+
+```bash
+pnpm ship-check -- scan-dir ~/Code --format markdown
+pnpm ship-check -- scan-dir ~/Code --max-depth 4 --format json
+```
+
+Requested scanners that cannot run are surfaced explicitly in the estate output rather than being treated as completed assessment.
+
+Projects can declare triage context in tracked `.ship-check.json` without changing deterministic finding state:
+
+```json
+{
+  "schemaVersion": "0.1",
+  "project": {
+    "status": "live",
+    "ownership": "owned"
+  },
+  "suppressions": []
+}
+```
+
+Supported status values are `live`, `staging`, `development` and `deprecated`. Ownership values are `owned`, `fork` and `upstream`. Ship Check never infers these labels when they are absent.
+
+### Agent skill and npm staging
+
+The repository now includes a project-discoverable Agent Skill at `.claude/skills/ship-check/SKILL.md`. It orchestrates the canonical CLI and repair/rerun loop while keeping agent judgement separate from deterministic Ship Check evidence.
+
+The branch can also stage a self-contained npm artefact without exposing the internal workspace package graph:
+
+```bash
+pnpm build:npm
+node dist/npm/index.js --version
+```
+
+The staged package name is `@good-ship/ship-check`. Publication and bundled external-scanner parity are still required before the npx route is treated as equivalent to the desktop build.
+
 Every newly generated report also carries a `check-ruleset-v1` SHA-256 fingerprint over the selected check IDs, rule versions and packs. Engine version remains separate, so history/CI can distinguish “same rules under a newer Ship Check build” from an actual ruleset change without retaining source content.
 
 For history or future metadata-only sync, emit the source-free assurance envelope instead:
