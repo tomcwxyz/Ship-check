@@ -117,6 +117,31 @@ jobs:
           });
           assert.equal(cli.status, 0, cli.stderr);
 
+          const skillTarget = await mkdtemp(path.join(os.tmpdir(), "ship-check-skill-smoke-"));
+          try {
+            const installSkill = spawnSync(
+              process.execPath,
+              [path.join(main, "index.js"), "skill", "install", skillTarget],
+              { encoding: "utf8", windowsHide: true }
+            );
+            assert.equal(installSkill.status, 0, installSkill.stderr);
+            const installedSkill = await readFile(
+              path.join(skillTarget, ".claude", "skills", "ship-check", "SKILL.md"),
+              "utf8"
+            );
+            assert.match(installedSkill, /name: ship-check/);
+
+            const installAgain = spawnSync(
+              process.execPath,
+              [path.join(main, "index.js"), "skill", "install", skillTarget],
+              { encoding: "utf8", windowsHide: true }
+            );
+            assert.equal(installAgain.status, 0, installAgain.stderr);
+            assert.match(installAgain.stdout, /already up to date/i);
+          } finally {
+            await rm(skillTarget, { recursive: true, force: true });
+          }
+
           const fixture = await mkdtemp(path.join(os.tmpdir(), "ship-check-gitleaks-smoke-"));
           const synthetic = "ghp_" + "aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789";
           try {

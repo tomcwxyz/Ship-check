@@ -132,7 +132,8 @@ const packageJson = {
   },
   files: [
     "index.js",
-    "README.md"
+    "README.md",
+    "skill/SKILL.md"
   ],
   engines: {
     node: ">=22.12.0"
@@ -150,6 +151,13 @@ const packageJson = {
 await fs.writeFile(
   path.join(mainOutput, "package.json"),
   `${JSON.stringify(packageJson, null, 2)}\n`
+);
+
+const skillOutput = path.join(mainOutput, "skill");
+await fs.mkdir(skillOutput, { recursive: true });
+await fs.copyFile(
+  path.join(root, ".claude", "skills", "ship-check", "SKILL.md"),
+  path.join(skillOutput, "SKILL.md")
 );
 
 await fs.writeFile(

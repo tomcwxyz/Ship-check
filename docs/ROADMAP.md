@@ -110,7 +110,7 @@ The implementation target for this line is `0.0.0-alpha.6`. Once the matching de
 - [x] Carry unverified controls into RACK/assurance output as `uncertain` rather than `pass`.
 - [x] Keep diagnostic history metadata-only while recording coverage/gap/observation/suppression counts, never observation paths/details, suppression rationales or source evidence.
 - [x] Fix engine/CLI provenance so the alpha.5 code reports the matching version rather than the older alpha.4 constant.
-- [x] Replace the narrow default credential-pattern scan with **Gitleaks 8.30.1**, pinned and bundled per desktop platform. Gitleaks scans a temporary mirror of Ship Check's tracked inventory and secret values never enter the canonical report.
+- [x] Replace the narrow default credential-pattern scan with **Gitleaks 8.30.0**, pinned and bundled per desktop platform. Gitleaks scans a temporary mirror of Ship Check's tracked inventory and secret values never enter the canonical report. The known 8.30.1 detection regression is deliberately excluded and package CI now verifies actual synthetic-secret detection, not only binary/version availability.
 - [x] Add **OSV-Scanner 2.5.1** as an explicitly opt-in networked dependency-vulnerability check. Only recognised dependency manifests/lockfiles are mirrored; the desktop makes the network boundary visible before the scan.
 - [x] Verify third-party release artifacts against pinned SHA-256 digests during desktop packaging rather than downloading mutable `latest` binaries.
 - [x] Trace up to two bounded local import levels for paid-service, webhook-verification and Vercel-cron controls, including common root/`src` `@/` aliases, while retaining the existing stable check IDs.
@@ -221,18 +221,18 @@ discover projects
 - [x] **Estate scanning:** add a bounded local directory-discovery mode that finds project roots, scans each independently with the canonical engine and produces one aggregate report without merging project evidence boundaries.
 - [x] **Estate output:** provide aggregate JSON plus a human/agent-oriented Markdown report showing project failures, scanner availability, confirmed findings, unanswered controls and per-project coverage before technical detail.
 - [x] **Project context:** extend tracked `.ship-check.json` with explicit project status/ownership context such as `live | staging | development | deprecated` and `owned | fork | upstream`. Context may affect triage/presentation but must never suppress deterministic findings.
-- [ ] **Scanner availability as attention:** make requested-but-unavailable Gitleaks/OSV/Semgrep evidence prominent at project and estate level rather than allowing it to disappear among ordinary unanswered controls.
+- [x] **Scanner availability as attention:** make requested-but-unavailable Gitleaks/OSV/Semgrep evidence prominent at project and estate level rather than allowing it to disappear among ordinary unanswered controls.
 - [ ] **Reliable zero-install CLI:** make the public CLI publishable through npm/npx, remove monorepo-only `workspace:*` installation assumptions from the published artefact and give npm users equivalent scanner capability to the desktop where practical.
   - [x] Stage a self-contained `@good-ship/ship-check` npm artefact by bundling the canonical CLI so published users do not depend on monorepo `workspace:*` packages.
-  - [ ] Publish the package and complete scanner-binary parity before calling npx equivalent to the desktop.
-- [ ] **Pinned scanner delivery:** resolve Gitleaks reliably for npx use; keep OSV explicitly opt-in because it crosses a network boundary; retain Semgrep as an explicit optional local capability until a defensible bundled route is chosen.
-- [ ] **Git-history secret evidence:** add an explicit history scan boundary for repositories with `.git`, separate current-source credentials from historical exposure and preserve the rule that deletion does not imply rotation/revocation.
-- [ ] **Dependency consolidation:** present vulnerable package/version units before advisory aliases so GHSA/CVE aliases do not inflate the first-line problem count; preserve underlying advisory provenance.
+  - [ ] Publish the package. Scanner-binary parity is staged and behaviourally validated across Windows x64, Linux x64 and macOS Apple Silicon before publication.
+- [x] **Pinned scanner delivery:** resolve Gitleaks reliably for npx use; keep OSV explicitly opt-in because it crosses a network boundary; retain Semgrep as an explicit optional local capability until a defensible bundled route is chosen.
+- [x] **Git-history secret evidence:** add an explicit history scan boundary for repositories with `.git`, separate current-source credentials from historical exposure and preserve the rule that deletion does not imply rotation/revocation.
+- [x] **Dependency consolidation:** present vulnerable package/version units before advisory aliases so GHSA/CVE aliases do not inflate the first-line problem count; preserve underlying advisory provenance.
 - [x] **Portable agent hand-off:** add Markdown/agent output for a single project and an estate, including exact finding/question IDs, evidence locations, repair/verification instructions, coverage limits and rerun instructions without secret values.
-- [ ] **Comparison/repair loop:** expose comparable before/after semantics outside CI: introduced, persistent, reactivated, accepted and no-longer-active findings/gaps, without treating disappearance as proof of remediation.
-- [ ] **Ship Check Agent Skill:** publish a thin skill that orchestrates the canonical CLI rather than reimplementing checks. The skill may inspect context, run approved complementary tools, repair code and rerun Ship Check, while keeping deterministic and agent-assessed states distinct.
+- [x] **Comparison/repair loop:** expose comparable before/after semantics outside CI: introduced, persistent, reactivated, accepted and no-longer-active findings/gaps, without treating disappearance as proof of remediation.
+- [x] **Ship Check Agent Skill:** publish a thin skill that orchestrates the canonical CLI rather than reimplementing checks. The skill may inspect context, run approved complementary tools, repair code and rerun Ship Check, while keeping deterministic and agent-assessed states distinct.
   - [x] Land the repo-discoverable `.claude/skills/ship-check/SKILL.md` workflow.
-  - [ ] Package/document installation for use across arbitrary projects rather than only repositories that already contain the skill.
+  - [x] Package/document installation for use across arbitrary projects via `ship-check skill install`, with the canonical skill carried in the npm artefact and overwrite protection unless `--force` is explicit.
 - [ ] **Focused review mode:** let users work through the next confirmed concern or unanswered question one at a time, preserving the distinction between “fix” and “verify”.
 - [ ] **Desktop estate entry point:** once the CLI contract is stable, add “Folder of projects” alongside Folder/GitHub/Project ZIP/Live site and reuse the same aggregate contracts.
 

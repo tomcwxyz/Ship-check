@@ -195,6 +195,14 @@ Supported status values are `live`, `staging`, `development` and `deprecated`. O
 
 The repository now includes a project-discoverable Agent Skill at `.claude/skills/ship-check/SKILL.md`. It orchestrates the canonical CLI and repair/rerun loop while keeping agent judgement separate from deterministic Ship Check evidence.
 
+For an arbitrary project, the npm distribution carries the same canonical skill and can install it locally without a global tool:
+
+```bash
+npx --yes @good-ship/ship-check skill install .
+```
+
+The installer writes `.claude/skills/ship-check/SKILL.md`, is idempotent when the canonical skill is already present, and refuses to replace different local content unless `--force` is supplied explicitly.
+
 The branch can also stage a self-contained npm artefact without exposing the internal workspace package graph:
 
 ```bash
