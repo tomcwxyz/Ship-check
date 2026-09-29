@@ -75,7 +75,23 @@ jobs:
           node "$MAIN/index.js" --version
           node "$MAIN/index.js" scan ./test-fixtures/cost-safe --pack cost-aware --format markdown > dist/npm-smoke.md
           node "$MAIN/index.js" scan ./test-fixtures/safe-next --pack secure-build --format json > dist/npm-secure.json
-          node "$MAIN/index.js" scan ./test-fixtures/safe-next --pack production-ready --networked-dependency-scan --format json > dist/npm-osv.json
+
+          mkdir -p dist/osv-fixture
+          cat > dist/osv-fixture/package-lock.json <<'JSON'
+          {
+            "name": "ship-check-osv-fixture",
+            "version": "1.0.0",
+            "lockfileVersion": 3,
+            "requires": true,
+            "packages": {
+              "": {
+                "name": "ship-check-osv-fixture",
+                "version": "1.0.0"
+              }
+            }
+          }
+          JSON
+          node "$MAIN/index.js" scan dist/osv-fixture --pack production-ready --networked-dependency-scan --format json > dist/npm-osv.json
 
           mkdir -p dist/history-fixture
           git -C dist/history-fixture init
@@ -129,6 +145,7 @@ jobs:
           const osv = JSON.parse(await readFile("dist/npm-osv.json", "utf8"));
           const osvCheck = osv.checks.find((check) => check.checkId === "production.osv-vulnerabilities");
           assert.ok(osvCheck, "Expected OSV-backed dependency check");
+          assert.notEqual(osvCheck.status, "error", osvCheck.error ?? "OSV check errored");
           assert.match(osvCheck.scannerVersion ?? "", /2\.5\.1/);
           assert.equal(
             osv.gaps.some((gap) => String(gap.id).includes("osv-unavailable")),
