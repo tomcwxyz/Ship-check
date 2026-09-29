@@ -128,15 +128,21 @@ async function isFile(candidate: string): Promise<boolean> {
   }
 }
 
-const packagedGitleaksPackages: Record<string, string> = {
-  "win32-x64": "@good-ship/ship-check-gitleaks-win32-x64",
-  "linux-x64": "@good-ship/ship-check-gitleaks-linux-x64",
-  "darwin-arm64": "@good-ship/ship-check-gitleaks-darwin-arm64"
+const packagedScannerPackages: Record<"gitleaks" | "osv-scanner", Record<string, string>> = {
+  gitleaks: {
+    "win32-x64": "@good-ship/ship-check-gitleaks-win32-x64",
+    "linux-x64": "@good-ship/ship-check-gitleaks-linux-x64",
+    "darwin-arm64": "@good-ship/ship-check-gitleaks-darwin-arm64"
+  },
+  "osv-scanner": {
+    "win32-x64": "@good-ship/ship-check-osv-win32-x64",
+    "linux-x64": "@good-ship/ship-check-osv-linux-x64",
+    "darwin-arm64": "@good-ship/ship-check-osv-darwin-arm64"
+  }
 };
 
 async function packagedScannerPath(name: "gitleaks" | "osv-scanner"): Promise<string | null> {
-  if (name !== "gitleaks") return null;
-  const packageName = packagedGitleaksPackages[`${process.platform}-${process.arch}`];
+  const packageName = packagedScannerPackages[name][`${process.platform}-${process.arch}`];
   if (!packageName) return null;
   try {
     const packageJson = runtimeRequire.resolve(`${packageName}/package.json`);
