@@ -356,6 +356,7 @@ export const gitleaksHistoryCheck: CheckDefinition = {
   title: "Credential exposure in Git history",
   description: "Opt-in Gitleaks review of repository history, kept separate from current-source credential evidence.",
   principles: ["practice.preserve-safety"],
+  requiresEvidence: ["git-history"],
   appliesTo(context) {
     return context.gitRepository;
   },
