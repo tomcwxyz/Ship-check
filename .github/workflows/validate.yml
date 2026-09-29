@@ -71,16 +71,35 @@ jobs:
       - name: Stage self-contained npm package
         run: |
           pnpm build:npm
-          node dist/npm/index.js --version
-          node dist/npm/index.js scan ./test-fixtures/cost-safe --pack cost-aware --format markdown > dist/npm-smoke.md
+          MAIN="dist/npm/node_modules/@good-ship/ship-check"
+          node "$MAIN/index.js" --version
+          node "$MAIN/index.js" scan ./test-fixtures/cost-safe --pack cost-aware --format markdown > dist/npm-smoke.md
+          node "$MAIN/index.js" scan ./test-fixtures/safe-next --pack secure-build --format json > dist/npm-secure.json
           node --input-type=module <<'NODE'
           import assert from "node:assert/strict";
           import { readFile } from "node:fs/promises";
 
-          const manifest = JSON.parse(await readFile("dist/npm/package.json", "utf8"));
+          const mainPath = "dist/npm/node_modules/@good-ship/ship-check";
+          const manifest = JSON.parse(await readFile(`${mainPath}/package.json`, "utf8"));
           assert.equal(manifest.name, "@good-ship/ship-check");
           assert.equal(manifest.bin?.["ship-check"], "./index.js");
-          assert.equal(Array.isArray(manifest.files), true);
+          assert.equal(manifest.optionalDependencies?.["@good-ship/ship-check-gitleaks-linux-x64"], manifest.version);
+
+          const scannerManifest = JSON.parse(await readFile(
+            "dist/npm/node_modules/@good-ship/ship-check-gitleaks-linux-x64/package.json",
+            "utf8"
+          ));
+          assert.equal(scannerManifest.os?.[0], "linux");
+          assert.equal(scannerManifest.cpu?.[0], "x64");
+
+          const secure = JSON.parse(await readFile("dist/npm-secure.json", "utf8"));
+          const gitleaks = secure.checks.find((check) => check.checkId === "secure.secret-pattern");
+          assert.ok(gitleaks, "Expected Gitleaks-backed secret check");
+          assert.match(gitleaks.scannerVersion ?? "", /8\.30\.1/);
+          assert.equal(
+            secure.gaps.some((gap) => String(gap.id).includes("gitleaks-unavailable")),
+            false
+          );
           NODE
       - name: Smoke standalone engine
         run: |
