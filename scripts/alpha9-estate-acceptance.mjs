@@ -104,6 +104,7 @@ async function buildCli() {
     await execFileAsync(command("pnpm"), ["build"], {
       cwd: process.cwd(),
       windowsHide: true,
+      shell: process.platform === "win32",
       timeout: 300_000,
       maxBuffer: 64 * 1024 * 1024,
     });
