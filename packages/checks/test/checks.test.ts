@@ -108,13 +108,20 @@ describe("built-in secure-build checks", () => {
       path.join(root, "settings.ts"),
       "export const region = process.env.NEXT_PUBLIC_REGION;\nexport const db = process.env.NEXT_PUBLIC_DATABASE_URL;\n",
     );
+    await fs.mkdir(path.join(root, "test"), { recursive: true });
+    await fs.writeFile(
+      path.join(root, "test", "public-env.test.ts"),
+      "expect(process.env.NEXT_PUBLIC_DATABASE_URL).toBeDefined();\n",
+    );
 
     const report = await scanProject(root, checksForPacks(["secure-build"]));
     const findings = report.findings.filter((finding) => finding.checkId === "secure.public-secret-env-name");
 
     expect(findings).toHaveLength(1);
     expect(findings[0]?.summary).toContain("NEXT_PUBLIC_DATABASE_URL");
+    expect(findings[0]?.evidence[0].path).toBe("settings.ts");
     expect(JSON.stringify(findings)).not.toContain("NEXT_PUBLIC_REGION uses");
+    expect(JSON.stringify(findings)).not.toContain("public-env.test.ts");
   });
 
   it("finds explicitly unsafe SQL in a request handler", async () => {
