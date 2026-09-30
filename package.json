@@ -18,7 +18,7 @@
     "dogfood": "pnpm ship-check -- scan . --fail-on high",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "ship-check": "pnpm --filter @ship-check/cli build && node packages/cli/dist/index.js",
+    "ship-check": "pnpm --filter @ship-check/cli... build && node packages/cli/dist/index.js",
     "test": "turbo run test",
     "build:npm": "node scripts/build-npm-package.mjs"
   },
