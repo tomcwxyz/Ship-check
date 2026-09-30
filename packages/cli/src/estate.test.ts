@@ -81,6 +81,31 @@ describe("estate discovery", () => {
     expect(projects.map((project) => project.relativePath)).toEqual(["workspace"]);
   });
 
+  it("still discovers an explicitly nested Git repository inside a parent project", async () => {
+    const root = await temporaryDirectory();
+    await fs.mkdir(path.join(root, "parent", ".git"), { recursive: true });
+    await fs.writeFile(path.join(root, "parent", "package.json"), '{"name":"parent"}');
+    await fs.mkdir(path.join(root, "parent", "child", ".git"), { recursive: true });
+    await fs.writeFile(path.join(root, "parent", "child", "package.json"), '{"name":"child"}');
+
+    const projects = await discoverProjectDirectories(root, { maxDepth: 3 });
+
+    expect(projects.map((project) => project.relativePath)).toEqual(["parent", "parent/child"]);
+    expect(projects.every((project) => project.gitRepository)).toBe(true);
+  });
+
+  it("supports explicit relative-path exclusions", async () => {
+    const root = await temporaryDirectory();
+    await fs.mkdir(path.join(root, "Downloads", "temporary-app"), { recursive: true });
+    await fs.writeFile(path.join(root, "Downloads", "temporary-app", "package.json"), "{}");
+    await fs.mkdir(path.join(root, "kept"), { recursive: true });
+    await fs.writeFile(path.join(root, "kept", "package.json"), "{}");
+
+    const projects = await discoverProjectDirectories(root, { exclude: ["Downloads"] });
+
+    expect(projects.map((project) => project.relativePath)).toEqual(["kept"]);
+  });
+
   it("honours a bounded discovery depth", async () => {
     const root = await temporaryDirectory();
     await fs.mkdir(path.join(root, "a", "b", "c"), { recursive: true });
