@@ -80,6 +80,7 @@ export type EstateScanReport = {
 
 export type DiscoverEstateOptions = {
   maxDepth?: number;
+  exclude?: string[];
 };
 
 function normaliseRelative(root: string, candidate: string): string {
@@ -107,8 +108,18 @@ export async function discoverProjectDirectories(
   }
 
   const projects: DiscoveredProject[] = [];
+  const excluded = (options.exclude ?? [])
+    .map((value) => value.trim().replace(/\\/g, "/").replace(/^\.\//, "").replace(/\/+$/, ""))
+    .filter(Boolean);
 
-  async function visit(current: string, depth: number): Promise<void> {
+  function isExcluded(current: string): boolean {
+    const relative = normaliseRelative(root, current);
+    if (relative === ".") return false;
+    return excluded.some((entry) => relative === entry || relative.startsWith(`${entry}/`));
+  }
+
+  async function visit(current: string, depth: number, nestedGitOnly = false): Promise<void> {
+    if (isExcluded(current)) return;
     let entries: Dirent[];
     try {
       entries = await fs.readdir(current, { withFileTypes: true });
@@ -122,22 +133,23 @@ export async function discoverProjectDirectories(
       .map((entry) => entry.name)
       .sort();
 
-    if (gitEntry || markers.length > 0) {
+    const isProject = Boolean(gitEntry) || (!nestedGitOnly && markers.length > 0);
+    if (isProject) {
       projects.push({
         path: current,
         relativePath: normaliseRelative(root, current),
         gitRepository: Boolean(gitEntry),
         markers
       });
-      return;
     }
 
     if (depth >= maxDepth) return;
 
+    const childNestedGitOnly = nestedGitOnly || isProject;
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
       if (ignoredDirectories.has(entry.name) || isHiddenDirectory(entry.name)) continue;
-      await visit(path.join(current, entry.name), depth + 1);
+      await visit(path.join(current, entry.name), depth + 1, childNestedGitOnly);
     }
   }
 
