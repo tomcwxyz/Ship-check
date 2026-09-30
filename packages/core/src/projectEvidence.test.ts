@@ -39,6 +39,35 @@ describe("project evidence provenance", () => {
   });
 
 
+  it("advertises Git history for an ordinary local Git repository", async () => {
+    const root = await temporaryProject();
+    await execFileAsync("git", ["-C", root, "init"]);
+    await execFileAsync("git", ["-C", root, "add", "package.json"]);
+
+    const context = await createProjectContext(root);
+
+    expect(context.source.capabilities).toContain("source-files");
+    expect(context.source.capabilities).toContain("git-history");
+  });
+
+  it("does not invent Git-history capability for an explicitly bounded source input", async () => {
+    const root = await temporaryProject();
+    await execFileAsync("git", ["-C", root, "init"]);
+    await execFileAsync("git", ["-C", root, "add", "package.json"]);
+
+    const report = await scanProject(root, [], "0.0.0-test", {
+      type: "source",
+      provider: "github",
+      label: "example/repository",
+      acquisition: "transient-checkout",
+      executionLocation: "user-device",
+      capabilities: ["source-files"],
+      ephemeral: true
+    });
+
+    expect(report.project.snapshot?.source.capabilities).toEqual(["source-files"]);
+  });
+
   it("produces a stable complete fingerprint and changes it when source content changes", async () => {
     const root = await temporaryProject();
 
@@ -162,6 +191,39 @@ describe("project evidence provenance", () => {
     expect(report.project.snapshot?.inventory).toMatchObject({
       source: "filesystem",
       fileCount: 1
+    });
+  });
+
+  it("marks a history check not assessed when a source checkout does not declare Git history", async () => {
+    const root = await temporaryProject();
+    await execFileAsync("git", ["-C", root, "init"]);
+    await execFileAsync("git", ["-C", root, "add", "package.json"]);
+
+    const historyCheck: CheckDefinition = {
+      id: "test.history-only",
+      pack: "secure-build",
+      title: "History-only test",
+      description: "Requires complete Git history.",
+      requiresEvidence: ["git-history"],
+      async run() {
+        throw new Error("must not run without history evidence");
+      }
+    };
+
+    const report = await scanProject(root, [historyCheck], "0.0.0-test", {
+      type: "source",
+      provider: "github",
+      label: "example/repository",
+      acquisition: "transient-checkout",
+      executionLocation: "user-device",
+      capabilities: ["source-files"],
+      ephemeral: true
+    });
+
+    expect(report.checks[0]).toMatchObject({
+      checkId: "test.history-only",
+      status: "not-assessed",
+      missingEvidence: ["git-history"]
     });
   });
 

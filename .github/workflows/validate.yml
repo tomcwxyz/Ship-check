@@ -13,6 +13,9 @@ on:
       - "scripts/github-action.mjs"
       - "scripts/github-action-comparison.mjs"
       - "scripts/github-action-comparison.test.mjs"
+      - "scripts/alpha9-estate-acceptance.mjs"
+      - "scripts/alpha9-estate-acceptance.test.mjs"
+      - "third-party/licenses/**"
       - "tsconfig.base.json"
       - "turbo.json"
       - ".github/workflows/validate.yml"
@@ -31,6 +34,9 @@ on:
       - "scripts/github-action.mjs"
       - "scripts/github-action-comparison.mjs"
       - "scripts/github-action-comparison.test.mjs"
+      - "scripts/alpha9-estate-acceptance.mjs"
+      - "scripts/alpha9-estate-acceptance.test.mjs"
+      - "third-party/licenses/**"
       - "tsconfig.base.json"
       - "turbo.json"
       - ".github/workflows/validate.yml"
@@ -61,6 +67,8 @@ jobs:
         with:
           bun-version: latest
       - run: pnpm install --frozen-lockfile
+      - name: Test Alpha 0.9 estate acceptance harness
+        run: node --test scripts/alpha9-estate-acceptance.test.mjs
       - run: pnpm check
       - run: pnpm test
       - run: pnpm build
@@ -68,6 +76,111 @@ jobs:
         run: pnpm dogfood
       - name: Compile standalone engine
         run: bun build packages/cli/src/index.ts --compile --outfile dist/ship-check
+      - name: Stage self-contained npm package
+        run: |
+          pnpm build:npm
+          MAIN="dist/npm/node_modules/@good-ship/ship-check"
+          node "$MAIN/index.js" --version
+          node "$MAIN/index.js" scan ./test-fixtures/cost-safe --pack cost-aware --format markdown > dist/npm-smoke.md
+          node "$MAIN/index.js" scan ./test-fixtures/safe-next --pack secure-build --format json > dist/npm-secure.json
+
+          OSV_FIXTURE="$(mktemp -d)"
+          trap 'rm -rf "$OSV_FIXTURE"' EXIT
+          cat > "$OSV_FIXTURE/requirements.txt" <<'REQ'
+          requests==2.31.0
+          REQ
+          node "$MAIN/index.js" scan "$OSV_FIXTURE" --pack production-ready --networked-dependency-scan --format json > dist/npm-osv.json
+
+          mkdir -p dist/history-fixture
+          git -C dist/history-fixture init
+          git -C dist/history-fixture config user.email "ship-check@example.invalid"
+          git -C dist/history-fixture config user.name "Ship Check Test"
+          printf 'export const safe = true;\n' > dist/history-fixture/config.js
+          git -C dist/history-fixture add config.js
+          git -C dist/history-fixture commit -m "fixture: baseline"
+          node --input-type=module <<'NODE'
+          import { randomBytes } from "node:crypto";
+          import { writeFile } from "node:fs/promises";
+          const synthetic = "ghp_" + randomBytes(32).toString("hex").slice(0, 36);
+          await writeFile("dist/history-fixture/config.js", `const token = "${synthetic}";\n`);
+          NODE
+          git -C dist/history-fixture add config.js
+          git -C dist/history-fixture commit -m "fixture: historical credential"
+          printf 'export const safe = true;\n' > dist/history-fixture/config.js
+          git -C dist/history-fixture add config.js
+          git -C dist/history-fixture commit -m "fixture: remove credential"
+          node "$MAIN/index.js" scan dist/history-fixture --pack secure-build --git-history-secrets --format json > dist/npm-history.json
+
+          cp dist/npm-secure.json dist/npm-secure-after.json
+          node "$MAIN/index.js" compare dist/npm-secure.json dist/npm-secure-after.json --format markdown > dist/npm-compare.md
+
+          node --input-type=module <<'NODE'
+          import assert from "node:assert/strict";
+          import { readFile } from "node:fs/promises";
+
+          const mainPath = "dist/npm/node_modules/@good-ship/ship-check";
+          const manifest = JSON.parse(await readFile(`${mainPath}/package.json`, "utf8"));
+          assert.equal(manifest.name, "@good-ship/ship-check");
+          assert.equal(manifest.bin?.["ship-check"], "./index.js");
+          assert.equal(manifest.optionalDependencies?.["@good-ship/ship-check-gitleaks-linux-x64"], manifest.version);
+          assert.equal(manifest.optionalDependencies?.["@good-ship/ship-check-osv-linux-x64"], manifest.version);
+
+          const gitleaksManifest = JSON.parse(await readFile(
+            "dist/npm/node_modules/@good-ship/ship-check-gitleaks-linux-x64/package.json",
+            "utf8"
+          ));
+          assert.equal(gitleaksManifest.os?.[0], "linux");
+          assert.equal(gitleaksManifest.cpu?.[0], "x64");
+
+          const osvManifest = JSON.parse(await readFile(
+            "dist/npm/node_modules/@good-ship/ship-check-osv-linux-x64/package.json",
+            "utf8"
+          ));
+          assert.equal(osvManifest.os?.[0], "linux");
+          assert.equal(osvManifest.cpu?.[0], "x64");
+
+          const secure = JSON.parse(await readFile("dist/npm-secure.json", "utf8"));
+          const gitleaks = secure.checks.find((check) => check.checkId === "secure.secret-pattern");
+          assert.ok(gitleaks, "Expected Gitleaks-backed secret check");
+          assert.match(gitleaks.scannerVersion ?? "", /8\.30\.0/);
+          assert.equal(
+            secure.gaps.some((gap) => String(gap.id).includes("gitleaks-unavailable")),
+            false
+          );
+
+          const osv = JSON.parse(await readFile("dist/npm-osv.json", "utf8"));
+          const osvCheck = osv.checks.find((check) => check.checkId === "production.osv-vulnerabilities");
+          assert.ok(osvCheck, "Expected OSV-backed dependency check");
+          assert.notEqual(osvCheck.status, "error", osvCheck.error ?? "OSV check errored");
+          assert.match(osvCheck.scannerVersion ?? "", /2\.5\.1/);
+          assert.equal(
+            osv.gaps.some((gap) => String(gap.id).includes("osv-unavailable")),
+            false
+          );
+
+          const history = JSON.parse(await readFile("dist/npm-history.json", "utf8"));
+          assert.ok(
+            history.findings.some((finding) => finding.checkId === "secure.secret-history"),
+            "Expected historical credential finding"
+          );
+          assert.equal(
+            history.findings.some((finding) =>
+              finding.checkId === "secure.secret-pattern" &&
+              String(finding.evidence?.[0]?.path ?? "") === "config.js"
+            ),
+            false,
+            "Removed historical credential must not be presented as a current-tree secret"
+          );
+          assert.equal(
+            JSON.stringify(history).includes("ghp_"),
+            false,
+            "Historical scan output must not echo GitHub PAT-shaped secret material"
+          );
+
+          const comparison = await readFile("dist/npm-compare.md", "utf8");
+          assert.match(comparison, /0 introduced/);
+          assert.match(comparison, /not proof/i);
+          NODE
       - name: Smoke standalone engine
         run: |
           ./dist/ship-check --version

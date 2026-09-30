@@ -1,7 +1,11 @@
+import { execFile } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+
+const execFileAsync = promisify(execFile);
 import {
   parseGithubRepository,
   prepareRepositorySource,
@@ -107,6 +111,36 @@ describe("CI source provenance", () => {
         ephemeral: true,
         ref: "main"
       });
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+});
+
+
+describe("local Git history capability", () => {
+  it("advertises git-history for a complete local repository", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "ship-check-local-history-"));
+    try {
+      await execFileAsync("git", ["init", root], { windowsHide: true });
+      await execFileAsync("git", ["-C", root, "config", "user.name", "Ship Check Test"], { windowsHide: true });
+      await execFileAsync("git", ["-C", root, "config", "user.email", "ship-check@example.invalid"], { windowsHide: true });
+      await fs.writeFile(path.join(root, "index.js"), "export const ok = true;\n", "utf8");
+      await execFileAsync("git", ["-C", root, "add", "index.js"], { windowsHide: true });
+      await execFileAsync("git", ["-C", root, "commit", "-m", "fixture"], { windowsHide: true });
+
+      const source = await prepareRepositorySource(root);
+      expect(source.sourceInput.capabilities).toEqual(["source-files", "git-history"]);
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  });
+
+  it("does not claim git-history for an ordinary non-Git folder", async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "ship-check-local-no-history-"));
+    try {
+      const source = await prepareRepositorySource(root);
+      expect(source.sourceInput.capabilities).toEqual(["source-files"]);
     } finally {
       await fs.rm(root, { recursive: true, force: true });
     }

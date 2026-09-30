@@ -508,7 +508,8 @@ export async function scanProject(
       ...(context.commit ? { commit: context.commit } : {}),
       inventorySource: context.inventorySource,
       fileCount: context.files.length,
-      snapshot: context.snapshot
+      snapshot: context.snapshot,
+      ...(config.project ? { context: config.project } : {})
     },
     packs: [...new Set(checks.map((check) => check.pack))],
     checks: results,

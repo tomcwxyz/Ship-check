@@ -5,20 +5,49 @@ const path = require("node:path");
 const { execFileSync } = require("node:child_process");
 
 const root = path.resolve(__dirname, "..");
-const destination = path.join(root, "apps", "desktop", "src-tauri", "resources");
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "ship-check-scanners-"));
-const requested = new Set(process.argv.slice(2));
-const allowedArgs = new Set(["--gitleaks-only"]);
-for (const argument of requested) {
-  if (!allowedArgs.has(argument)) throw new Error(`Unknown scanner install option: ${argument}`);
+
+function parseOptions(argv) {
+  let destination = path.join(root, "apps", "desktop", "src-tauri", "resources");
+  let gitleaksOnly = false;
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const argument = argv[index];
+    if (argument === "--gitleaks-only") {
+      gitleaksOnly = true;
+      continue;
+    }
+    if (argument === "--destination") {
+      const value = argv[index + 1];
+      if (!value) throw new Error("--destination requires a path.");
+      destination = path.resolve(value);
+      index += 1;
+      continue;
+    }
+    throw new Error(`Unknown scanner install option: ${argument}`);
+  }
+
+  return { destination, gitleaksOnly };
 }
-const gitleaksOnly = requested.has("--gitleaks-only");
+
+const { destination, gitleaksOnly } = parseOptions(process.argv.slice(2));
+
+const licenses = {
+  gitleaks: {
+    source: path.join(root, "third-party", "licenses", "gitleaks-8.30.0-LICENSE.txt"),
+    destination: "gitleaks-LICENSE.txt",
+  },
+  osv: {
+    source: path.join(root, "third-party", "licenses", "osv-scanner-2.5.1-LICENSE.txt"),
+    destination: "osv-scanner-LICENSE.txt",
+  },
+};
 
 const assets = {
   "win32-x64": {
     gitleaks: {
-      url: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_windows_x64.zip",
-      sha256: "d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e",
+      url: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_windows_x64.zip",
+      sha256: "54fe94f644b832dd08e8c3a5915efb3bfa862386d59fb27ca0792cb687a83573",
       archive: "zip",
       member: "gitleaks.exe",
       destination: "gitleaks.exe",
@@ -32,8 +61,8 @@ const assets = {
   },
   "linux-x64": {
     gitleaks: {
-      url: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz",
-      sha256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb",
+      url: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_linux_x64.tar.gz",
+      sha256: "79a3ab579b53f71efd634f3aaf7e04a0fa0cf206b7ed434638d1547a2470a66e",
       archive: "tar.gz",
       member: "gitleaks",
       destination: "gitleaks",
@@ -47,8 +76,8 @@ const assets = {
   },
   "darwin-arm64": {
     gitleaks: {
-      url: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_darwin_arm64.tar.gz",
-      sha256: "b40ab0ae55c505963e365f271a8d3846efbc170aa17f2607f13df610a9aeb6a5",
+      url: "https://github.com/gitleaks/gitleaks/releases/download/v8.30.0/gitleaks_8.30.0_darwin_arm64.tar.gz",
+      sha256: "b251ab2bcd4cd8ba9e56ff37698c033ebf38582b477d21ebd86586d927cf87e7",
       archive: "tar.gz",
       member: "gitleaks",
       destination: "gitleaks",
@@ -111,6 +140,17 @@ function extract(asset, archivePath, outputPath) {
   fs.copyFileSync(extracted, outputPath);
 }
 
+function installLicense(name, license) {
+  if (!fs.existsSync(license.source)) {
+    throw new Error(`Pinned ${name} licence file is missing: ${license.source}`);
+  }
+  const target = path.join(destination, license.destination);
+  fs.copyFileSync(license.source, target);
+  if (!fs.statSync(target).isFile() || fs.statSync(target).size === 0) {
+    throw new Error(`Pinned ${name} licence file was not copied to ${target}.`);
+  }
+}
+
 async function install(name, asset) {
   const archivePath = path.join(temporary, `${name}-${path.basename(new URL(asset.url).pathname)}`);
   const outputPath = path.join(destination, asset.destination);
@@ -131,8 +171,12 @@ async function main() {
     throw new Error(`No pinned Ship Check scanner binaries are configured for ${platformKey}.`);
   }
   fs.mkdirSync(destination, { recursive: true });
-  await install("Gitleaks 8.30.1", selected.gitleaks);
-  if (!gitleaksOnly) await install("OSV-Scanner 2.5.1", selected.osv);
+  await install("Gitleaks 8.30.0", selected.gitleaks);
+  installLicense("Gitleaks 8.30.0", licenses.gitleaks);
+  if (!gitleaksOnly) {
+    await install("OSV-Scanner 2.5.1", selected.osv);
+    installLicense("OSV-Scanner 2.5.1", licenses.osv);
+  }
   process.stdout.write(
     gitleaksOnly
       ? `Pinned Gitleaks installed for ${platformKey}; OSV was not downloaded or run.\n`

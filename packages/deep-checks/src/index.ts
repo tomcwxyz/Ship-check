@@ -1,15 +1,17 @@
 import { isPublicSupabaseMatch } from "./publicCredentials.js";
 import { spawn } from "node:child_process";
+import { createRequire } from "node:module";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { CheckDefinition, CheckExecution, ProjectContext } from "@ship-check/core";
 import type { AssessmentGap, Finding, Severity } from "@ship-check/schemas";
 
+const runtimeRequire = createRequire(import.meta.url);
 const TOOL_TIMEOUT_MS = 120_000;
 const MIRROR_MAX_BYTES = 5 * 1024 * 1024;
 
-export const PINNED_GITLEAKS_VERSION = "8.30.1";
+export const PINNED_GITLEAKS_VERSION = "8.30.0";
 export const PINNED_OSV_VERSION = "2.5.1";
 
 function lineNumber(text: string, index: number): number {
@@ -126,12 +128,40 @@ async function isFile(candidate: string): Promise<boolean> {
   }
 }
 
+const packagedScannerPackages: Record<"gitleaks" | "osv-scanner", Record<string, string>> = {
+  gitleaks: {
+    "win32-x64": "@good-ship/ship-check-gitleaks-win32-x64",
+    "linux-x64": "@good-ship/ship-check-gitleaks-linux-x64",
+    "darwin-arm64": "@good-ship/ship-check-gitleaks-darwin-arm64"
+  },
+  "osv-scanner": {
+    "win32-x64": "@good-ship/ship-check-osv-win32-x64",
+    "linux-x64": "@good-ship/ship-check-osv-linux-x64",
+    "darwin-arm64": "@good-ship/ship-check-osv-darwin-arm64"
+  }
+};
+
+async function packagedScannerPath(name: "gitleaks" | "osv-scanner"): Promise<string | null> {
+  const packageName = packagedScannerPackages[name][`${process.platform}-${process.arch}`];
+  if (!packageName) return null;
+  try {
+    const packageJson = runtimeRequire.resolve(`${packageName}/package.json`);
+    const candidate = path.join(path.dirname(packageJson), "bin", toolFilename(name));
+    return await isFile(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
+}
+
 async function locateTool(name: "gitleaks" | "osv-scanner", envName: string): Promise<string | null> {
   const configured = process.env[envName]?.trim();
   if (configured) {
     if (await isFile(configured)) return configured;
     return null;
   }
+
+  const packaged = await packagedScannerPath(name);
+  if (packaged) return packaged;
 
   const filename = toolFilename(name);
   const executableDir = path.dirname(process.execPath);
@@ -235,6 +265,7 @@ export type GitleaksRecord = {
   File?: unknown;
   RuleID?: unknown;
   Fingerprint?: unknown;
+  Commit?: unknown;
 };
 
 function gitleaksPath(file: string, mirrorRoot: string): string {
@@ -278,6 +309,101 @@ export function parseGitleaksReport(raw: unknown, mirrorRoot: string, version: s
     })];
   });
 }
+
+
+export function parseGitleaksHistoryReport(raw: unknown, version: string): Finding[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.flatMap((entry, index) => {
+    if (!entry || typeof entry !== "object") return [];
+    const item = entry as GitleaksRecord;
+    const file = typeof item.File === "string" ? normaliseRelative(item.File) : "unknown-file";
+    const line = typeof item.StartLine === "number" && item.StartLine > 0 ? Math.floor(item.StartLine) : undefined;
+    const ruleId = typeof item.RuleID === "string" && item.RuleID ? item.RuleID : "unknown-rule";
+    const description = typeof item.Description === "string" && item.Description ? item.Description : "Secret-like value";
+    const commit = typeof item.Commit === "string" && /^[a-f0-9]{7,64}$/i.test(item.Commit)
+      ? item.Commit.toLowerCase()
+      : "";
+    const fingerprint = typeof item.Fingerprint === "string" && item.Fingerprint
+      ? item.Fingerprint.replace(/[^A-Za-z0-9:_-]/g, "").slice(-80)
+      : `${commit || "history"}:${file}:${line ?? index}:${ruleId}`;
+
+    return [finding({
+      checkId: "secure.secret-history",
+      pack: "secure-build",
+      suffix: `gitleaks-history:${fingerprint}`,
+      title: "Check a credential exposed in Git history",
+      summary: `${description} matched Gitleaks rule ${ruleId} in Git history for ${file}. The matched secret is never copied into the Ship Check report.`,
+      severity: "high",
+      evidence: [{
+        kind: "repository",
+        path: file,
+        line,
+        excerpt: `Gitleaks ${ruleId}; historical secret value redacted`,
+        detail: `Gitleaks ${version} matched repository history${commit ? ` at commit ${commit.slice(0, 12)}` : ""}. Deleting the value from the current tree does not establish that the credential was revoked.`
+      }],
+      why: "A credential committed in the past may still have been copied, indexed or used even when it no longer exists in the current working tree.",
+      fix: "Determine whether the credential was real without revealing it. If it was live or reused, revoke or rotate it first. Then decide whether history rewriting is appropriate for the repository and collaborators.",
+      verify: "Confirm the old credential is revoked or otherwise invalid, then rerun the Git-history scan. A rewritten history alone is not proof of revocation.",
+      agentPrompt: `Gitleaks rule ${ruleId} matched Git history for ${file}${line ? `:${line}` : ""}${commit ? ` at commit ${commit.slice(0, 12)}` : ""}. Do not reveal the value. Establish whether it was real, prioritise revocation/rotation, avoid destructive history rewriting without explicit approval, and rerun Ship Check's history scan.`
+    })];
+  });
+}
+
+export const gitleaksHistoryCheck: CheckDefinition = {
+  version: "1",
+  id: "secure.secret-history",
+  pack: "secure-build",
+  title: "Credential exposure in Git history",
+  description: "Opt-in Gitleaks review of repository history, kept separate from current-source credential evidence.",
+  principles: ["practice.preserve-safety"],
+  requiresEvidence: ["git-history"],
+  appliesTo(context) {
+    return context.gitRepository;
+  },
+  async run(context): Promise<CheckExecution> {
+    const tool = await locateTool("gitleaks", "SHIP_CHECK_GITLEAKS_PATH");
+    if (!tool) {
+      return {
+        gaps: [gap({
+          checkId: this.id,
+          pack: this.pack,
+          area: "secrets",
+          suffix: "gitleaks-history-unavailable",
+          title: "Git-history secret scanning is unavailable",
+          summary: "The Git-history scan was requested, but Ship Check could not find its pinned/bundled Gitleaks binary or a compatible installation.",
+          evidence: [{ kind: "configuration", detail: "Gitleaks executable was unavailable, so repository history was not assessed for credential exposure." }],
+          verify: "Use a Ship Check distribution that includes pinned Gitleaks, or set SHIP_CHECK_GITLEAKS_PATH to a trusted compatible binary, then rerun with --git-history-secrets."
+        })],
+        coverage: [{ area: "secrets", status: "partial" }]
+      };
+    }
+
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "ship-check-gitleaks-history-"));
+    const reportPath = path.join(root, "gitleaks-history.json");
+    try {
+      const version = await toolVersion(tool);
+      const result = await runProcess(tool, [
+        "git",
+        "--no-banner",
+        "--no-color",
+        "--redact=100",
+        "--exit-code=0",
+        "--report-format=json",
+        `--report-path=${reportPath}`,
+        context.root
+      ], context.root);
+      if (result.code !== 0) throw new Error(result.stderr.trim() || `Gitleaks history scan exited with ${result.code}.`);
+      const raw = JSON.parse(await fs.readFile(reportPath, "utf8"));
+      return {
+        findings: parseGitleaksHistoryReport(raw, version),
+        scannerVersion: version,
+        coverage: [{ area: "secrets", status: "assessed" }]
+      };
+    } finally {
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  }
+};
 
 export const gitleaksSecretCheck: CheckDefinition = {
   version: "2",
@@ -448,7 +574,17 @@ function osvSourcePath(raw: unknown, mirrorRoot: string): string {
 
 export function parseOsvReport(raw: unknown, mirrorRoot: string, version: string): Finding[] {
   if (!raw || typeof raw !== "object" || !Array.isArray((raw as { results?: unknown }).results)) return [];
-  const findings: Finding[] = [];
+
+  type PackageUnit = {
+    name: string;
+    packageVersion: string;
+    ecosystem: string;
+    vulnerabilities: OsvVulnerability[];
+    sources: Set<string>;
+  };
+
+  const units = new Map<string, PackageUnit>();
+
   for (const result of (raw as { results: unknown[] }).results) {
     if (!result || typeof result !== "object") continue;
     const resultRecord = result as { source?: unknown; packages?: unknown };
@@ -456,6 +592,7 @@ export function parseOsvReport(raw: unknown, mirrorRoot: string, version: string
       ? osvSourcePath((resultRecord.source as { path?: unknown }).path, mirrorRoot)
       : "dependency manifest";
     if (!Array.isArray(resultRecord.packages)) continue;
+
     for (const packageEntry of resultRecord.packages) {
       if (!packageEntry || typeof packageEntry !== "object") continue;
       const record = packageEntry as OsvPackageEntry;
@@ -469,33 +606,67 @@ export function parseOsvReport(raw: unknown, mirrorRoot: string, version: string
         ? record.vulnerabilities.filter((item): item is OsvVulnerability => Boolean(item && typeof item === "object"))
         : [];
       if (vulnerabilities.length === 0) continue;
-      const ids = [...new Set(vulnerabilities.flatMap((item) => {
-        const id = typeof item.id === "string" ? [item.id] : [];
-        const aliases = Array.isArray(item.aliases) ? item.aliases.filter((alias): alias is string => typeof alias === "string") : [];
-        return [...id, ...aliases];
-      }))].slice(0, 6);
-      const severity = highestSeverity(vulnerabilities);
-      findings.push(finding({
-        checkId: "production.osv-vulnerabilities",
-        pack: "production-ready",
-        suffix: `${source}:${ecosystem}:${name}:${packageVersion}`,
-        title: `Known vulnerable dependency: ${name}`,
-        summary: `${name} ${packageVersion} (${ecosystem}) is associated with ${vulnerabilities.length} OSV vulnerability record${vulnerabilities.length === 1 ? "" : "s"}${ids.length ? `: ${ids.join(", ")}` : ""}.`,
-        severity,
-        evidence: [{
-          kind: "configuration",
-          path: source,
-          excerpt: `${name}@${packageVersion}${ids.length ? ` · ${ids.join(", ")}` : ""}`.slice(0, 300),
-          detail: `OSV-Scanner ${version} matched this dependency version against known vulnerability data.`
-        }],
-        why: "Known vulnerable dependencies can expose the application through code paths that appear otherwise correct and are difficult to identify by repository heuristics alone.",
-        fix: "Review the linked OSV advisory IDs, upgrade to the narrowest fixed compatible version where one exists, and avoid broad unrelated dependency churn.",
-        verify: "Run the relevant application tests, then rerun the opt-in OSV dependency scan and confirm the affected package/version no longer appears.",
-        agentPrompt: `Review the known vulnerability records ${ids.join(", ") || "reported by OSV"} for ${name} ${packageVersion} from ${source}. Upgrade only as far as needed to a fixed compatible version, preserve behaviour, run relevant tests, and rerun Ship Check's dependency scan.`
-      }));
+
+      const key = `${ecosystem}\0${name}\0${packageVersion}`;
+      const unit = units.get(key) ?? {
+        name,
+        packageVersion,
+        ecosystem,
+        vulnerabilities: [],
+        sources: new Set<string>()
+      };
+      unit.sources.add(source);
+
+      const known = new Set(unit.vulnerabilities.map((item) =>
+        typeof item.id === "string" ? item.id : JSON.stringify(item)
+      ));
+      for (const vulnerability of vulnerabilities) {
+        const identity = typeof vulnerability.id === "string" ? vulnerability.id : JSON.stringify(vulnerability);
+        if (!known.has(identity)) {
+          unit.vulnerabilities.push(vulnerability);
+          known.add(identity);
+        }
+      }
+      units.set(key, unit);
     }
   }
-  return findings;
+
+  return [...units.values()]
+    .sort((left, right) =>
+      `${left.ecosystem}:${left.name}:${left.packageVersion}`.localeCompare(
+        `${right.ecosystem}:${right.name}:${right.packageVersion}`
+      )
+    )
+    .map((unit) => {
+      const ids = [...new Set(unit.vulnerabilities.flatMap((item) => {
+        const id = typeof item.id === "string" ? [item.id] : [];
+        const aliases = Array.isArray(item.aliases)
+          ? item.aliases.filter((alias): alias is string => typeof alias === "string")
+          : [];
+        return [...id, ...aliases];
+      }))];
+      const severity = highestSeverity(unit.vulnerabilities);
+      const sources = [...unit.sources].sort();
+
+      return finding({
+        checkId: "production.osv-vulnerabilities",
+        pack: "production-ready",
+        suffix: `${unit.ecosystem}:${unit.name}:${unit.packageVersion}`,
+        title: `Known vulnerable dependency: ${unit.name}`,
+        summary: `${unit.name} ${unit.packageVersion} (${unit.ecosystem}) is one affected package/version with ${unit.vulnerabilities.length} distinct OSV vulnerability record${unit.vulnerabilities.length === 1 ? "" : "s"}${ids.length ? `; advisory identifiers include ${ids.slice(0, 6).join(", ")}` : ""}.`,
+        severity,
+        evidence: sources.slice(0, 6).map((source) => ({
+          kind: "configuration" as const,
+          path: source,
+          excerpt: `${unit.name}@${unit.packageVersion}${ids.length ? ` · ${ids.slice(0, 4).join(", ")}` : ""}`.slice(0, 300),
+          detail: `OSV-Scanner ${version} matched this package/version. Ship Check groups duplicate manifest occurrences and advisory aliases around the affected dependency unit.`
+        })),
+        why: "Known vulnerable dependencies can expose the application through code paths that appear otherwise correct and are difficult to identify by repository heuristics alone.",
+        fix: "Review the vulnerability records for this package/version, upgrade to the narrowest fixed compatible version where one exists, and avoid broad unrelated dependency churn.",
+        verify: "Run the relevant application tests, then rerun the opt-in OSV dependency scan and confirm the affected package/version no longer appears.",
+        agentPrompt: `Review OSV records ${ids.slice(0, 6).join(", ") || "reported by OSV"} for ${unit.name} ${unit.packageVersion}. Treat this as one affected dependency unit even when multiple aliases/manifests are present. Upgrade only as far as needed to a fixed compatible version, preserve behaviour, run relevant tests, and rerun Ship Check's dependency scan.`
+      });
+    });
 }
 
 export const osvDependencyCheck: CheckDefinition = {
@@ -550,6 +721,7 @@ export const osvDependencyCheck: CheckDefinition = {
       const raw = JSON.parse(result.stdout || "{}");
       return {
         findings: parseOsvReport(raw, mirror, version),
+        scannerVersion: version,
         coverage: [{ area: "supply-chain", status: "assessed" }]
       };
     } finally {
@@ -560,6 +732,7 @@ export const osvDependencyCheck: CheckDefinition = {
 
 export type DeepCheckOptions = {
   networkedDependencyScan?: boolean;
+  gitHistorySecrets?: boolean;
 };
 
 export function deepChecksForPacks(
@@ -568,6 +741,7 @@ export function deepChecksForPacks(
 ): CheckDefinition[] {
   const checks: CheckDefinition[] = [];
   if (packs.includes("secure-build")) checks.push(gitleaksSecretCheck);
+  if (packs.includes("secure-build") && options.gitHistorySecrets) checks.push(gitleaksHistoryCheck);
   if (packs.includes("production-ready") && options.networkedDependencyScan) checks.push(osvDependencyCheck);
   return checks;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseGitleaksReport, parseOsvReport } from "./index.js";
+import { parseGitleaksHistoryReport, parseGitleaksReport, parseOsvReport } from "./index.js";
 
 describe("Gitleaks adapter", () => {
   it("converts findings without carrying the matched secret into Ship Check evidence", () => {
@@ -24,6 +24,33 @@ describe("Gitleaks adapter", () => {
     });
     expect(JSON.stringify(findings)).not.toContain(secret);
     expect(JSON.stringify(findings)).toContain("generic-api-key");
+  });
+
+
+  it("keeps Git-history exposure separate and never carries the secret value", () => {
+    const secret = "history-secret-that-must-not-escape";
+    const findings = parseGitleaksHistoryReport([
+      {
+        Description: "OpenAI API Key",
+        StartLine: 7,
+        File: "src/old-config.ts",
+        RuleID: "openai-api-key",
+        Fingerprint: "abc123:src/old-config.ts:openai-api-key:7",
+        Commit: "0123456789abcdef0123456789abcdef01234567",
+        Secret: secret,
+        Match: `key=${secret}`
+      }
+    ], "8.30.1");
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]).toMatchObject({
+      checkId: "secure.secret-history",
+      severity: "high",
+      evidence: [{ path: "src/old-config.ts", line: 7 }]
+    });
+    expect(JSON.stringify(findings)).toContain("0123456789ab");
+    expect(JSON.stringify(findings)).not.toContain(secret);
+    expect(findings[0]?.remediation.verify).toContain("revoked");
   });
 });
 
@@ -50,6 +77,43 @@ describe("OSV adapter", () => {
     });
     expect(findings[0]?.summary).toContain("example-lib 1.2.3");
     expect(findings[0]?.summary).toContain("GHSA-example-1");
+  });
+
+  it("consolidates the same affected package/version across manifests and advisory aliases", () => {
+    const findings = parseOsvReport({
+      results: [
+        {
+          source: { path: "/tmp/manifests/package-lock.json" },
+          packages: [{
+            package: { name: "shared-lib", version: "4.5.6", ecosystem: "npm" },
+            vulnerabilities: [{
+              id: "GHSA-shared-1",
+              aliases: ["CVE-2099-1234"],
+              database_specific: { severity: "HIGH" }
+            }]
+          }]
+        },
+        {
+          source: { path: "/tmp/manifests/pnpm-lock.yaml" },
+          packages: [{
+            package: { name: "shared-lib", version: "4.5.6", ecosystem: "npm" },
+            vulnerabilities: [{
+              id: "GHSA-shared-1",
+              aliases: ["CVE-2099-1234"],
+              database_specific: { severity: "HIGH" }
+            }]
+          }]
+        }
+      ]
+    }, "/tmp/manifests", "2.5.1");
+
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.evidence.map((item) => item.path)).toEqual([
+      "package-lock.json",
+      "pnpm-lock.yaml"
+    ]);
+    expect(findings[0]?.summary).toContain("one affected package/version");
+    expect(findings[0]?.summary).toContain("1 distinct OSV vulnerability record");
   });
 
   it("uses a conservative medium severity when upstream JSON has no explicit severity label", () => {

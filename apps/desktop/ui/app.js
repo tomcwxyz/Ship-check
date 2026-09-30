@@ -1,4 +1,10 @@
 import { desktopBridge } from "./bridge.js";
+import { assertEstateReport, renderEstateReport } from "./estate.js";
+import {
+  assertFocusedReview,
+  renderFocusedReview,
+  renderFocusedReviewError,
+} from "./focus.js";
 import {
   renderCoverage,
   renderFindings,
@@ -20,11 +26,12 @@ import {
   readDiagnostics,
 } from "./diagnostics.js";
 
-const SOURCE_MODES = new Set(["local", "github", "archive", "runtime"]);
+const SOURCE_MODES = new Set(["local", "estate", "github", "archive", "runtime"]);
 
 const state = {
   sourceMode: "local",
   projectPath: "",
+  estatePath: "",
   archivePath: "",
   runtimeUrl: "",
   deploymentUrl: "",
@@ -41,6 +48,7 @@ const elements = {
   engineLabel: document.querySelector("#engine-label"),
   sourceSwitch: document.querySelector("#source-switch"),
   localSource: document.querySelector("#local-source"),
+  estateSource: document.querySelector("#estate-source"),
   githubSource: document.querySelector("#github-source"),
   archiveSource: document.querySelector("#archive-source"),
   runtimeSource: document.querySelector("#runtime-source"),
@@ -49,6 +57,10 @@ const elements = {
   chooseProject: document.querySelector("#choose-project"),
   projectPath: document.querySelector("#project-path"),
   projectPathValue: document.querySelector("#project-path-value"),
+  chooseEstate: document.querySelector("#choose-estate"),
+  estatePath: document.querySelector("#estate-path"),
+  estatePathValue: document.querySelector("#estate-path-value"),
+  estateMaxDepth: document.querySelector("#estate-max-depth"),
   chooseArchive: document.querySelector("#choose-archive"),
   archivePath: document.querySelector("#archive-path"),
   archivePathValue: document.querySelector("#archive-path-value"),
@@ -69,7 +81,12 @@ const elements = {
   rerunScan: document.querySelector("#rerun-scan"),
   errorBanner: document.querySelector("#error-banner"),
   results: document.querySelector("#results"),
+  estateResults: document.querySelector("#estate-results"),
+  estateSummary: document.querySelector("#estate-summary"),
+  estateProjects: document.querySelector("#estate-projects"),
+  estateMeta: document.querySelector("#estate-meta"),
   summaryGrid: document.querySelector("#summary-grid"),
+  focusPanel: document.querySelector("#focus-panel"),
   coverageGrid: document.querySelector("#coverage-grid"),
   observationsPanel: document.querySelector("#observations-panel"),
   observationsList: document.querySelector("#observations-list"),
@@ -131,7 +148,7 @@ function scanOptions() {
       sourceHasFiles() && secureBuildSelected() && Boolean(elements.localSemgrepScan?.checked),
     networkedDependencyScan:
       sourceHasFiles() && productionReadySelected() && Boolean(elements.networkedDependencyScan?.checked),
-    deploymentUrl: state.sourceMode === "runtime" ? "" : state.deploymentUrl.trim(),
+    deploymentUrl: ["runtime", "estate"].includes(state.sourceMode) ? "" : state.deploymentUrl.trim(),
     databaseInspection,
     ...(databaseInspection ? {
       databasePlatform: elements.databasePlatform?.value || "postgres",
@@ -150,7 +167,15 @@ function clearError() {
   elements.errorBanner.hidden = true;
 }
 
+function estateMaxDepth() {
+  const raw = elements.estateMaxDepth?.value?.trim() ?? "";
+  if (!raw) return null;
+  const value = Number(raw);
+  return Number.isInteger(value) && value >= 0 && value <= 12 ? value : null;
+}
+
 function sourceReady() {
+  if (state.sourceMode === "estate") return Boolean(state.estatePath) && estateMaxDepth() !== null;
   if (state.sourceMode === "github") return Boolean(state.githubRepository.trim());
   if (state.sourceMode === "archive") return Boolean(state.archivePath);
   if (state.sourceMode === "runtime") return Boolean(state.runtimeUrl.trim());
@@ -158,6 +183,7 @@ function sourceReady() {
 }
 
 function currentSourceValue() {
+  if (state.sourceMode === "estate") return state.estatePath;
   if (state.sourceMode === "github") return state.githubRepository.trim();
   if (state.sourceMode === "archive") return state.archivePath;
   if (state.sourceMode === "runtime") return state.runtimeUrl.trim();
@@ -180,7 +206,7 @@ function updateDeepScanAvailability() {
 }
 
 function updateDatabaseAvailability() {
-  const enabledByPack = productionReadySelected();
+  const enabledByPack = productionReadySelected() && state.sourceMode !== "estate";
   if (!enabledByPack && elements.inspectDatabase.checked) {
     elements.inspectDatabase.checked = false;
     elements.databaseConnectionString.value = "";
@@ -205,6 +231,7 @@ function updateRunAvailability() {
 
 function scanningLabel() {
   const database = databaseInspectionEnabled();
+  if (state.sourceMode === "estate") return "Discovering & scanning projects…";
   if (state.sourceMode === "github") return database ? "Checking out source & database…" : "Checking out & scanning…";
   if (state.sourceMode === "archive") return database ? "Opening export & checking database…" : "Opening export & scanning…";
   if (state.sourceMode === "runtime") return database ? "Checking live site & database…" : "Checking live site…";
@@ -218,6 +245,8 @@ function setScanning(scanning) {
   state.scanning = scanning;
   elements.runScan.textContent = scanning ? scanningLabel() : "Run Ship Check";
   elements.chooseProject.disabled = scanning;
+  elements.chooseEstate.disabled = scanning;
+  elements.estateMaxDepth.disabled = scanning;
   elements.chooseArchive.disabled = scanning;
   elements.githubRepository.disabled = scanning;
   elements.githubRef.disabled = scanning;
@@ -242,6 +271,14 @@ function setProjectPath(projectPath) {
   updateRunAvailability();
 }
 
+function setEstatePath(estatePath) {
+  state.estatePath = estatePath || "";
+  elements.estatePath.dataset.empty = state.estatePath ? "false" : "true";
+  elements.estatePathValue.textContent = state.estatePath || "No project folder chosen yet";
+  elements.estatePathValue.title = state.estatePath;
+  updateRunAvailability();
+}
+
 function setArchivePath(archivePath) {
   state.archivePath = archivePath || "";
   elements.archivePath.dataset.empty = state.archivePath ? "false" : "true";
@@ -252,9 +289,15 @@ function setArchivePath(archivePath) {
 
 function updateSourceGuidance() {
   const runtimeOnly = state.sourceMode === "runtime";
+  const estateMode = state.sourceMode === "estate";
   const database = databaseInspectionEnabled();
-  elements.deploymentCompanion.hidden = runtimeOnly;
-  if (runtimeOnly) {
+  elements.deploymentCompanion.hidden = runtimeOnly || estateMode;
+  if (estateMode) {
+    elements.defaultScanNote.querySelector("strong").textContent = "Each discovered project will be reviewed independently.";
+    elements.defaultScanNote.querySelector("span").textContent = "Findings, unanswered controls, scanner gaps and coverage stay attached to the project they came from. Ship Check does not create an estate safety score.";
+    elements.scanExplainer.querySelector("strong").textContent = "Discovery and source inspection stay local.";
+    elements.scanExplainer.querySelector("span").textContent = "The estate review skips common dependency/build folders and scans each discovered project with the same canonical engine.";
+  } else if (runtimeOnly) {
     elements.defaultScanNote.querySelector("strong").textContent = database
       ? "This review combines live runtime and database metadata evidence."
       : "This review uses live runtime evidence only.";
@@ -281,6 +324,7 @@ function setSourceMode(mode) {
   if (!SOURCE_MODES.has(mode)) return;
   state.sourceMode = mode;
   elements.localSource.hidden = mode !== "local";
+  elements.estateSource.hidden = mode !== "estate";
   elements.githubSource.hidden = mode !== "github";
   elements.archiveSource.hidden = mode !== "archive";
   elements.runtimeSource.hidden = mode !== "runtime";
@@ -292,6 +336,7 @@ function setSourceMode(mode) {
   updateDeepScanAvailability();
   updateDatabaseAvailability();
   updateRunAvailability();
+  if (mode === "estate") elements.chooseEstate.focus();
   if (mode === "github") elements.githubRepository.focus();
   if (mode === "runtime") elements.runtimeUrl.focus();
 }
@@ -473,6 +518,7 @@ function sourceMetaLabel(source) {
 
 function renderReport(report, options) {
   state.report = report;
+  elements.focusPanel.hidden = true;
   renderSummary(elements.summaryGrid, report);
   renderCoverage(elements.coverageGrid, report.coverage);
   renderObservations(elements.observationsPanel, elements.observationsList, report.observations);
@@ -513,6 +559,15 @@ function renderReport(report, options) {
   elements.results.hidden = false;
 }
 
+async function renderFocus(report) {
+  try {
+    const focused = assertFocusedReview(await desktopBridge.focusReport(report));
+    renderFocusedReview(elements.focusPanel, focused);
+  } catch (error) {
+    renderFocusedReviewError(elements.focusPanel, error);
+  }
+}
+
 async function refreshEngineStatus() {
   setEnginePill(elements.enginePill, elements.engineLabel, null);
   try {
@@ -534,6 +589,16 @@ async function chooseProject() {
   try {
     const selected = await desktopBridge.chooseProject();
     if (selected) setProjectPath(selected);
+  } catch (error) {
+    showError(error instanceof Error ? error.message : String(error));
+  }
+}
+
+async function chooseEstate() {
+  clearError();
+  try {
+    const selected = await desktopBridge.chooseEstate();
+    if (selected) setEstatePath(selected);
   } catch (error) {
     showError(error instanceof Error ? error.message : String(error));
   }
@@ -575,6 +640,27 @@ async function runScan() {
   setScanning(true);
   try {
     let rawReport;
+    if (state.sourceMode === "estate") {
+      const estate = assertEstateReport(
+        await desktopBridge.scanEstate(state.estatePath, packs, {
+          ...options,
+          maxDepth: estateMaxDepth(),
+        }),
+      );
+      state.report = null;
+      elements.results.hidden = true;
+      renderEstateReport({
+        estate,
+        summaryContainer: elements.estateSummary,
+        projectsContainer: elements.estateProjects,
+        metaElement: elements.estateMeta,
+        focusReport: (report) => desktopBridge.focusReport(report),
+      });
+      elements.estateResults.hidden = false;
+      elements.estateResults.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    elements.estateResults.hidden = true;
     if (state.sourceMode === "github") {
       rawReport = await desktopBridge.scanGithubRepository(
         state.githubRepository.trim(),
@@ -597,6 +683,7 @@ async function runScan() {
       button.classList.toggle("is-active", button.dataset.severity === "all");
     }
     renderReport(report, options);
+    await renderFocus(report);
     await recordSuccess(report, packs, options, startedAt);
     elements.results.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
@@ -651,6 +738,8 @@ for (const input of [elements.githubRepository, elements.githubRef, elements.run
 }
 
 elements.chooseProject.addEventListener("click", chooseProject);
+elements.chooseEstate.addEventListener("click", chooseEstate);
+elements.estateMaxDepth.addEventListener("input", updateRunAvailability);
 elements.chooseArchive.addEventListener("click", chooseArchive);
 elements.runScan.addEventListener("click", runScan);
 elements.rerunScan.addEventListener("click", runScan);
@@ -678,6 +767,7 @@ elements.severityFilters.addEventListener("click", (event) => {
 });
 
 setProjectPath("");
+setEstatePath("");
 setArchivePath("");
 setSourceMode("local");
 updateDeepScanAvailability();

@@ -2,8 +2,9 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
     env, fs,
+    io::Write,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
 };
 use tauri::{AppHandle, Manager};
 
@@ -13,6 +14,19 @@ const ALLOWED_PACKS: [&str; 3] = ["secure-build", "production-ready", "cost-awar
 const ALLOWED_DATABASE_PLATFORMS: [&str; 3] = ["postgres", "supabase", "neon"];
 const DEFAULT_DATABASE_TABLE_LIMIT: u32 = 1000;
 const MAX_DATABASE_TABLE_LIMIT: u32 = 5000;
+
+#[derive(Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EstateScanRequest {
+    pub project_path: String,
+    #[serde(default)]
+    pub packs: Vec<String>,
+    pub max_depth: Option<u32>,
+    #[serde(default)]
+    pub local_semgrep_scan: bool,
+    #[serde(default)]
+    pub networked_dependency_scan: bool,
+}
 
 #[derive(Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -160,6 +174,29 @@ fn validated_source(project_path: &str) -> Result<String, String> {
     Err("Ship Check desktop sources must be a project folder, project ZIP export, or http(s) deployment URL.".to_string())
 }
 
+fn validated_estate_root(project_path: &str) -> Result<String, String> {
+    let trimmed = project_path.trim();
+    if trimmed.is_empty() {
+        return Err("Choose a folder of projects before running an estate review.".to_string());
+    }
+    let root = fs::canonicalize(trimmed)
+        .map_err(|error| format!("Could not open the selected project folder: {error}"))?;
+    let metadata = fs::metadata(&root)
+        .map_err(|error| format!("Could not inspect the selected project folder: {error}"))?;
+    if !metadata.is_dir() {
+        return Err("Estate review requires a folder containing one or more projects.".to_string());
+    }
+    Ok(root.to_string_lossy().to_string())
+}
+
+fn validated_estate_depth(value: Option<u32>) -> Result<u32, String> {
+    let depth = value.unwrap_or(3);
+    if depth > 12 {
+        return Err("Estate discovery depth must be between 0 and 12.".to_string());
+    }
+    Ok(depth)
+}
+
 fn validated_deployment_url(value: Option<&str>) -> Result<Option<String>, String> {
     let Some(value) = value else {
         return Ok(None);
@@ -294,6 +331,105 @@ pub fn status(app: &AppHandle) -> EngineStatus {
     }
 }
 
+pub fn scan_estate(app: &AppHandle, request: EstateScanRequest) -> Result<Value, String> {
+    let engine = locate_engine(app)?;
+    let root = validated_estate_root(&request.project_path)?;
+    let packs = validated_packs(&request.packs)?;
+    let max_depth = validated_estate_depth(request.max_depth)?;
+
+    if request.local_semgrep_scan && !packs.iter().any(|pack| pack == "secure-build") {
+        return Err("Local Semgrep scanning requires the Secure Build pack.".to_string());
+    }
+    if request.networked_dependency_scan && !packs.iter().any(|pack| pack == "production-ready") {
+        return Err("Networked dependency scanning requires the Production Ready pack.".to_string());
+    }
+
+    let mut command = Command::new(&engine);
+    command
+        .arg("scan-dir")
+        .arg(&root)
+        .arg("--format")
+        .arg("json")
+        .arg("--fail-on")
+        .arg("never")
+        .arg("--max-depth")
+        .arg(max_depth.to_string());
+
+    for pack in packs {
+        command.arg("--pack").arg(pack);
+    }
+    if request.local_semgrep_scan {
+        command.arg("--local-semgrep-scan");
+    }
+    if request.networked_dependency_scan {
+        command.arg("--networked-dependency-scan");
+    }
+
+    let output = command
+        .output()
+        .map_err(|error| format!("Could not start the Ship Check estate scan: {error}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if stderr.is_empty() {
+            format!("Ship Check estate scan exited with {}.", output.status)
+        } else {
+            stderr
+        });
+    }
+
+    serde_json::from_slice::<Value>(&output.stdout).map_err(|error| {
+        format!(
+            "Ship Check returned an invalid estate report: {error}. The desktop and engine versions may not match."
+        )
+    })
+}
+
+pub fn focus_report(app: &AppHandle, report: Value) -> Result<Value, String> {
+    let engine = locate_engine(app)?;
+    let payload = serde_json::to_vec(&report)
+        .map_err(|error| format!("Could not prepare the Ship Check report for focused review: {error}"))?;
+
+    let mut child = Command::new(&engine)
+        .arg("focus")
+        .arg("-")
+        .arg("--format")
+        .arg("json")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|error| format!("Could not start the Ship Check focused review: {error}"))?;
+
+    let mut stdin = child
+        .stdin
+        .take()
+        .ok_or_else(|| "Could not open the Ship Check focused-review input.".to_string())?;
+    stdin
+        .write_all(&payload)
+        .map_err(|error| format!("Could not send the report to the Ship Check focused review: {error}"))?;
+    drop(stdin);
+
+    let output = child
+        .wait_with_output()
+        .map_err(|error| format!("Could not finish the Ship Check focused review: {error}"))?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+        return Err(if stderr.is_empty() {
+            format!("Ship Check focused review exited with {}.", output.status)
+        } else {
+            stderr
+        });
+    }
+
+    serde_json::from_slice::<Value>(&output.stdout).map_err(|error| {
+        format!(
+            "Ship Check returned an invalid focused review: {error}. The desktop and engine versions may not match."
+        )
+    })
+}
+
 pub fn scan(app: &AppHandle, request: ScanRequest) -> Result<Value, String> {
     let engine = locate_engine(app)?;
     let source = validated_source(&request.project_path)?;
@@ -411,6 +547,13 @@ mod tests {
             .expect("packs"),
             vec!["cost-aware", "secure-build"]
         );
+    }
+
+    #[test]
+    fn validates_estate_depth_bound() {
+        assert_eq!(validated_estate_depth(None).expect("default"), 3);
+        assert_eq!(validated_estate_depth(Some(12)).expect("max"), 12);
+        assert!(validated_estate_depth(Some(13)).is_err());
     }
 
     #[test]

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": "0.1",
+  "suppressions": [
+    {
+      "findingId": "secure.public-secret-env-name:test-fixtures/risky-next/src/app/page.tsx:NEXT_PUBLIC_DATABASE_URL",
+      "checkVersion": "2",
+      "rationale": "This tracked synthetic risky-next fixture deliberately contains a secret-like NEXT_PUBLIC name so Ship Check can exercise and calibrate the detector; it is not an application credential or production configuration."
+    }
+  ]
+}

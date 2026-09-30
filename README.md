@@ -126,6 +126,16 @@ Run the optional known-dependency-vulnerability check:
 pnpm ship-check -- scan ./my-project --networked-dependency-scan
 ```
 
+OSV-Scanner is resolved locally but only runs when this flag is supplied; package identifiers and versions may be sent to the OSV service. Results are grouped around the affected package/version so duplicate manifests and advisory aliases do not inflate the first-line dependency count.
+
+Run an explicit Git-history credential review for a real Git repository:
+
+```bash
+pnpm ship-check -- scan ./my-project --git-history-secrets
+```
+
+Historical exposure is kept separate from current-source credential findings. A removed or rewritten historical value still needs revocation/rotation where it was a live credential. GitHub repository inputs remain shallow by default and request full history only when this option is enabled.
+
 Run the optional local Semgrep rules, when a compatible trusted Semgrep CLI is installed:
 
 ```bash
@@ -137,6 +147,78 @@ JSON remains the complete portable report:
 ```bash
 pnpm ship-check -- scan ./my-project --format json > ship-check-report.json
 ```
+
+For a human/developer/agent hand-off that keeps findings, unanswered controls, missing scanner evidence and coverage distinct:
+
+```bash
+pnpm ship-check -- scan ./my-project --format markdown > ship-check-review.md
+```
+
+For a repair loop, retain complete JSON before and after the change and compare with the same Ship Check transition semantics used in CI:
+
+```bash
+pnpm ship-check -- scan ./my-project --format json > before.json
+# make the verified, narrowly scoped repair
+pnpm ship-check -- scan ./my-project --format json > after.json
+pnpm ship-check -- compare before.json after.json --format markdown
+```
+
+The comparison distinguishes introduced, persistent, reactivated, newly accepted and no-longer-active findings/gaps. “No longer active” is intentionally not described as proof of remediation.
+
+To work through one item at a time from a complete JSON report:
+
+```bash
+pnpm ship-check -- focus after.json
+```
+
+Focused review keeps action semantics explicit: active findings are **FIX** work (highest severity first); only when there is no active finding does Ship Check surface an unanswered control as **VERIFY** work. An empty focused queue still points back to coverage and unassessed checks rather than claiming the project is safe. The desktop uses this same canonical selector to place one “Next action” card above the full report, with focused repair or verification instructions that can be copied to a developer or coding agent.
+
+### Estate review
+
+Alpha 0.9 adds bounded local discovery for a directory containing multiple projects. Each project is scanned independently; Ship Check does not merge evidence boundaries or create a portfolio safety score.
+
+```bash
+pnpm ship-check -- scan-dir ~/Code --format markdown
+pnpm ship-check -- scan-dir ~/Code --max-depth 4 --format json
+```
+
+Requested scanners that cannot run are surfaced explicitly in the estate output rather than being treated as completed assessment.
+
+Projects can declare triage context in tracked `.ship-check.json` without changing deterministic finding state:
+
+```json
+{
+  "schemaVersion": "0.1",
+  "project": {
+    "status": "live",
+    "ownership": "owned"
+  },
+  "suppressions": []
+}
+```
+
+Supported status values are `live`, `staging`, `development` and `deprecated`. Ownership values are `owned`, `fork` and `upstream`. Ship Check never infers these labels when they are absent.
+
+### Agent skill and npm staging
+
+The repository now includes a project-discoverable Agent Skill at `.claude/skills/ship-check/SKILL.md`. It orchestrates the canonical CLI and repair/rerun loop while keeping agent judgement separate from deterministic Ship Check evidence.
+
+For an arbitrary project, the npm distribution carries the same canonical skill and can install it locally without a global tool:
+
+```bash
+npx --yes @good-ship/ship-check skill install .
+```
+
+The installer writes `.claude/skills/ship-check/SKILL.md`, is idempotent when the canonical skill is already present, and refuses to replace different local content unless `--force` is supplied explicitly.
+
+The branch can also stage a self-contained npm artefact without exposing the internal workspace package graph:
+
+```bash
+pnpm build:npm
+node dist/npm/node_modules/@good-ship/ship-check/index.js --version
+```
+
+The staged main package is `@good-ship/ship-check`. Supported platforms also stage separate optional packages for pinned Gitleaks and OSV-Scanner binaries, using the same checksum-verified download path as desktop packaging. This means npm/npx installation can supply the local scanner binaries without making OSV execution automatic. Publication is still a separate release step.
 
 Every newly generated report also carries a `check-ruleset-v1` SHA-256 fingerprint over the selected check IDs, rule versions and packs. Engine version remains separate, so history/CI can distinguish “same rules under a newer Ship Check build” from an actual ruleset change without retaining source content.
 

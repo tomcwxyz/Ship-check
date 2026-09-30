@@ -104,6 +104,26 @@ describe("scan execution", () => {
     expect(report.observations).toEqual([]);
   });
 
+  it("carries explicit project triage context from .ship-check.json without inferring it", async () => {
+    const root = await temporaryDirectory();
+    await fs.writeFile(path.join(root, "package.json"), '{"name":"fixture"}\n');
+    await fs.writeFile(
+      path.join(root, ".ship-check.json"),
+      JSON.stringify({
+        schemaVersion: "0.1",
+        project: { status: "live", ownership: "owned" },
+        suppressions: []
+      })
+    );
+
+    const report = await scanProject(root, []);
+
+    expect(report.project.context).toEqual({
+      status: "live",
+      ownership: "owned"
+    });
+  });
+
   it("captures a check error and continues running later checks", async () => {
     const root = await temporaryDirectory();
     await fs.writeFile(path.join(root, "package.json"), '{"name":"fixture"}\n');

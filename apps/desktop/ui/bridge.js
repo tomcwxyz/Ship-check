@@ -29,6 +29,10 @@ export const desktopBridge = {
     return invokeCommand("choose_project_archive");
   },
 
+  chooseEstate() {
+    return invokeCommand("choose_estate");
+  },
+
   engineStatus() {
     return invokeCommand("engine_status");
   },
@@ -38,6 +42,22 @@ export const desktopBridge = {
       request: {
         projectPath,
         ...commonScanRequest(packs, options, databaseConnectionString),
+      },
+    });
+  },
+
+  focusReport(report) {
+    return invokeCommand("focus_report", { report });
+  },
+
+  scanEstate(projectPath, packs, options = {}) {
+    return invokeCommand("scan_estate", {
+      request: {
+        projectPath,
+        packs,
+        maxDepth: Number(options.maxDepth ?? 3),
+        localSemgrepScan: Boolean(options.localSemgrepScan),
+        networkedDependencyScan: Boolean(options.networkedDependencyScan),
       },
     });
   },

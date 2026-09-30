@@ -20,10 +20,12 @@ export function resolveProjectEvidenceSource(options: {
   input?: ProjectEvidenceSourceInput;
 }): ProjectEvidenceSource {
   const { root, gitRepository, input = {} } = options;
-  const capabilities = uniqueCapabilities([
-    ...(input.capabilities ?? ["source-files"]),
-    ...(gitRepository ? (["git-history"] as const) : [])
-  ]);
+  const capabilities = uniqueCapabilities(
+    input.capabilities ??
+      (gitRepository
+        ? (["source-files", "git-history"] as const)
+        : (["source-files"] as const))
+  );
 
   return ProjectEvidenceSourceSchema.parse({
     schemaVersion: "0.1",
