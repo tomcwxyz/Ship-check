@@ -35,6 +35,7 @@ function usage() {
     "",
     "Options:",
     "  --max-depth <0-12>                Discovery depth (default 3)",
+    "  --exclude <relative/path>          Exclude an estate subtree; repeat as needed",
     "  --git-history-secrets             Include local Git-history credential evidence",
     "  --local-semgrep-scan              Request the pinned local Semgrep rules",
     "  --networked-dependency-scan       Explicitly opt into OSV network checks",
@@ -49,6 +50,7 @@ function parseArguments(argv) {
   const options = {
     root: "",
     maxDepth: 3,
+    exclude: [],
     gitHistorySecrets: false,
     localSemgrepScan: false,
     networkedDependencyScan: false,
@@ -61,6 +63,13 @@ function parseArguments(argv) {
       const next = argv[index + 1];
       if (next === undefined) throw new Error("--max-depth requires a value.");
       options.maxDepth = Number(next);
+      index += 1;
+      continue;
+    }
+    if (value === "--exclude") {
+      const next = argv[index + 1];
+      if (next === undefined) throw new Error("--exclude requires a relative path.");
+      options.exclude.push(next);
       index += 1;
       continue;
     }
@@ -125,6 +134,7 @@ async function runEstateScan(options) {
     "--fail-on",
     "never",
   ];
+  for (const excluded of options.exclude) args.push("--exclude", excluded);
   if (options.gitHistorySecrets) args.push("--git-history-secrets");
   if (options.localSemgrepScan) args.push("--local-semgrep-scan");
   if (options.networkedDependencyScan) args.push("--networked-dependency-scan");
@@ -410,6 +420,7 @@ function acceptanceWorksheet({ estate, evaluation, options, runDirectory }) {
     "",
     `- Estate root: \`${path.resolve(options.root)}\``,
     `- Discovery depth: ${options.maxDepth}`,
+    `- Excluded subtrees: ${options.exclude.length ? options.exclude.map((value) => `\`${value}\``).join(", ") : "none"}`,
     `- Git-history credential scan: ${options.gitHistorySecrets ? "on" : "off"}`,
     `- Local Semgrep: ${options.localSemgrepScan ? "requested" : "off"}`,
     `- Networked dependency scan: ${options.networkedDependencyScan ? "explicitly enabled" : "off"}`,
@@ -518,6 +529,7 @@ async function main() {
       generatedAt: new Date().toISOString(),
       options: {
         maxDepth: options.maxDepth,
+        exclude: options.exclude,
         gitHistorySecrets: options.gitHistorySecrets,
         localSemgrepScan: options.localSemgrepScan,
         networkedDependencyScan: options.networkedDependencyScan,
