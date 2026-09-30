@@ -220,7 +220,14 @@ const publicSecretNameCheck: CheckDefinition = {
   async run(context) {
     const pattern = /\bNEXT_PUBLIC_[A-Z0-9_]*(?:SECRET|SERVICE_ROLE|DATABASE_URL|OPENAI|ANTHROPIC|PRIVATE_KEY)[A-Z0-9_]*\b/g;
     const findings: Finding[] = [];
-    for (const file of context.files.filter((file) => /\.(?:js|jsx|ts|tsx|env)$/i.test(file))) {
+    for (const file of context.files.filter((file) => {
+      const normalised = file.replace(/\\/g, "/");
+      const sourceLike = /\.(?:js|jsx|ts|tsx|env)$/i.test(normalised);
+      const testLike =
+        /(^|\/)(?:test|tests|__tests__|fixtures?)(\/|$)/i.test(normalised) ||
+        /\.(?:test|spec)\.(?:js|jsx|ts|tsx)$/i.test(normalised);
+      return sourceLike && !testLike;
+    })) {
       const text = await context.readText(file);
       if (!text) continue;
       pattern.lastIndex = 0;
