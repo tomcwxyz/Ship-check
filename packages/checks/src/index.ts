@@ -212,6 +212,7 @@ const wildcardCorsCheck: CheckDefinition = {
 };
 
 const publicSecretNameCheck: CheckDefinition = {
+  version: "2",
   id: "secure.public-secret-env-name",
   pack: "secure-build",
   title: "Client-exposed secret environment names",
