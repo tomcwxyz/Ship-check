@@ -1,5 +1,7 @@
 # Ship Check Alpha 0.9 tester guide
 
+**Alpha version:** 0.0.0-alpha.9
+
 Thanks for trying Ship Check. This is a small external alpha: we are testing whether the product is understandable and useful on real projects, not asking you to prove that every check is correct.
 
 A useful test should take around 20–30 minutes.
