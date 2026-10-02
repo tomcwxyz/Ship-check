@@ -71,6 +71,18 @@ jobs:
           }
           NODE
 
+
+      - name: Require npm publication token
+        shell: bash
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${NODE_AUTH_TOKEN:-}" ]]; then
+            echo "::error::Repository secret NPM_TOKEN is required for the first npm publication."
+            exit 1
+          fi
+
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
       - run: pnpm test
