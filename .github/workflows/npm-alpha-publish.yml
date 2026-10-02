@@ -38,6 +38,9 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
+      - name: Use Trusted Publishing-capable npm
+        run: npm install --global npm@11.21.0
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -71,17 +74,6 @@ jobs:
           }
           NODE
 
-
-      - name: Require npm publication token
-        shell: bash
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          set -euo pipefail
-          if [[ -z "${NODE_AUTH_TOKEN:-}" ]]; then
-            echo "::error::Repository secret NPM_TOKEN is required for the first npm publication."
-            exit 1
-          fi
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
@@ -123,6 +115,9 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
+      - name: Use Trusted Publishing-capable npm
+        run: npm install --global npm@11.21.0
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
@@ -138,11 +133,6 @@ jobs:
           SUFFIX: ${{ matrix.suffix }}
         run: |
           set -euo pipefail
-          if [[ -z "${NODE_AUTH_TOKEN:-}" ]]; then
-            echo "::error::Repository secret NPM_TOKEN is required for npm publication."
-            exit 1
-          fi
-
           publish_if_missing() {
             local name="$1"
             local directory="$2"
@@ -173,6 +163,9 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+
+      - name: Use Trusted Publishing-capable npm
+        run: npm install --global npm@11.21.0
 
       - uses: oven-sh/setup-bun@v2
         with:
