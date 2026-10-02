@@ -57,6 +57,8 @@ If you have several projects in one development folder, you can also try **Folde
 
 ## Option 2 — npm / npx
 
+**Temporarily unavailable:** the first npm publication is waiting on repository npm credentials. Use the desktop build for the current external alpha until `@good-ship/ship-check@alpha` is live. The commands below are the intended CLI route once publication is enabled.
+
 You need Node.js 22.12 or later.
 
 From a project directory:
