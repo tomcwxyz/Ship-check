@@ -38,3 +38,9 @@ test("a scan with no active findings still explains its coverage", () => {
   assert.match(result.headline, /not enough/);
   assert.equal(result.next.target, "review-coverage");
 });
+
+test("missing coverage records do not claim that checks completed", () => {
+  const result = summariseReview(report({coverage: []}));
+  assert.match(result.headline, /not enough/);
+  assert.equal(result.completed.length, 0);
+});
