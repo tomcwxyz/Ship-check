@@ -48,3 +48,73 @@
   .review-results-controls { max-width: 100%; align-items: flex-start; }
   .review-results-controls .scan-meta { text-align: left; }
 }
+
+
+/* Estate-wide review: five mutually exclusive attention groups, not a safety score. */
+.estate-overview-intro { grid-column: 1/-1; margin-bottom: .15rem; }
+.estate-overview-intro h3 { font-size: clamp(1.6rem, 3vw, 2.4rem); letter-spacing: -.035em; margin: .2rem 0 .5rem; }
+.estate-overview-intro p { max-width: 68ch; color: var(--muted); line-height: 1.5; margin: 0; }
+.estate-summary-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+.estate-dashboard-metrics { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: .55rem; }
+.estate-overview-metric { display: flex; flex-direction: column; text-align: left; gap: .3rem; align-items: flex-start; padding: .85rem; min-height: 118px; background: var(--paper-strong); border: 1px solid var(--line); border-top: 4px solid #87918c; color: var(--ink); font: inherit; cursor: pointer; }
+.estate-overview-metric:nth-child(1) { border-top-color: var(--accent-dark); }
+.estate-overview-metric:nth-child(2) { border-top-color: #ae7e2d; }
+.estate-overview-metric:nth-child(3) { border-top-color: #822d29; }
+.estate-overview-metric:nth-child(4) { border-top-color: #667572; }
+.estate-overview-metric:nth-child(5) { border-top-color: var(--green); }
+.estate-overview-metric strong { font-family: var(--mono); font-size: 2.3rem; line-height: 1; }
+.estate-overview-metric span { font-weight: 850; font-size: .82rem; }
+.estate-overview-metric small { font-size: .72rem; color: var(--muted); line-height: 1.3; }
+.estate-overview-metric.is-active { outline: 2px solid var(--ink); outline-offset: -2px; background: var(--plate); }
+.estate-overview-metric:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.estate-coverage-note { font-size: .85rem; color: var(--muted); margin: 0; }
+.estate-dashboard-list-title { font-size: 1.25rem; margin-bottom: .3rem; }
+.estate-dashboard-list { display: grid; gap: .9rem; margin-top: 1rem; }
+.estate-dashboard-card { border: 1px solid var(--line); padding: 1rem 1.2rem; background: var(--paper-strong); }
+.estate-dashboard-card-head { display: flex; justify-content: space-between; gap: .75rem; align-items: flex-start; }
+.estate-dashboard-card-head h3 { margin: 0; font-size: 1.1rem; overflow-wrap: anywhere; }
+.estate-dashboard-card .estate-project-context { font-size: .74rem; color: var(--muted); margin: .25rem 0 0; }
+.estate-brief { margin: .7rem 0 .5rem; font-size: .88rem; }
+.estate-priority { font-size: .84rem; font-weight: 750; margin: .8rem 0 .4rem; }
+.estate-error-text { overflow-wrap: anywhere; color: var(--accent-dark); }
+.estate-coverage-strip { display: grid; grid-template-columns: repeat(8,minmax(0,1fr)); gap: .25rem; margin: .7rem 0 .6rem; }
+.estate-coverage-tile { min-width: 0; display: flex; flex-direction: column; gap: .16rem; padding: .4rem .25rem; text-align: center; background: #ebede7; border-top: 3px solid #81908a; }
+.estate-coverage-tile[data-status="assessed"] { background: #e0ede5; border-top-color: var(--green); }
+.estate-coverage-tile[data-status="partial"] { background: #f5edd1; border-top-color: #b4862f; }
+.estate-coverage-tile[data-status="not-assessed"] { background: #e8e9e3; border-top-color: #87918c; }
+.estate-coverage-tile span { font-size: .95rem; }
+.estate-coverage-tile small { color: #4f5852; font-size: .62rem; overflow-wrap: anywhere; }
+.estate-project-details { margin: .25rem 0 0; }
+.estate-project-details > summary { padding-block: .85rem; }
+.estate-project-details .estate-attention-row { padding: 1rem; border: 1px solid var(--soft-line); margin-top: .6rem; }
+.estate-attention-row > strong { display: block; margin-top: .4rem; }
+.estate-attention-row > small { display: block; line-height: 1.55; }
+.estate-review-history { margin-top: .85rem; }
+/* An annotation, never a replacement for the scanner result. */
+.finding-review { background: #f1efe7; padding: 1rem; margin: .75rem 0 0; border-top: 3px solid var(--ink); }
+.finding-card > .finding-review { margin: 1rem 1.3rem 1.3rem; }
+.finding-review-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
+.finding-review-heading strong { font-size: .93rem; }
+.finding-review-status { font-size: .77rem; color: var(--muted); }
+.finding-review-status[data-decision="fixed"] { color: var(--accent-dark); font-weight: 700; }
+.finding-review-help { color: var(--muted); font-size: .82rem; line-height: 1.5; margin: .4rem 0 .75rem; }
+.finding-review-form { display: grid; gap: .75rem; }
+.finding-review-label { display: grid; gap: .3rem; font-weight: 750; font-size: .82rem; }
+.finding-review-select, .finding-review-reason-input { box-sizing: border-box; width: 100%; max-width: 650px; border: 1px solid var(--line); border-radius: 3px; background: var(--paper-strong); color: var(--ink); font: inherit; font-weight: 400; padding: .7rem; }
+.finding-review-reason-input { min-height: 66px; resize: vertical; }
+.finding-review-select:focus-visible, .finding-review-reason-input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.finding-review-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.finding-review-message { font-size: .79rem; margin: .65rem 0 0; }
+.finding-review-history { display: grid; gap: .6rem; }
+.finding-review-history-row { display: flex; gap: .75rem; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--soft-line); padding: .55rem 0; }
+.finding-review-history-row > div { display: flex; flex-direction: column; gap: .2rem; min-width: 0; }
+.finding-review-history-row strong { font-size: .83rem; overflow-wrap: anywhere; }
+.finding-review-history-row span, .finding-review-history-row small { font-size: .74rem; color: var(--muted); }
+@media (max-width: 860px) {
+  .estate-dashboard-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); }
+  .estate-coverage-strip { grid-template-columns: repeat(4,minmax(0,1fr)); }
+}
+@media (max-width: 540px) {
+  .estate-dashboard-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .estate-coverage-strip { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
