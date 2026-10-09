@@ -28,7 +28,7 @@ test("review keys are opaque, project-scoped and bound to rule version", async (
   const a = await ids();
   assert.match(a.projectKey, /^[a-f0-9]{64}$/);
   assert.notEqual(a.projectKey, await projectKey("estate", "C:\\Users\\Dev\\projects", "other-app"));
-  assert.notEqual(a.projectKey, await projectKey("local", "C:\\Users\\Dev\\projects", "my-app"));
+  assert.equal(a.projectKey, await projectKey("local", "C:\\Users\\Dev\\projects\\my-app"));
   assert.notEqual(a.findingKey, await findingKey(finding, "3"));
   assert.notEqual(a.checkKey, await checkKey(finding.checkId, "3"));
   assert.equal(await opaqueKey("same"), await opaqueKey("same"));
