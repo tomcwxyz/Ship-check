@@ -35,6 +35,7 @@ export function summariseReview(report) {
   const notChecked = coverage.filter((area) => area.status === "not-assessed");
   const partiallyChecked = coverage.filter((area) => area.status === "partial");
   const completed = coverage.filter((area) => area.status === "assessed");
+  const noAreaAssessed = coverage.length > 0 && coverage.every((area) => area.status === "not-assessed");
   const priority = [...findings].sort((a, b) =>
     (severityRank[b.severity] ?? 0) - (severityRank[a.severity] ?? 0)
   )[0];
@@ -53,7 +54,9 @@ export function summariseReview(report) {
     next = { label: "Next step", title: "Review what this scan actually covered", explanation: "No active concerns were reported in the checked areas. This is not a guarantee that the application is safe.", target: "review-coverage" };
   }
 
-  const headline = findings.length > 0
+  const headline = noAreaAssessed && findings.length === 0
+    ? "This evidence was not enough to assess the project"
+    : findings.length > 0
     ? "There are things to look at"
     : errors.length > 0
       ? "Part of this review could not finish"
