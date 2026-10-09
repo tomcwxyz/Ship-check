@@ -249,7 +249,10 @@
               <p class="section-kicker">2 · Review</p>
               <h2 id="results-title">What Ship Check found</h2>
             </div>
-            <p class="scan-meta" id="scan-meta"></p>
+            <div class="review-results-controls">
+              <p class="scan-meta" id="scan-meta"></p>
+              <button class="button button-quiet" id="rerun-scan" type="button">Run again</button>
+            </div>
           </div>
 
           <div class="scan-overview" id="scan-overview" aria-label="Scan results at a glance"></div>
@@ -267,7 +270,6 @@
               <button class="filter-chip" type="button" data-severity="low">Low</button>
               <button class="filter-chip" type="button" data-severity="info">Info</button>
             </div>
-            <button class="button button-quiet" id="rerun-scan" type="button">Run again</button>
           </div>
 
           <div class="empty-state" id="empty-state" hidden>
