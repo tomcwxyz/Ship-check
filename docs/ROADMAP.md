@@ -1,5 +1,14 @@
 # Roadmap
 
+## Review-first reporting and recurring cost discipline (October 2026)
+
+- [x] Add a three-answer results overview: needs attention, needs verification, and unassessed areas, with explicit bounded coverage rather than a safety score.
+- [x] Make a single prioritised next action visible before expandable findings, questions, assessment scope and technical evidence.
+- [x] Surface hourly/daily database or paid-provider work for measurement and review, repeated Vercel cron route declarations, and short-interval database polling.
+- [ ] Validate the new experience visually on Windows and macOS native desktop builds and against real estate scans.
+- [ ] Add runtime/provider usage evidence (Neon usage, Firecrawl request counts, retries, cron invocations) for proven duplication or wasted spend; source-code heuristics alone cannot establish this.
+
+
 ## Post-alpha.6: understandable, evidence-led review
 
 - [x] Distinguish recognised public Supabase client keys from potential private credentials.
