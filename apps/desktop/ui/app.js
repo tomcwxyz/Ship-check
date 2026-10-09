@@ -1,4 +1,7 @@
 import { desktopBridge } from "./bridge.js";
+import { renderReviewOverview } from "./overview.js";
+import { projectKey, updateReviewsFromScan } from "./finding-reviews.js";
+import { renderProjectReviewHistory } from "./review-controls.js";
 import { assertEstateReport, renderEstateReport } from "./estate.js";
 import {
   assertFocusedReview,
@@ -39,6 +42,8 @@ const state = {
   githubRef: "",
   engine: null,
   report: null,
+  reviewProjectKey: null,
+  viewingEstateProject: null,
   scanning: false,
   severityFilter: "all",
 };
@@ -79,6 +84,8 @@ const elements = {
   databaseTableLimit: document.querySelector("#database-table-limit"),
   runScan: document.querySelector("#run-scan"),
   rerunScan: document.querySelector("#rerun-scan"),
+  backToEstate: document.querySelector("#back-to-estate"),
+  resultsTitle: document.querySelector("#results-title"),
   errorBanner: document.querySelector("#error-banner"),
   results: document.querySelector("#results"),
   estateResults: document.querySelector("#estate-results"),
@@ -86,6 +93,11 @@ const elements = {
   estateProjects: document.querySelector("#estate-projects"),
   estateMeta: document.querySelector("#estate-meta"),
   summaryGrid: document.querySelector("#summary-grid"),
+  reviewHistory: document.querySelector("#review-history"),
+  scanOverview: document.querySelector("#scan-overview"),
+  scanDetailsMeta: document.querySelector("#scan-details-meta"),
+  reviewFindingsLabel: document.querySelector("#review-findings-label"),
+  reviewQuestionsLabel: document.querySelector("#review-questions-label"),
   focusPanel: document.querySelector("#focus-panel"),
   coverageGrid: document.querySelector("#coverage-grid"),
   observationsPanel: document.querySelector("#observations-panel"),
@@ -516,10 +528,79 @@ function sourceMetaLabel(source) {
   return labels[source?.provider] || source?.type || "project evidence";
 }
 
+function refreshLocalReviewHistory() {
+  if (elements.reviewHistory) {
+    renderProjectReviewHistory(elements.reviewHistory, state.reviewProjectKey, window.localStorage, () => {
+      if (state.report) renderFindings(
+        elements.findingsList, elements.emptyState, state.report.findings,
+        state.severityFilter, state.report.checks, reviewContext(),
+      );
+    });
+  }
+}
+
+function reviewContext() {
+  return state.reviewProjectKey ? {
+    projectKey: state.reviewProjectKey,
+    storage: window.localStorage,
+    onChange: refreshLocalReviewHistory,
+  } : null;
+}
+
+function openReviewSection(id) {
+  const drawer = document.getElementById(id);
+  if (!drawer) return;
+  if (drawer.tagName === "DETAILS") drawer.open = true;
+  if (id === "review-findings" && state.report) {
+    state.severityFilter = "all";
+    elements.severityFilters.querySelectorAll("[data-severity]").forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.severity === "all");
+    });
+    renderFindings(elements.findingsList, elements.emptyState, state.report.findings, "all", state.report.checks, reviewContext());
+  }
+  drawer.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function showEstateProjectReport(project, key, options) {
+  if (project.status !== "scanned" || !project.report) return;
+  state.reviewProjectKey = key ?? null;
+  state.viewingEstateProject = project.relativePath;
+  state.severityFilter = "all";
+  elements.severityFilters.querySelectorAll("[data-severity]").forEach(button => {
+    button.classList.toggle("is-active", button.dataset.severity === "all");
+  });
+  elements.resultsTitle.textContent = "Project review · " + project.relativePath;
+  elements.rerunScan.textContent = "Rescan all projects";
+  elements.backToEstate.hidden = false;
+  if (elements.historySummary) elements.historySummary.hidden = true;
+  renderReport(project.report, options);
+  elements.estateResults.hidden = true;
+  elements.results.scrollIntoView({ behavior: "smooth", block: "start" });
+  void renderFocus(project.report);
+}
+
+function backToEstateReport() {
+  if (!state.viewingEstateProject) return;
+  state.viewingEstateProject = null;
+  state.reviewProjectKey = null;
+  state.report = null;
+  elements.results.hidden = true;
+  elements.estateResults.hidden = false;
+  elements.resultsTitle.textContent = "What Ship Check found";
+  elements.rerunScan.textContent = "Run again";
+  elements.backToEstate.hidden = true;
+  elements.estateResults.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function renderReport(report, options) {
   state.report = report;
   elements.focusPanel.hidden = true;
   renderSummary(elements.summaryGrid, report);
+  renderReviewOverview(elements.scanOverview, report, openReviewSection);
+  refreshLocalReviewHistory();
+  elements.reviewFindingsLabel.textContent = "Findings (" + report.findings.length + ")";
+  elements.reviewQuestionsLabel.textContent = "Questions to verify (" + report.gaps.length + ")";
+  document.getElementById("review-questions").hidden = report.gaps.length === 0;
   renderCoverage(elements.coverageGrid, report.coverage);
   renderObservations(elements.observationsPanel, elements.observationsList, report.observations);
   renderSuppressions(elements.suppressionsPanel, elements.suppressionsList, report.suppressedFindings);
@@ -543,7 +624,11 @@ function renderReport(report, options) {
   const semgrepMode = options.localSemgrepScan ? "Semgrep local" : "Semgrep off";
   const dependencyMode = options.networkedDependencyScan ? "OSV network check" : "OSV off";
   const databaseMode = options.databaseInspection ? `${options.databasePlatform} metadata` : "database live check off";
-  elements.scanMeta.textContent = `${sourceLabel} · ${fileLabel} · ${report.checks.length} checks · ${report.suppressedFindings.length} suppressed · ${report.observations.length} observed · ${report.gaps.length} unverified · ${notAssessed} not assessed · ${databaseMode} · ${semgrepMode} · ${dependencyMode} · ${inventory} · ${when}`;
+  elements.scanMeta.textContent = sourceLabel + " · " + fileLabel + " · " + when;
+  elements.scanDetailsMeta.textContent = sourceLabel + " · " + fileLabel + " · " + report.checks.length + " checks · " +
+    report.suppressedFindings.length + " accepted exceptions · " + report.observations.length + " observations · " +
+    report.gaps.length + " unanswered questions · " + notAssessed + " checks not assessed · " +
+    databaseMode + " · " + semgrepMode + " · " + dependencyMode + " · " + inventory + " · " + when;
 
   elements.emptyCopy.textContent = report.findings.length === 0
     ? report.suppressedFindings.length > 0
@@ -555,7 +640,10 @@ function renderReport(report, options) {
           : "No confirmed findings in assessed areas. Check the coverage above before treating the project as clean."
     : "No findings match this severity filter.";
 
-  renderFindings(elements.findingsList, elements.emptyState, report.findings, state.severityFilter, report.checks);
+  renderFindings(elements.findingsList, elements.emptyState, report.findings, state.severityFilter, report.checks, reviewContext());
+  for (const id of ["review-focused", "review-findings", "review-questions", "review-history-panel", "review-coverage", "review-checks"]) {
+    document.getElementById(id).open = false;
+  }
   elements.results.hidden = false;
 }
 
@@ -648,13 +736,29 @@ async function runScan() {
         }),
       );
       state.report = null;
+      state.reviewProjectKey = null;
+      state.viewingEstateProject = null;
+      elements.backToEstate.hidden = true;
+      elements.resultsTitle.textContent = "What Ship Check found";
+      elements.rerunScan.textContent = "Run again";
       elements.results.hidden = true;
+      const estateKeys = new Map();
+      for (const project of estate.projects) {
+        if (project.status !== "scanned") continue;
+        const id = await projectKey("estate", state.estatePath, project.relativePath);
+        if (!id) continue;
+        estateKeys.set(project.relativePath, id);
+        await updateReviewsFromScan(window.localStorage, id, project.report);
+      }
       renderEstateReport({
         estate,
         summaryContainer: elements.estateSummary,
         projectsContainer: elements.estateProjects,
         metaElement: elements.estateMeta,
         focusReport: (report) => desktopBridge.focusReport(report),
+        projectKeys: estateKeys,
+        storage: window.localStorage,
+        onOpenProject: (project) => showEstateProjectReport(project, estateKeys.get(project.relativePath), options),
       });
       elements.estateResults.hidden = false;
       elements.estateResults.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -678,6 +782,14 @@ async function runScan() {
       );
     }
     const report = assertScanReport(rawReport);
+    state.reviewProjectKey = await projectKey(state.sourceMode, currentSourceValue());
+    state.viewingEstateProject = null;
+    elements.backToEstate.hidden = true;
+    elements.rerunScan.textContent = "Run again";
+    elements.resultsTitle.textContent = "What Ship Check found";
+    if (state.reviewProjectKey) {
+      await updateReviewsFromScan(window.localStorage, state.reviewProjectKey, report);
+    }
     state.severityFilter = "all";
     for (const button of elements.severityFilters.querySelectorAll("[data-severity]")) {
       button.classList.toggle("is-active", button.dataset.severity === "all");
@@ -743,6 +855,7 @@ elements.estateMaxDepth.addEventListener("input", updateRunAvailability);
 elements.chooseArchive.addEventListener("click", chooseArchive);
 elements.runScan.addEventListener("click", runScan);
 elements.rerunScan.addEventListener("click", runScan);
+elements.backToEstate.addEventListener("click", backToEstateReport);
 elements.packGrid.addEventListener("change", () => {
   updateDeepScanAvailability();
   updateDatabaseAvailability();
@@ -763,6 +876,7 @@ elements.severityFilters.addEventListener("click", (event) => {
     state.report.findings,
     state.severityFilter,
     state.report.checks,
+    reviewContext(),
   );
 });
 

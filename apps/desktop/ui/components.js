@@ -1,4 +1,5 @@
 import { reviewFinding, reviewSummary } from "./review.js";
+import { renderFindingReviewControls } from "./review-controls.js";
 export const severityOrder = {
   critical: 5,
   high: 4,
@@ -221,7 +222,7 @@ async function copyPrompt(button, text) {
   }, 1600);
 }
 
-export function createFindingCard(finding, checkVersion = "1") {
+export function createFindingCard(finding, checkVersion = "1", reviewContext = null) {
   const article = element("article", "finding-card");
   article.dataset.severity = finding.severity;
 
@@ -267,11 +268,16 @@ export function createFindingCard(finding, checkVersion = "1") {
   copyButton.addEventListener("click", () => copyPrompt(copyButton, `${review.repairInstructions}\n\nRule version: ${checkVersion}`));
   prompt.append(promptCopy, copyButton);
   article.append(prompt);
+  if (reviewContext?.projectKey && reviewContext?.storage) {
+    article.append(renderFindingReviewControls(
+      finding, checkVersion, reviewContext.projectKey, reviewContext.storage, reviewContext.onChange,
+    ));
+  }
 
   return article;
 }
 
-export function renderFindings(container, emptyState, findings, severityFilter, checks = []) {
+export function renderFindings(container, emptyState, findings, severityFilter, checks = [], reviewContext = null) {
   container.replaceChildren();
   const versions = new Map(checks.map((check) => [check.checkId, check.checkVersion || "1"]));
   const visible = findings
@@ -284,6 +290,6 @@ export function renderFindings(container, emptyState, findings, severityFilter, 
 
   emptyState.hidden = visible.length !== 0;
   for (const finding of visible) {
-    container.append(createFindingCard(finding, versions.get(finding.checkId) || "1"));
+    container.append(createFindingCard(finding, versions.get(finding.checkId) || "1", reviewContext));
   }
 }
