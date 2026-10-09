@@ -27,8 +27,14 @@ test("check failures are unknown, not successful checks", () => {
   assert.equal(result.next.target, "review-checks");
 });
 
+test("a scan with no assessed areas never reads as clear", () => {
+  const result = summariseReview(report({ coverage: [{area: "runtime", status: "not-assessed"}] }));
+  assert.match(result.headline, /not enough/);
+  assert.equal(result.next.target, "review-coverage");
+});
+
 test("a scan with no active findings still explains its coverage", () => {
   const result = summariseReview(report());
-  assert.match(result.headline, /No findings/);
+  assert.match(result.headline, /not enough/);
   assert.equal(result.next.target, "review-coverage");
 });
