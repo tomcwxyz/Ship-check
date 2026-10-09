@@ -140,7 +140,10 @@ export function reviewForFinding(storage, key, findingId) {
  * "not rechecked", not "resolved". Suppressed findings still count as present.
  */
 export function reconcileReviews(records, key, checks, currentFindings, suppressedFindings = [], timestamp) {
-  const validStatuses = new Set(["passed", "findings", "unverified", "resolved", "suppressed"]);
+  // An unanswered/unverified check has not demonstrated sufficient coverage
+  // to rule out the prior finding. "Not detected" is only meaningful when
+  // the same rule actually completed an assessment.
+  const validStatuses = new Set(["passed", "findings", "resolved", "suppressed"]);
   const seen = new Set([...currentFindings, ...suppressedFindings]);
   const available = new Set(checks.filter(check => validStatuses.has(check.status)).map(check => check.key));
   return records.map(record => {
