@@ -132,6 +132,7 @@ function coverageStrip(report) {
 
 function projectCard(project, { focusReport, projectKey, storage, onReviewsChanged }) {
   const article = el("article", "estate-project-card estate-dashboard-card");
+  let updateHistory = () => {};
   article.dataset.category = estateProjectCategory(project);
   const header = el("div", "estate-dashboard-card-head");
   const title = el("div", "");
@@ -197,7 +198,7 @@ function projectCard(project, { focusReport, projectKey, storage, onReviewsChang
       el("p", "", finding.summary),
       el("small", "", "Next: " + finding.remediation.fix)
     );
-    row.append(renderFindingReviewControls(finding, versions.get(finding.checkId) ?? "1", projectKey, storage, onReviewsChanged));
+    row.append(renderFindingReviewControls(finding, versions.get(finding.checkId) ?? "1", projectKey, storage, () => { updateHistory(); onReviewsChanged(); }));
     details.append(row);
   }
   for (const gap of gaps) {
@@ -214,11 +215,20 @@ function projectCard(project, { focusReport, projectKey, storage, onReviewsChang
   }
   const history = el("div", "finding-review-history");
   const historyHeading = el("h4", "", "Saved review decisions");
-  const updateHistory = () => renderProjectReviewHistory(history, projectKey, storage);
-  updateHistory();
-  const counter = projectKey ? reviewsForProject(storage, projectKey).length : 0;
   const historyPanel = el("details", "estate-review-history");
-  historyPanel.append(el("summary", "", "Past decisions (" + counter + ")"), history);
+  const historyLabel = el("summary", "");
+  historyPanel.append(historyLabel, history);
+  updateHistory = () => {
+    historyLabel.textContent = "Past decisions (" + (projectKey ? reviewsForProject(storage, projectKey).length : 0) + ")";
+    renderProjectReviewHistory(history, projectKey, storage, () => {
+      const wasOpen = details.open;
+      const refreshed = projectCard(project, { focusReport, projectKey, storage, onReviewsChanged });
+      article.replaceWith(refreshed);
+      refreshed.querySelector(".estate-project-details").open = wasOpen;
+      onReviewsChanged();
+    });
+  };
+  updateHistory();
   details.append(historyPanel);
   article.append(details);
   return article;
