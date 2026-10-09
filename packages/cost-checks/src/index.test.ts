@@ -10,6 +10,9 @@ const cronCheck = costAwareChecks.find((check) => check.id === "cost.vercel-cron
 const pollingCheck = costAwareChecks.find((check) => check.id === "cost.frequent-network-polling");
 if (!cronCheck) throw new Error("Missing cron cost check");
 if (!pollingCheck) throw new Error("Missing polling cost check");
+const recurringCheck = costAwareChecks.find((check) => check.id === "cost.recurring-provider-work");
+const duplicateCheck = costAwareChecks.find((check) => check.id === "cost.duplicate-cron-route");
+if (!recurringCheck || !duplicateCheck) throw new Error("Missing recurring-work checks");
 
 async function fixture(files: Record<string, string>): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "ship-check-cost-"));
@@ -145,5 +148,68 @@ describe("frequent polling association", () => {
     const report = await scanProject(root, [pollingCheck]);
     expect(report.findings).toHaveLength(1);
     expect(report.findings[0]?.severity).toBe("high");
+  });
+});
+
+describe("recurring paid-service and database usage", () => {
+  it("surfaces daily Firecrawl scraping and database calls as a review, not confirmed waste", async () => {
+    const root = await fixture({
+      "vercel.json": JSON.stringify({ crons: [{ path: "/api/cron/scrape", schedule: "0 9 * * *" }] }),
+      "app/api/cron/scrape/route.ts": 'import { refresh } from "@/lib/refresh"; export async function GET() { return refresh(); }',
+      "lib/refresh.ts": 'import Firecrawl from "@mendable/firecrawl-js"; import { db } from "./db"; export async function refresh() { const crawler = new Firecrawl({}); await crawler.scrapeUrl("https://example.org"); return db.query.items.findMany(); }'
+    });
+    const report = await scanProject(root, [recurringCheck]);
+    expect(report.findings).toHaveLength(1);
+    expect(report.findings[0]).toMatchObject({
+      checkId: "cost.recurring-provider-work",
+      severity: "low",
+      confidence: "medium"
+    });
+    expect(report.findings[0].summary).toMatch(/daily/);
+    expect(report.findings[0].summary).toMatch(/cannot establish/);
+  });
+
+  it("does not speculate about an unrelated daily heartbeat", async () => {
+    const root = await fixture({
+      "vercel.json": JSON.stringify({ crons: [{ path: "/api/cron/heartbeat", schedule: "0 9 * * *" }] }),
+      "app/api/cron/heartbeat/route.ts": "export async function GET() { return Response.json({ok:true}); }"
+    });
+    const report = await scanProject(root, [recurringCheck]);
+    expect(report.findings).toHaveLength(0);
+  });
+
+  it("finds identical scheduled endpoints without claiming proven duplicate invocations", async () => {
+    const root = await fixture({
+      "vercel.json": JSON.stringify({ crons: [
+        { path: "/api/cron/refresh", schedule: "0 8 * * *" },
+        { path: "/api/cron/refresh/", schedule: "0 18 * * *" }
+      ] })
+    });
+    const report = await scanProject(root, [duplicateCheck]);
+    expect(report.findings).toHaveLength(1);
+    expect(report.findings[0].summary).toMatch(/actual platform execution behaviour is not verified/);
+  });
+
+  it("does not flag separate scheduled endpoints as duplicates", async () => {
+    const root = await fixture({
+      "vercel.json": JSON.stringify({ crons: [
+        { path: "/api/cron/one", schedule: "0 8 * * *" },
+        { path: "/api/cron/two", schedule: "0 8 * * *" }
+      ] })
+    });
+    const report = await scanProject(root, [duplicateCheck]);
+    expect(report.findings).toHaveLength(0);
+  });
+
+  it("detects short database polling via a same-file helper", async () => {
+    const root = await fixture({
+      "poll.ts": [
+        'async function refresh() { return db.select().from(table); }',
+        'setInterval(refresh, 5000);'
+      ].join("\n")
+    });
+    const report = await scanProject(root, [pollingCheck]);
+    expect(report.findings).toHaveLength(1);
+    expect(report.findings[0].title).toMatch(/database polling/);
   });
 });
