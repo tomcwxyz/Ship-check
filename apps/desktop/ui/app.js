@@ -1,5 +1,7 @@
 import { desktopBridge } from "./bridge.js";
 import { renderReviewOverview } from "./overview.js";
+import { projectKey, updateReviewsFromScan } from "./finding-reviews.js";
+import { renderProjectReviewHistory } from "./review-controls.js";
 import { assertEstateReport, renderEstateReport } from "./estate.js";
 import {
   assertFocusedReview,
@@ -40,6 +42,7 @@ const state = {
   githubRef: "",
   engine: null,
   report: null,
+  reviewProjectKey: null,
   scanning: false,
   severityFilter: "all",
 };
@@ -87,6 +90,7 @@ const elements = {
   estateProjects: document.querySelector("#estate-projects"),
   estateMeta: document.querySelector("#estate-meta"),
   summaryGrid: document.querySelector("#summary-grid"),
+  reviewHistory: document.querySelector("#review-history"),
   scanOverview: document.querySelector("#scan-overview"),
   scanDetailsMeta: document.querySelector("#scan-details-meta"),
   reviewFindingsLabel: document.querySelector("#review-findings-label"),
@@ -521,6 +525,20 @@ function sourceMetaLabel(source) {
   return labels[source?.provider] || source?.type || "project evidence";
 }
 
+function refreshLocalReviewHistory() {
+  if (elements.reviewHistory) {
+    renderProjectReviewHistory(elements.reviewHistory, state.reviewProjectKey, window.localStorage);
+  }
+}
+
+function reviewContext() {
+  return state.reviewProjectKey ? {
+    projectKey: state.reviewProjectKey,
+    storage: window.localStorage,
+    onChange: refreshLocalReviewHistory,
+  } : null;
+}
+
 function openReviewSection(id) {
   const drawer = document.getElementById(id);
   if (!drawer) return;
@@ -530,7 +548,7 @@ function openReviewSection(id) {
     elements.severityFilters.querySelectorAll("[data-severity]").forEach((button) => {
       button.classList.toggle("is-active", button.dataset.severity === "all");
     });
-    renderFindings(elements.findingsList, elements.emptyState, state.report.findings, "all", state.report.checks);
+    renderFindings(elements.findingsList, elements.emptyState, state.report.findings, "all", state.report.checks, reviewContext());
   }
   drawer.scrollIntoView({ behavior: "smooth", block: "start" });
 }
@@ -540,6 +558,7 @@ function renderReport(report, options) {
   elements.focusPanel.hidden = true;
   renderSummary(elements.summaryGrid, report);
   renderReviewOverview(elements.scanOverview, report, openReviewSection);
+  refreshLocalReviewHistory();
   elements.reviewFindingsLabel.textContent = "Findings (" + report.findings.length + ")";
   elements.reviewQuestionsLabel.textContent = "Questions to verify (" + report.gaps.length + ")";
   document.getElementById("review-questions").hidden = report.gaps.length === 0;
@@ -582,7 +601,7 @@ function renderReport(report, options) {
           : "No confirmed findings in assessed areas. Check the coverage above before treating the project as clean."
     : "No findings match this severity filter.";
 
-  renderFindings(elements.findingsList, elements.emptyState, report.findings, state.severityFilter, report.checks);
+  renderFindings(elements.findingsList, elements.emptyState, report.findings, state.severityFilter, report.checks, reviewContext());
   for (const id of ["review-focused", "review-findings", "review-questions", "review-coverage", "review-checks"]) {
     document.getElementById(id).open = false;
   }
@@ -678,13 +697,24 @@ async function runScan() {
         }),
       );
       state.report = null;
+      state.reviewProjectKey = null;
       elements.results.hidden = true;
+      const estateKeys = new Map();
+      for (const project of estate.projects) {
+        if (project.status !== "scanned") continue;
+        const id = await projectKey("estate", state.estatePath, project.relativePath);
+        if (!id) continue;
+        estateKeys.set(project.relativePath, id);
+        await updateReviewsFromScan(window.localStorage, id, project.report);
+      }
       renderEstateReport({
         estate,
         summaryContainer: elements.estateSummary,
         projectsContainer: elements.estateProjects,
         metaElement: elements.estateMeta,
         focusReport: (report) => desktopBridge.focusReport(report),
+        projectKeys: estateKeys,
+        storage: window.localStorage,
       });
       elements.estateResults.hidden = false;
       elements.estateResults.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -708,6 +738,10 @@ async function runScan() {
       );
     }
     const report = assertScanReport(rawReport);
+    state.reviewProjectKey = await projectKey(state.sourceMode, currentSourceValue());
+    if (state.reviewProjectKey) {
+      await updateReviewsFromScan(window.localStorage, state.reviewProjectKey, report);
+    }
     state.severityFilter = "all";
     for (const button of elements.severityFilters.querySelectorAll("[data-severity]")) {
       button.classList.toggle("is-active", button.dataset.severity === "all");
@@ -793,6 +827,7 @@ elements.severityFilters.addEventListener("click", (event) => {
     state.report.findings,
     state.severityFilter,
     state.report.checks,
+    reviewContext(),
   );
 });
 
