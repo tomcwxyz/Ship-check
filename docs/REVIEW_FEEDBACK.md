@@ -7,10 +7,10 @@ A folder-of-projects scan is presented as an **action-oriented estate dashboard*
 - **Findings** — the project has scanner findings; severity only orders findings within this group.
 - **To verify** — no scanner findings, but one or more unanswered controls or check errors.
 - **Failed scans** — the project never produced a usable scan report.
-- **Limited evidence** — no active findings or unanswered questions, but coverage is partial, absent or not reported.
-- **No findings in checked areas** — all reported coverage areas are marked assessed and no active concerns were reported. This is not a safety claim.
+- **Limited evidence** — no findings or questions but no assessed area could be established, because coverage is absent or entirely unassessed.
+- **No findings in checked areas** — at least one area was assessed or partly assessed and no active concerns were reported. Other areas may still be unassessed; a coverage strip makes this explicit. This is not a safety claim.
 
-Each project still shows its own coverage strip and details. The overview also counts projects with unassessed areas across **all** groups, including those that already have findings. No numeric estate safety score is created, and missing coverage is never interpreted as passed.
+Each project still shows its own coverage strip and details. The overview also counts projects with partly assessed or unassessed areas across **all** groups, including those that already have findings. No numeric estate safety score is created, and missing coverage is never interpreted as passed.
 
 ## Reviewer decisions
 
