@@ -118,3 +118,10 @@
   .estate-dashboard-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .estate-coverage-strip { grid-template-columns: repeat(2,minmax(0,1fr)); }
 }
+
+/* The estate deep link reuses the canonical single-project result, no extra scan. */
+.review-results-buttons { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: flex-end; }
+.estate-open-project { margin: .45rem 0 .75rem; }
+@media (max-width: 760px) {
+  .review-results-buttons { justify-content: flex-start; }
+}
