@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="./repo-mode.css" />
     <link rel="stylesheet" href="./project-sources.css" />
     <link rel="stylesheet" href="./alpha8.css" />
+    <link rel="stylesheet" href="./overview.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -246,15 +247,17 @@
           <div class="results-heading">
             <div>
               <p class="section-kicker">2 · Review</p>
-              <h2 id="results-title">What to look at before shipping</h2>
+              <h2 id="results-title">What Ship Check found</h2>
             </div>
             <p class="scan-meta" id="scan-meta"></p>
           </div>
 
-          <div class="summary-grid" id="summary-grid" aria-label="Scan summary"></div>
+          <div class="scan-overview" id="scan-overview" aria-label="Scan results at a glance"></div>
 
           <section class="focus-panel" id="focus-panel" aria-label="Next focused review action" aria-live="polite" hidden></section>
 
+          <details class="review-drawer" id="review-findings">
+            <summary id="review-findings-label">Findings</summary>
           <div class="results-toolbar">
             <div class="filter-group" id="severity-filters" aria-label="Filter findings by severity">
               <button class="filter-chip is-active" type="button" data-severity="all">All findings</button>
@@ -274,7 +277,10 @@
           </div>
 
           <div class="findings-list" id="findings-list"></div>
+          </details>
 
+          <details class="review-drawer" id="review-questions">
+            <summary id="review-questions-label">Questions to verify</summary>
           <section class="unverified-panel" id="unverified-panel" aria-labelledby="unverified-title" hidden>
             <div class="coverage-heading">
               <div>
@@ -285,7 +291,10 @@
             </div>
             <div class="unverified-list" id="unverified-list"></div>
           </section>
+          </details>
 
+          <details class="review-drawer" id="review-coverage">
+            <summary>What was checked, and what wasn’t</summary>
           <section class="coverage-panel" aria-labelledby="coverage-title">
             <div class="coverage-heading">
               <div>
@@ -296,7 +305,12 @@
             </div>
             <div class="coverage-grid" id="coverage-grid"></div>
           </section>
+          </details>
 
+          <details class="review-drawer" id="review-checks">
+            <summary>Scan details, individual checks and other evidence</summary>
+            <p class="review-detail-meta" id="scan-details-meta"></p>
+            <div class="summary-grid" id="summary-grid" aria-label="Check details"></div>
           <section class="observations-panel" id="observations-panel" aria-labelledby="observations-title" hidden>
             <div class="coverage-heading">
               <div>
@@ -318,6 +332,7 @@
             </div>
             <div class="suppressions-list" id="suppressions-list"></div>
           </section>
+          </details>
         </section>
 
         <section class="results" id="estate-results" aria-labelledby="estate-results-title" hidden>
