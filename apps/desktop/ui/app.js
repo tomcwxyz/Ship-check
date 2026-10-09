@@ -527,7 +527,12 @@ function sourceMetaLabel(source) {
 
 function refreshLocalReviewHistory() {
   if (elements.reviewHistory) {
-    renderProjectReviewHistory(elements.reviewHistory, state.reviewProjectKey, window.localStorage);
+    renderProjectReviewHistory(elements.reviewHistory, state.reviewProjectKey, window.localStorage, () => {
+      if (state.report) renderFindings(
+        elements.findingsList, elements.emptyState, state.report.findings,
+        state.severityFilter, state.report.checks, reviewContext(),
+      );
+    });
   }
 }
 
