@@ -41,3 +41,10 @@
   .review-next { align-items: flex-start; flex-direction: column; }
 }
 @media (max-width: 440px) { .review-metrics { grid-template-columns: 1fr; } .review-metric:last-child { grid-column: auto; } }
+
+.review-results-controls { display: flex; flex-direction: column; align-items: flex-end; gap: .65rem; max-width: 55%; }
+.review-results-controls .scan-meta { margin: 0; text-align: right; }
+@media (max-width: 760px) {
+  .review-results-controls { max-width: 100%; align-items: flex-start; }
+  .review-results-controls .scan-meta { text-align: left; }
+}
