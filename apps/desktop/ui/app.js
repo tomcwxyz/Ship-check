@@ -1,4 +1,5 @@
 import { desktopBridge } from "./bridge.js";
+import { renderReviewOverview } from "./overview.js";
 import { assertEstateReport, renderEstateReport } from "./estate.js";
 import {
   assertFocusedReview,
@@ -86,6 +87,10 @@ const elements = {
   estateProjects: document.querySelector("#estate-projects"),
   estateMeta: document.querySelector("#estate-meta"),
   summaryGrid: document.querySelector("#summary-grid"),
+  scanOverview: document.querySelector("#scan-overview"),
+  scanDetailsMeta: document.querySelector("#scan-details-meta"),
+  reviewFindingsLabel: document.querySelector("#review-findings-label"),
+  reviewQuestionsLabel: document.querySelector("#review-questions-label"),
   focusPanel: document.querySelector("#focus-panel"),
   coverageGrid: document.querySelector("#coverage-grid"),
   observationsPanel: document.querySelector("#observations-panel"),
@@ -516,10 +521,27 @@ function sourceMetaLabel(source) {
   return labels[source?.provider] || source?.type || "project evidence";
 }
 
+function openReviewSection(id) {
+  const drawer = document.getElementById(id);
+  if (!drawer) return;
+  if (drawer.tagName === "DETAILS") drawer.open = true;
+  if (id === "review-findings" && state.report) {
+    state.severityFilter = "all";
+    elements.severityFilters.querySelectorAll("[data-severity]").forEach((button) => {
+      button.classList.toggle("is-active", button.dataset.severity === "all");
+    });
+    renderFindings(elements.findingsList, elements.emptyState, state.report.findings, "all", state.report.checks);
+  }
+  drawer.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function renderReport(report, options) {
   state.report = report;
   elements.focusPanel.hidden = true;
   renderSummary(elements.summaryGrid, report);
+  renderReviewOverview(elements.scanOverview, report, openReviewSection);
+  elements.reviewFindingsLabel.textContent = "Findings (" + report.findings.length + ")";
+  elements.reviewQuestionsLabel.textContent = "Questions to verify (" + report.gaps.length + ")";
   renderCoverage(elements.coverageGrid, report.coverage);
   renderObservations(elements.observationsPanel, elements.observationsList, report.observations);
   renderSuppressions(elements.suppressionsPanel, elements.suppressionsList, report.suppressedFindings);
@@ -543,7 +565,11 @@ function renderReport(report, options) {
   const semgrepMode = options.localSemgrepScan ? "Semgrep local" : "Semgrep off";
   const dependencyMode = options.networkedDependencyScan ? "OSV network check" : "OSV off";
   const databaseMode = options.databaseInspection ? `${options.databasePlatform} metadata` : "database live check off";
-  elements.scanMeta.textContent = `${sourceLabel} · ${fileLabel} · ${report.checks.length} checks · ${report.suppressedFindings.length} suppressed · ${report.observations.length} observed · ${report.gaps.length} unverified · ${notAssessed} not assessed · ${databaseMode} · ${semgrepMode} · ${dependencyMode} · ${inventory} · ${when}`;
+  elements.scanMeta.textContent = sourceLabel + " · " + fileLabel + " · " + when;
+  elements.scanDetailsMeta.textContent = sourceLabel + " · " + fileLabel + " · " + report.checks.length + " checks · " +
+    report.suppressedFindings.length + " accepted exceptions · " + report.observations.length + " observations · " +
+    report.gaps.length + " unanswered questions · " + notAssessed + " checks not assessed · " +
+    databaseMode + " · " + semgrepMode + " · " + dependencyMode + " · " + inventory + " · " + when;
 
   elements.emptyCopy.textContent = report.findings.length === 0
     ? report.suppressedFindings.length > 0
@@ -556,6 +582,9 @@ function renderReport(report, options) {
     : "No findings match this severity filter.";
 
   renderFindings(elements.findingsList, elements.emptyState, report.findings, state.severityFilter, report.checks);
+  for (const id of ["review-findings", "review-questions", "review-coverage", "review-checks"]) {
+    document.getElementById(id).open = false;
+  }
   elements.results.hidden = false;
 }
 
