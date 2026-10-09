@@ -106,6 +106,14 @@ export function renderFindingReviewControls(finding, checkVersion, projectId, st
   return panel;
 }
 
+function friendlyRuleName(id) {
+  const parts = String(id).split(".");
+  const family = parts.length > 1 ? parts[0] : "";
+  const subject = (parts.at(-1) ?? "").replace(/-/g, " ");
+  return [family === "cost" ? "Costs" : family === "secure" ? "Security" :
+    family === "production" ? "Production" : "", subject].filter(Boolean).join(" · ");
+}
+
 export function renderProjectReviewHistory(container, projectId, storage, onClear = () => {}) {
   container.replaceChildren();
   const records = projectId ? reviewsForProject(storage, projectId) : [];
@@ -119,7 +127,7 @@ export function renderProjectReviewHistory(container, projectId, storage, onClea
     const row = el("div", "finding-review-history-row");
     const info = el("div", "");
     info.append(
-      el("strong", "", record.ruleId + " · " + record.findingKey.slice(0, 8)),
+      el("strong", "", friendlyRuleName(record.ruleId) + " · Ref " + record.findingKey.slice(0, 8)),
       el("span", "", reviewLabels[record.decision] + " · " + verificationLabels[record.verification]),
     );
     const date = new Date(record.updatedAt);
