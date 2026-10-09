@@ -20,8 +20,8 @@ const bucketDescriptions = {
   attention: "At least one finding was reported. Findings remain visible even after a local review decision.",
   verify: "No active findings, but some controls are unanswered or a check could not complete.",
   failed: "No report was produced for these projects. They have not been assessed.",
-  limited: "No findings or unanswered controls were reported, but coverage is incomplete or unknown.",
-  quiet: "No active findings or unanswered controls in the areas assessed. This is not proof that an app is safe.",
+  limited: "The scan did not establish coverage of any area. More project evidence or enabled checks are needed.",
+  quiet: "No active findings in the bounded areas checked. Partial and unassessed areas remain visible on every project; this is not proof of safety.",
 };
 
 function el(tag, className = "", text) {
@@ -57,7 +57,10 @@ export function estateProjectCategory(project) {
   if ((report.findings ?? []).length) return "attention";
   if ((report.gaps ?? []).length || checkErrors(report)) return "verify";
   const coverage = report.coverage ?? [];
-  if (!coverage.length || coverage.some(entry => entry.status !== "assessed")) return "limited";
+  // A quiet project can still have unassessed areas: "no findings in checked
+  // areas" is valid when some bounded checks ran. Reserve limited for zero
+  // assessable coverage, otherwise the limited bucket swallows the estate.
+  if (!coverage.some(entry => entry.status === "assessed" || entry.status === "partial")) return "limited";
   return "quiet";
 }
 
@@ -80,7 +83,7 @@ export function estateSummary(estate) {
   const unassessed = estate.projects.filter(project =>
     project.status === "failed" ||
     !(project.report?.coverage?.length) ||
-    project.report.coverage.some(area => area.status === "not-assessed")
+    project.report.coverage.some(area => area.status !== "assessed")
   ).length;
   return {
     buckets,
@@ -156,8 +159,10 @@ function projectCard(project, { focusReport, projectKey, storage, onReviewsChang
   const line = el("p", "estate-brief",
     findings.length ? findings.length + " findings · " + gaps.length + " questions · " + errors.length + " check errors" :
     gaps.length || errors.length ? gaps.length + " questions · " + errors.length + " check errors" :
-    category === "limited" ? "No active findings, but the review did not cover every area." :
-    "No active findings in assessed areas.");
+    category === "limited" ? "No assessment coverage could be established." :
+    "No active findings in checked areas." +
+      ((report.coverage ?? []).some(entry => entry.status !== "assessed") ?
+        " Other areas remain partly checked or not checked." : ""));
   article.append(line, coverageStrip(report));
 
   if (findings.length) {
@@ -167,7 +172,9 @@ function projectCard(project, { focusReport, projectKey, storage, onReviewsChang
   } else if (errors.length) {
     article.append(el("p", "estate-priority", "Next: resolve the incomplete check."));
   } else if (category === "limited") {
-    article.append(el("p", "estate-priority", "Next: decide whether more evidence is needed."));
+    article.append(el("p", "estate-priority", "Next: provide suitable evidence or enable a relevant check."));
+  } else if ((report.coverage ?? []).some(entry => entry.status !== "assessed")) {
+    article.append(el("p", "estate-priority", "Optional: add more evidence for areas not fully checked."));
   }
 
   const details = el("details", "review-technical estate-project-details");
@@ -295,7 +302,7 @@ export function renderEstateReport({
   summaryContainer.append(nav);
   summaryContainer.append(el("p", "estate-coverage-note",
     summary.withUnassessedAreas + " of " + summary.projectCount +
-    " projects have unassessed areas or no report. No estate-wide safety score."));
+    " projects have partially checked or unassessed areas, or no report. No estate-wide safety score."));
 
   metaElement.textContent = summary.scannedCount + " of " + summary.projectCount + " scanned · " +
     summary.findings + " findings · " + summary.unanswered + " questions or incomplete checks";
