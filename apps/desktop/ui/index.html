@@ -257,7 +257,10 @@
 
           <div class="scan-overview" id="scan-overview" aria-label="Scan results at a glance"></div>
 
-          <section class="focus-panel" id="focus-panel" aria-label="Next focused review action" aria-live="polite" hidden></section>
+          <details class="review-drawer" id="review-focused">
+            <summary>Focused repair or verification instructions</summary>
+            <section class="focus-panel" id="focus-panel" aria-label="Focused technical handoff" aria-live="polite" hidden></section>
+          </details>
 
           <details class="review-drawer" id="review-findings">
             <summary id="review-findings-label">Findings</summary>
