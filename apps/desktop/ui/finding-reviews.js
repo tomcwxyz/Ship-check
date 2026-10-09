@@ -1,6 +1,7 @@
 // Local review decisions are separate from canonical scan findings and suppressions.
 // Only opaque project/finding digests, a non-sensitive rule ID, a decision and an
-// optional short rationale are persisted. No source, paths or evidence are stored.
+// optional user-written rationale are persisted. Scanned source/evidence is never
+// automatically copied into this store. Warn users not to paste sensitive data.
 const STORE_KEY = "ship-check.finding-reviews.v1";
 const MAX_RECORDS = 2000;
 const MAX_NOTE_LENGTH = 500;
@@ -34,10 +35,12 @@ export async function opaqueKey(value) {
 }
 
 export function projectIdentity(mode, sourceValue, relativePath = "") {
-  // An estate child must not collide with its neighbours or with a single scan.
+  // Estate projects share identities with standalone folder scans of the same
+  // project. Sibling directories still have distinct identities.
   const source = String(sourceValue ?? "").replaceAll("\\", "/").replace(/\/+$/, "");
-  const child = String(relativePath ?? "").replaceAll("\\", "/").replace(/^\.\//, "");
-  return JSON.stringify(["ship-check-project-v1", mode, source, child]);
+  const child = String(relativePath ?? "").replaceAll("\\", "/").replace(/^\.\//, "").replace(/\/+$/, "");
+  const localPath = mode === "estate" && child && child !== "." ? source + "/" + child : source;
+  return JSON.stringify(["ship-check-project-v1", mode === "estate" ? "local" : mode, localPath]);
 }
 
 export async function projectKey(mode, sourceValue, relativePath = "") {
@@ -74,7 +77,8 @@ export function readReviews(storage) {
 export function writeReviews(storage, records) {
   const clean = records.slice(-MAX_RECORDS);
   try {
-    storage?.setItem(STORE_KEY, JSON.stringify({ schemaVersion: 1, entries: clean }));
+    if (typeof storage?.setItem !== "function") return false;
+    storage.setItem(STORE_KEY, JSON.stringify({ schemaVersion: 1, entries: clean }));
     return true;
   } catch {
     return false;
@@ -86,7 +90,9 @@ export function saveReview(storage, record, now = new Date().toISOString()) {
       !DIGEST.test(record?.checkKey ?? "") || !DECISIONS.has(record?.decision)) {
     throw new Error("This review cannot be saved without a valid project, finding and decision.");
   }
-  const note = String(record.note ?? "").trim().slice(0, MAX_NOTE_LENGTH);
+  const note = record.decision === "accepted"
+    ? String(record.note ?? "").trim().slice(0, MAX_NOTE_LENGTH)
+    : "";
   if (record.decision === "accepted" && note.length < 10) {
     throw new Error("Explain why this risk is accepted (at least 10 characters).");
   }
