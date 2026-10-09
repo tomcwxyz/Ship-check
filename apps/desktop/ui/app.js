@@ -583,7 +583,7 @@ function renderReport(report, options) {
     : "No findings match this severity filter.";
 
   renderFindings(elements.findingsList, elements.emptyState, report.findings, state.severityFilter, report.checks);
-  for (const id of ["review-findings", "review-questions", "review-coverage", "review-checks"]) {
+  for (const id of ["review-focused", "review-findings", "review-questions", "review-coverage", "review-checks"]) {
     document.getElementById(id).open = false;
   }
   elements.results.hidden = false;
