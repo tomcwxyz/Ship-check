@@ -46,7 +46,9 @@ export const BUILT_IN_PRACTICE_PRINCIPLES: Record<string, PracticePrincipleId[]>
   "production.package-lock-discipline": ["practice.dependency-restraint"],
   "production.next-security-headers": ["practice.preserve-safety"],
   "cost.vercel-cron-frequency": ["practice.cost-discipline"],
-  "cost.frequent-network-polling": ["practice.cost-discipline"]
+  "cost.frequent-network-polling": ["practice.cost-discipline"],
+  "cost.recurring-provider-work": ["practice.cost-discipline"],
+  "cost.duplicate-cron-route": ["practice.cost-discipline"]
 };
 
 export const ASSESSMENT_AREAS: AssessmentArea[] = [
