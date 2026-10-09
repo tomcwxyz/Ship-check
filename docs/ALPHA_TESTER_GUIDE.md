@@ -1,6 +1,6 @@
 # Ship Check Alpha 0.9 tester guide
 
-**Alpha version:** 0.0.0-alpha.9
+**Alpha version:** 0.0.0-alpha.10
 
 Thanks for trying Ship Check. This is a small external alpha: we are testing whether the product is understandable and useful on real projects, not asking you to prove that every check is correct.
 
@@ -29,15 +29,15 @@ Commit or back up any project changes before acting on repair guidance.
 
 ## Option 1 — desktop app
 
-Download **Ship Check 0.0.0-alpha.9** from the GitHub pre-release:
+Once the new build is published, download **Ship Check 0.0.0-alpha.10** from GitHub Releases (the prior Alpha 0.9 installer does not include the redesigned review):
 
-https://github.com/tomcwxyz/Ship-check/releases/tag/ship-check-desktop-v0.0.0-alpha.9
+https://github.com/tomcwxyz/Ship-check/releases
 
 Choose the build for your machine:
 
-- **Windows x64** — `Ship.Check_0.0.0-alpha.9_x64-setup.exe`
-- **macOS Apple Silicon** — `Ship.Check_0.0.0-alpha.9_aarch64.app.zip`
-- **Linux x64** — `Ship.Check_0.0.0-alpha.9_amd64.deb`
+- **Windows x64** — `Ship.Check_0.0.0-alpha.10_x64-setup.exe`
+- **macOS Apple Silicon** — `Ship.Check_0.0.0-alpha.10_aarch64.app.zip`
+- **Linux x64** — `Ship.Check_0.0.0-alpha.10_amd64.deb`
 
 The Windows build is currently unsigned. Windows may show a SmartScreen warning.
 
@@ -47,11 +47,15 @@ Then:
 
 1. Choose **Folder** and select one real project.
 2. Run the default review.
-3. Read the coverage summary before looking at individual findings.
+3. Read the three result summaries and coverage strip before opening technical evidence.
 4. Open the suggested **Next action**.
 5. Decide whether the FIX or VERIFY instruction makes sense to you.
 6. If appropriate, make one small change or carry out one verification.
 7. Run Ship Check again and see whether the before/after story is understandable.
+
+If you have several projects in one development folder, try **Folder of projects**. Select a project group, open a project’s **View full report**, examine the evidence and use **Back to all projects** without rescanning.
+
+On at least one finding, save a review decision such as **Useful** or **Fixed · recheck needed**. Run again and check that the finding is still visible when still detected, and that your decision history says whether the exact check ran. A local review decision is never an automatic suppression.
 
 If you have several projects in one development folder, you can also try **Folder of projects** after the single-project test.
 
