@@ -133,7 +133,7 @@ function coverageStrip(report) {
   return items;
 }
 
-function projectCard(project, { focusReport, projectKey, storage, onReviewsChanged }) {
+function projectCard(project, { focusReport, projectKey, storage, onReviewsChanged, onOpenProject }) {
   const article = el("article", "estate-project-card estate-dashboard-card");
   let updateHistory = () => {};
   article.dataset.category = estateProjectCategory(project);
@@ -175,6 +175,13 @@ function projectCard(project, { focusReport, projectKey, storage, onReviewsChang
     article.append(el("p", "estate-priority", "Next: provide suitable evidence or enable a relevant check."));
   } else if ((report.coverage ?? []).some(entry => entry.status !== "assessed")) {
     article.append(el("p", "estate-priority", "Optional: add more evidence for areas not fully checked."));
+  }
+
+  if (typeof onOpenProject === "function") {
+    const open = el("button", "button button-secondary estate-open-project", "View full report →");
+    open.type = "button";
+    open.addEventListener("click", () => onOpenProject(project));
+    article.append(open);
   }
 
   const details = el("details", "review-technical estate-project-details");
@@ -229,7 +236,7 @@ function projectCard(project, { focusReport, projectKey, storage, onReviewsChang
     historyLabel.textContent = "Past decisions (" + (projectKey ? reviewsForProject(storage, projectKey).length : 0) + ")";
     renderProjectReviewHistory(history, projectKey, storage, () => {
       const wasOpen = details.open;
-      const refreshed = projectCard(project, { focusReport, projectKey, storage, onReviewsChanged });
+      const refreshed = projectCard(project, { focusReport, projectKey, storage, onReviewsChanged, onOpenProject });
       article.replaceWith(refreshed);
       refreshed.querySelector(".estate-project-details").open = wasOpen;
       onReviewsChanged();
@@ -243,7 +250,7 @@ function projectCard(project, { focusReport, projectKey, storage, onReviewsChang
 
 export function renderEstateReport({
   estate, summaryContainer, projectsContainer, metaElement,
-  focusReport, projectKeys = new Map(), storage, onReviewsChanged = () => {},
+  focusReport, projectKeys = new Map(), storage, onReviewsChanged = () => {}, onOpenProject,
 }) {
   assertEstateReport(estate);
   const summary = estateSummary(estate);
@@ -288,7 +295,7 @@ export function renderEstateReport({
     }
     for (const project of buckets[selected]) {
       list.append(projectCard(project, {
-        focusReport, projectKey: projectKeys.get(project.relativePath), storage, onReviewsChanged,
+        focusReport, projectKey: projectKeys.get(project.relativePath), storage, onReviewsChanged, onOpenProject,
       }));
     }
   }
