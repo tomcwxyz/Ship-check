@@ -43,6 +43,7 @@ const state = {
   engine: null,
   report: null,
   reviewProjectKey: null,
+  viewingEstateProject: null,
   scanning: false,
   severityFilter: "all",
 };
@@ -83,6 +84,8 @@ const elements = {
   databaseTableLimit: document.querySelector("#database-table-limit"),
   runScan: document.querySelector("#run-scan"),
   rerunScan: document.querySelector("#rerun-scan"),
+  backToEstate: document.querySelector("#back-to-estate"),
+  resultsTitle: document.querySelector("#results-title"),
   errorBanner: document.querySelector("#error-banner"),
   results: document.querySelector("#results"),
   estateResults: document.querySelector("#estate-results"),
@@ -558,6 +561,37 @@ function openReviewSection(id) {
   drawer.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+function showEstateProjectReport(project, key, options) {
+  if (project.status !== "scanned" || !project.report) return;
+  state.reviewProjectKey = key ?? null;
+  state.viewingEstateProject = project.relativePath;
+  state.severityFilter = "all";
+  elements.severityFilters.querySelectorAll("[data-severity]").forEach(button => {
+    button.classList.toggle("is-active", button.dataset.severity === "all");
+  });
+  elements.resultsTitle.textContent = "Project review · " + project.relativePath;
+  elements.rerunScan.textContent = "Rescan all projects";
+  elements.backToEstate.hidden = false;
+  if (elements.historySummary) elements.historySummary.hidden = true;
+  renderReport(project.report, options);
+  elements.estateResults.hidden = true;
+  elements.results.scrollIntoView({ behavior: "smooth", block: "start" });
+  void renderFocus(project.report);
+}
+
+function backToEstateReport() {
+  if (!state.viewingEstateProject) return;
+  state.viewingEstateProject = null;
+  state.reviewProjectKey = null;
+  state.report = null;
+  elements.results.hidden = true;
+  elements.estateResults.hidden = false;
+  elements.resultsTitle.textContent = "What Ship Check found";
+  elements.rerunScan.textContent = "Run again";
+  elements.backToEstate.hidden = true;
+  elements.estateResults.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function renderReport(report, options) {
   state.report = report;
   elements.focusPanel.hidden = true;
@@ -607,7 +641,7 @@ function renderReport(report, options) {
     : "No findings match this severity filter.";
 
   renderFindings(elements.findingsList, elements.emptyState, report.findings, state.severityFilter, report.checks, reviewContext());
-  for (const id of ["review-focused", "review-findings", "review-questions", "review-coverage", "review-checks"]) {
+  for (const id of ["review-focused", "review-findings", "review-questions", "review-history-panel", "review-coverage", "review-checks"]) {
     document.getElementById(id).open = false;
   }
   elements.results.hidden = false;
@@ -703,6 +737,10 @@ async function runScan() {
       );
       state.report = null;
       state.reviewProjectKey = null;
+      state.viewingEstateProject = null;
+      elements.backToEstate.hidden = true;
+      elements.resultsTitle.textContent = "What Ship Check found";
+      elements.rerunScan.textContent = "Run again";
       elements.results.hidden = true;
       const estateKeys = new Map();
       for (const project of estate.projects) {
@@ -720,6 +758,7 @@ async function runScan() {
         focusReport: (report) => desktopBridge.focusReport(report),
         projectKeys: estateKeys,
         storage: window.localStorage,
+        onOpenProject: (project) => showEstateProjectReport(project, estateKeys.get(project.relativePath), options),
       });
       elements.estateResults.hidden = false;
       elements.estateResults.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -744,6 +783,10 @@ async function runScan() {
     }
     const report = assertScanReport(rawReport);
     state.reviewProjectKey = await projectKey(state.sourceMode, currentSourceValue());
+    state.viewingEstateProject = null;
+    elements.backToEstate.hidden = true;
+    elements.rerunScan.textContent = "Run again";
+    elements.resultsTitle.textContent = "What Ship Check found";
     if (state.reviewProjectKey) {
       await updateReviewsFromScan(window.localStorage, state.reviewProjectKey, report);
     }
@@ -812,6 +855,7 @@ elements.estateMaxDepth.addEventListener("input", updateRunAvailability);
 elements.chooseArchive.addEventListener("click", chooseArchive);
 elements.runScan.addEventListener("click", runScan);
 elements.rerunScan.addEventListener("click", runScan);
+elements.backToEstate.addEventListener("click", backToEstateReport);
 elements.packGrid.addEventListener("change", () => {
   updateDeepScanAvailability();
   updateDatabaseAvailability();
