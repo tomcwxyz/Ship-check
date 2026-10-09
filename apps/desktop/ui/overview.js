@@ -35,7 +35,7 @@ export function summariseReview(report) {
   const notChecked = coverage.filter((area) => area.status === "not-assessed");
   const partiallyChecked = coverage.filter((area) => area.status === "partial");
   const completed = coverage.filter((area) => area.status === "assessed");
-  const noAreaAssessed = coverage.length > 0 && coverage.every((area) => area.status === "not-assessed");
+  const noAreaAssessed = coverage.length === 0 || coverage.every((area) => area.status === "not-assessed");
   const priority = [...findings].sort((a, b) =>
     (severityRank[b.severity] ?? 0) - (severityRank[a.severity] ?? 0)
   )[0];
