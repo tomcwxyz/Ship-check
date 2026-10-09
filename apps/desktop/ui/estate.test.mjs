@@ -46,8 +46,8 @@ test("estate dashboard distinguishes findings, unanswered questions, errors, gap
   assert.deepEqual(result.failed.map(p => p.relativePath), ["failed"]);
   assert.deepEqual(result.attention.map(p => p.relativePath), ["finding"]);
   assert.deepEqual(result.verify.map(p => p.relativePath), ["check-error", "question"]);
-  assert.deepEqual(result.limited.map(p => p.relativePath), ["not-assessed", "partial", "unknown"]);
-  assert.deepEqual(result.quiet.map(p => p.relativePath), ["quiet"]);
+  assert.deepEqual(result.limited.map(p => p.relativePath), ["not-assessed", "unknown"]);
+  assert.deepEqual(result.quiet.map(p => p.relativePath), ["partial", "quiet"]);
 });
 
 test("report of a project with a finding and incomplete checks is still a findings project", () => {
@@ -81,4 +81,12 @@ test("focused review is only available for a finding or question", () => {
   assert.equal(estateProjectCanFocus({ status: "scanned", report: scan({gaps:[{}]}) }), true);
   assert.equal(estateProjectCanFocus({ status: "scanned", report: scan({checks:[{status:"error"}]}) }), false);
   assert.equal(estateProjectCanFocus({ status: "failed", error: "boom" }), false);
+});
+
+test("partially assessed but quiet projects are not buried as no-evidence scans", () => {
+  const project = {relativePath:"quiet-partial",status:"scanned",report:scan({
+    coverage:[{area:"secrets",status:"partial"},{area:"runtime",status:"not-assessed"}]
+  })};
+  assert.equal(estateProjectCategory(project),"quiet");
+  assert.equal(estateSummary(estate([project])).withUnassessedAreas,1);
 });
