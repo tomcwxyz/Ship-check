@@ -59,6 +59,7 @@ function cronIntervalMinutes(schedule: string): number | null {
   }
 
   if (/^\d+$/.test(minute) && hour === "*") return 60;
+  if (/^\d+$/.test(minute) && /^\d+$/.test(hour)) return 24 * 60;
   const hourStep = /^\*\/(\d+)$/.exec(hour);
   if (/^\d+$/.test(minute) && hourStep) return Number(hourStep[1]) * 60;
   return null;
@@ -241,7 +242,7 @@ const vercelCronFrequencyCheck: CheckDefinition = {
   }
 };
 
-const networkUsePattern = /\b(?:fetch\s*\(|axios\.|\.refetch\s*\(|mutateAsync\s*\()/;
+const networkUsePattern = /\b(?:fetch\s*\(|axios\.|\.refetch\s*\(|mutateAsync\s*\(|(?:db|database)\.(?:query|select|execute|insert|update|delete)\s*\(|(?:firecrawl|crawler)\.(?:scrape|crawl|search|map)\s*\()/;
 const setIntervalPattern = /setInterval\s*\(([\s\S]{0,1200}?),\s*(\d[\d_]*)\s*\)/g;
 const refetchIntervalPattern = /refetchInterval\s*:\s*(\d[\d_]*)/g;
 const ignoredCallbackCalls = new Set([
@@ -325,8 +326,8 @@ function intervalFindings(
       finding({
         checkId,
         suffix: `${file}:${lineNumber(text, candidate.index)}`,
-        title: "Frequent network polling may create continuous compute",
-        summary: `${file} contains a repeating network path of about ${seconds} seconds.`,
+        title: "Frequent network or database polling may create continuous compute",
+        summary: `${file} contains a repeating network or database path of about ${seconds} seconds.`,
         severity,
         evidence: [{
           kind: "file-match",
@@ -351,7 +352,7 @@ const frequentPollingCheck: CheckDefinition = {
   version: "2",
   pack: "cost-aware",
   title: "Frequent network polling",
-  description: "Find short recurring intervals whose callback directly performs network work or reaches a same-file network helper.",
+  description: "Find short recurring intervals reaching a network, database or scraper call directly or through a same-file helper.",
   async run(context) {
     const findings: Finding[] = [];
     const files = context.files.filter(
@@ -370,7 +371,114 @@ const frequentPollingCheck: CheckDefinition = {
   }
 };
 
+
+/**
+ * Review recurring provider work without assuming that daily calls are waste.
+ * This is a bounded source heuristic: only Vercel cron declarations and local
+ * imports are inspected. Actual invocations, caching, retries and invoices
+ * require runtime/provider evidence.
+ */
+const recurringProviderWorkCheck: CheckDefinition = {
+  id: "cost.recurring-provider-work",
+  version: "1",
+  pack: "cost-aware",
+  title: "Recurring database and paid-provider work",
+  description: "Surface scheduled hourly/daily work that reaches a database or paid provider for usage review.",
+  appliesTo: (context) => context.hasFile("vercel.json"),
+  async run(context) {
+    const text = await context.readText("vercel.json");
+    if (!text) return [];
+    let config: { crons?: unknown };
+    try { config = JSON.parse(text); } catch { return []; }
+    if (!Array.isArray(config?.crons)) return [];
+
+    const findings: Finding[] = [];
+    for (const [index, item] of config.crons.entries()) {
+      if (!item || typeof item !== "object") continue;
+      const cronPath = (item as { path?: unknown }).path;
+      const schedule = (item as { schedule?: unknown }).schedule;
+      if (typeof cronPath !== "string" || typeof schedule !== "string") continue;
+      const minutes = cronIntervalMinutes(schedule);
+      if (minutes === null || minutes < 60 || minutes > 1440) continue;
+      const route = routeForCronPath(context.files, cronPath);
+      if (!route) continue;
+      const work = workComposition(await traceLocalImports(context, route));
+      const billable = work.labels.filter((label) => label === "database work" || label === "paid provider work");
+      if (billable.length === 0) continue;
+      const cadence = minutes === 60 ? "hourly" : minutes === 1440 ? "daily" : "every " + minutes + " minutes";
+      findings.push(finding({
+        checkId: this.id,
+        suffix: index + ":" + cronPath,
+        title: "Review recurring database or paid-service work",
+        summary: cronPath + " is scheduled " + cadence + " and reaches " + billable.join(" and ") +
+          " in the bounded local call graph. Ship Check cannot establish whether repeated calls are needed, cached or deduplicated.",
+        severity: "low",
+        confidence: "medium",
+        evidence: [
+          { kind: "configuration", path: "vercel.json", detail: "Scheduled route: " + cronPath + " (" + schedule + ")" },
+          ...work.evidencePaths.slice(0, 3).map((file) => ({
+            kind: "file-match" as const, path: file,
+            detail: "Local call graph includes a database or paid-provider marker; actual service usage was not measured."
+          }))
+        ],
+        why: "Recurring jobs can create unnecessary provider requests, scraping costs and database compute if unchanged work is repeated.",
+        fix: "Check whether the work needs this cadence. Review caching, deduplication, incremental processing and retry limits before considering a weekly, on-demand or event-driven schedule.",
+        verify: "Compare scheduled invocations with database queries and provider requests in production usage logs, then confirm the required data freshness is preserved.",
+        agentPrompt: "Review " + cronPath + " with schedule " + schedule + " and its database/provider calls. Measure actual provider usage, distinguish useful runs from repeated or unchanged work, and assess whether caching, deduplication or less frequent scheduling is appropriate. Do not claim the source review proves wasted spend."
+      }));
+    }
+    return { findings, coverage: [{ area: "cost", status: "partial" }] };
+  }
+};
+
+const duplicateCronRouteCheck: CheckDefinition = {
+  id: "cost.duplicate-cron-route",
+  version: "1",
+  pack: "cost-aware",
+  title: "Repeated Vercel scheduled routes",
+  description: "Detect the same scheduled route declared more than once in Vercel configuration.",
+  appliesTo: (context) => context.hasFile("vercel.json"),
+  async run(context) {
+    const text = await context.readText("vercel.json");
+    if (!text) return [];
+    let config: { crons?: unknown };
+    try { config = JSON.parse(text); } catch { return []; }
+    if (!Array.isArray(config?.crons)) return [];
+    const occurrences = new Map<string, string[]>();
+    for (const cron of config.crons) {
+      if (!cron || typeof cron !== "object") continue;
+      const path = (cron as { path?: unknown }).path;
+      const schedule = (cron as { schedule?: unknown }).schedule;
+      if (typeof path !== "string" || typeof schedule !== "string") continue;
+      const key = "/" + path.replace(/^\/+|\/+$/g, "");
+      occurrences.set(key, [...(occurrences.get(key) ?? []), schedule]);
+    }
+    const findings: Finding[] = [];
+    for (const [path, schedules] of occurrences) {
+      if (schedules.length < 2) continue;
+      findings.push(finding({
+        checkId: this.id,
+        suffix: path,
+        title: "The same scheduled route appears more than once",
+        summary: path + " has " + schedules.length + " schedule declarations in vercel.json. Confirm whether these are intentional; the actual platform execution behaviour is not verified.",
+        severity: "medium",
+        evidence: [{
+          kind: "configuration", path: "vercel.json",
+          detail: "Repeated scheduled path and schedules: " + schedules.join(", ")
+        }],
+        why: "Repeated declarations may be an accidental configuration duplication and can obscure the intended execution cadence.",
+        fix: "Confirm whether the declarations are supported and intentional. Consolidate them when redundant; do not remove required scheduled work without checking.",
+        verify: "Inspect the deployed cron configuration and invocation logs, then rerun Ship Check to confirm the intended schedule is declared once.",
+        agentPrompt: "Review duplicate Vercel cron declarations for " + path + ". Confirm deployed behaviour using platform logs. Remove redundant declarations only when it preserves the intended schedule, then add a configuration regression test."
+      }));
+    }
+    return { findings, coverage: [{ area: "cost", status: "partial" }] };
+  }
+};
+
 export const costAwareChecks: CheckDefinition[] = [
   vercelCronFrequencyCheck,
-  frequentPollingCheck
+  frequentPollingCheck,
+  recurringProviderWorkCheck,
+  duplicateCronRouteCheck
 ];
