@@ -542,6 +542,7 @@ function renderReport(report, options) {
   renderReviewOverview(elements.scanOverview, report, openReviewSection);
   elements.reviewFindingsLabel.textContent = "Findings (" + report.findings.length + ")";
   elements.reviewQuestionsLabel.textContent = "Questions to verify (" + report.gaps.length + ")";
+  document.getElementById("review-questions").hidden = report.gaps.length === 0;
   renderCoverage(elements.coverageGrid, report.coverage);
   renderObservations(elements.observationsPanel, elements.observationsList, report.observations);
   renderSuppressions(elements.suppressionsPanel, elements.suppressionsList, report.suppressedFindings);
