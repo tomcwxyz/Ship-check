@@ -10,7 +10,7 @@ A folder-of-projects scan is presented as an **action-oriented estate dashboard*
 - **Limited evidence** — no findings or questions but no assessed area could be established, because coverage is absent or entirely unassessed.
 - **No findings in checked areas** — at least one area was assessed or partly assessed and no active concerns were reported. Other areas may still be unassessed; a coverage strip makes this explicit. This is not a safety claim.
 
-Each project still shows its own coverage strip and details. The overview also counts projects with partly assessed or unassessed areas across **all** groups, including those that already have findings. No numeric estate safety score is created, and missing coverage is never interpreted as passed.
+Each project still shows its own coverage strip and details. The **View full report** action opens the existing single-project report from the scanned estate data, with all findings, gap evidence, observations, accepted exceptions and review controls. **Back to all projects** returns without running another scan. **Rescan all projects** explicitly reruns the whole estate. The overview also counts projects with partly assessed or unassessed areas across **all** groups, including those that already have findings. No numeric estate safety score is created, and missing coverage is never interpreted as passed.
 
 ## Reviewer decisions
 
