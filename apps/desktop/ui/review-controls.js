@@ -106,7 +106,7 @@ export function renderFindingReviewControls(finding, checkVersion, projectId, st
   return panel;
 }
 
-export function renderProjectReviewHistory(container, projectId, storage) {
+export function renderProjectReviewHistory(container, projectId, storage, onClear = () => {}) {
   container.replaceChildren();
   const records = projectId ? reviewsForProject(storage, projectId) : [];
   if (!records.length) {
@@ -129,7 +129,8 @@ export function renderProjectReviewHistory(container, projectId, storage) {
     clear.setAttribute("aria-label", "Remove review decision for " + record.ruleId);
     clear.addEventListener("click", () => {
       if (clearReview(storage, projectId, record.findingKey)) {
-        renderProjectReviewHistory(container, projectId, storage);
+        renderProjectReviewHistory(container, projectId, storage, onClear);
+        onClear();
       }
     });
     row.append(info, clear);
