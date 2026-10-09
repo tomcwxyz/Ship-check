@@ -8,6 +8,9 @@
 - [x] Add estate-wide five-group attention dashboard with project-level evidence maps, scoped action order, and explicit unassessed areas.
 - [x] Add local per-finding feedback (useful, not relevant, fix attempted, risk accepted) with version-bound identities and honest future recheck state; never turn local feedback into suppression.
 - [x] Provide past-review history for findings no longer shown by a current scan. See [review and feedback contract](./REVIEW_FEEDBACK.md).
+- [x] Provide full evidence drill-down from every scanned estate project without a duplicate scan, and clear back-to-estate navigation.
+- [x] Calibrate quiet vs limited coverage classifications so bounded, finding-free assessments remain discoverable while missing coverage remains explicit.
+- [x] Prepare Alpha 0.10 versions and updated tester instructions; installer release follows merge to main.
 - [ ] Validate the new experience visually on Windows and macOS native desktop builds and against real estate scans.
 - [ ] Add runtime/provider usage evidence (Neon usage, Firecrawl request counts, retries, cron invocations) for proven duplication or wasted spend; source-code heuristics alone cannot establish this.
 
