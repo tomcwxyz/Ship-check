@@ -5,6 +5,9 @@
 - [x] Add a three-answer results overview: needs attention, needs verification, and unassessed areas, with explicit bounded coverage rather than a safety score.
 - [x] Make a single prioritised next action visible before expandable findings, questions, assessment scope and technical evidence.
 - [x] Surface hourly/daily database or paid-provider work for measurement and review, repeated Vercel cron route declarations, and short-interval database polling.
+- [x] Add estate-wide five-group attention dashboard with project-level evidence maps, scoped action order, and explicit unassessed areas.
+- [x] Add local per-finding feedback (useful, not relevant, fix attempted, risk accepted) with version-bound identities and honest future recheck state; never turn local feedback into suppression.
+- [x] Provide past-review history for findings no longer shown by a current scan. See [review and feedback contract](./REVIEW_FEEDBACK.md).
 - [ ] Validate the new experience visually on Windows and macOS native desktop builds and against real estate scans.
 - [ ] Add runtime/provider usage evidence (Neon usage, Firecrawl request counts, retries, cron invocations) for proven duplication or wasted spend; source-code heuristics alone cannot establish this.
 
