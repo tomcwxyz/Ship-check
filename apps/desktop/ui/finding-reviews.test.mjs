@@ -56,6 +56,7 @@ test("a resolved code concern only becomes not detected when its exact check ran
   assert.equal(reconcileReviews([saved], id.projectKey, allowed, [])[0].verification, "not-detected");
   assert.equal(reconcileReviews([saved], id.projectKey, [{...allowed[0],status:"error"}], [])[0].verification, "not-rechecked");
   assert.equal(reconcileReviews([saved], id.projectKey, [{...allowed[0],status:"not-assessed"}], [])[0].verification, "not-rechecked");
+  assert.equal(reconcileReviews([saved], id.projectKey, [{...allowed[0],status:"unverified"}], [])[0].verification, "not-rechecked");
   assert.equal(reconcileReviews([saved], id.projectKey, [], [])[0].verification, "not-rechecked");
   assert.equal(reconcileReviews([saved], id.projectKey, allowed, [], [id.findingKey])[0].verification, "still-found");
   assert.equal(reconcileReviews([saved], id.projectKey, allowed, [id.findingKey])[0].verification, "still-found");
