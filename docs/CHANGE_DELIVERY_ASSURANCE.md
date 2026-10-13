@@ -1,16 +1,16 @@
-# Change and delivery assurance (source-only first pass)
+# Change and delivery assurance
 
-This work extends Ship Check's existing `production-ready` pack. The checks are deterministic and use the same Finding / Observation / Unverified / Coverage contract as the rest of the engine. They are **not** a CI quality score or a claim that migrations have been applied.
+This work extends Ship Check's existing `production-ready` pack. Default checks remain source-only; an additional, explicitly authorised database inspection can compare selected migration ledger metadata. All checks use Finding / Observation / Unverified / Coverage semantics and are **not** a CI quality score or a certificate of database schema equivalence.
 
 ## Database migration integrity
 
 `database.migration-integrity` recognises conventional SQL migration files, Supabase timestamped SQL and Drizzle migration SQL/journals. It checks duplicate numeric identifiers for timestamped Supabase and conventional SQL migrations, Drizzle journal JSON structure, duplicate journal tags/indices, and journal entries whose SQL is missing. Some SQL that is not represented in the journal is a verification question rather than a definite fault.
 
-A repository migration observation is always accompanied by an explicit **applied-state-unverified** question. The presence of SQL files or a Drizzle journal says nothing about which database environments actually applied those files.
+A repository migration observation is accompanied by the separate `database.migration-applied-history` verification question, which is resolved only when the live comparison can complete. The presence of SQL files or a Drizzle journal says nothing about which database environments actually applied those files.
 
 `database.migration-documentation` looks for repository-visible migration instructions in common Markdown runbooks, and recovery guidance when potentially destructive SQL exists. Missing documentation is a question, because the authoritative instructions may be maintained outside Git. The presence of a keyword is not proof that the instructions are complete or have been tested.
 
-**Not yet checked:** the actual applied-migration ledgers in Neon, Prisma, Drizzle or Supabase; migration checksum comparison against live databases; production/dev drift; transactional safety; SQL semantics; ability to restore backups; migration-order validity beyond the few identities above.
+**Still not checked:** custom or non-canonical applied-migration ledgers, production-versus-development comparisons, transactional safety, SQL semantics, actual schema equivalence, ability to restore backups or migration-order validity beyond the bounded identifiers. Live ledger access is only available through the separate opt-in documented below.
 
 ## CI quality evidence
 
@@ -30,17 +30,17 @@ The separate `production.github-actions-supply-chain` rule continues to check br
 
 ## Safety and calibration
 
-- All these new checks are source-only, offline and have no database or GitHub write permissions.
+- Default checks are source-only and offline. The optional migration-ledger inspection opens one explicitly selected database connection, in a read-only transaction, and requires the separate opt-in; it has no write permissions or migration execution path.
 - New checks retain stable IDs and explicit rule version `1`.
 - Findings are reserved for demonstrable file-level contradictions. Missing external evidence remains unverified.
 - The current source checks do not modify migrations, CI workflows or documentation.
-- A live database comparison should require explicit opt-in, narrowly scoped read-only access, and explicit selection of an environment. SQL itself should never be executed by the checker.
+- Live database comparisons require explicit opt-in, narrowly scoped read-only access and deliberate environment selection. Migration SQL itself is never executed by the checker.
 - Feedback from real estate scans should calibrate false positives before making these checks enforcement gates.
 
 ## Follow-on work
 
-1. Implement a bounded live migration-ledger evidence contract for read-only Postgres metadata, including different ledger schemas and redaction. Never infer drift from absent/unreadable ledgers.
-2. Compare the **same environment** against the repository migration identity/hash metadata; distinguish missing, altered, out-of-order and unknown migrations.
+1. Calibrate the new canonical live-ledger comparisons against disposable Drizzle/Neon, Prisma and Supabase environments, including unavailable and custom ledgers.
+2. Extend to custom migration runners through an explicit, separately scoped adapter rather than guessing a table name.
 3. Model actual GitHub branch rulesets and required checks (optional authenticated GitHub metadata) separately from source-only workflow observations.
 4. Add CI execution history, missing/redundant builds, path-filter impact and duplicate work checks using real workflow run evidence.
 5. Add diff-aware schema-change to verification evidence without enforcing one test-file-per-change conventions.
