@@ -46,3 +46,30 @@ The separate `production.github-actions-supply-chain` rule continues to check br
 5. Add diff-aware schema-change to verification evidence without enforcing one test-file-per-change conventions.
 
 Run `pnpm test` and `pnpm check` after modifying the ruleset. The normal `ship-check scan` and estate review will include the new checks whenever the production-ready pack is selected.
+
+
+## Opt-in live migration-history comparison
+
+A **separate, explicit** migration opt-in extends read-only Postgres metadata inspection to one recognised migration ledger table. The checker does not apply, edit, repair, revert or execute SQL migrations and never reads application records. The ledger is application-owned migration **metadata**, and is distinct from the usual system-catalog-only inspection.
+
+```bash
+export SHIP_CHECK_DATABASE_URL='postgresql://readonly_user:...@host/database?sslmode=require'
+pnpm ship-check -- scan ./my-project --inspect-database --inspect-migrations \
+  --migration-framework drizzle --database-platform neon --format markdown
+```
+
+`--migration-framework` must be exactly `drizzle`, `prisma` or `supabase`. Ship Check reads *only one* fixed ledger table, corresponding to the selection:
+
+| Framework | Canonical ledger | Comparison |
+| --- | --- | --- |
+| Drizzle | `drizzle.__drizzle_migrations` | Journal `when` timestamps and SHA-256 of migration SQL versus ledger `created_at`/`hash` |
+| Prisma | `public._prisma_migrations` | Directory names and SQL SHA-256 versus ledger migration names/checksums and lifecycle |
+| Supabase | `supabase_migrations.schema_migrations` | Migration versions only; the recognised ledger does not provide a comparable checksum |
+
+The chosen database environment is the one encoded in the explicitly selected read-only connection URL; Ship Check **does not establish whether the URL is production, staging or development**. Select/label it carefully.
+
+The ledger query is gated behind **both** `--inspect-database` and `--inspect-migrations`. No migration rows are queried during ordinary source, desktop, GitHub Action or system-catalog-only database scans. The ledger inventory is capped at 1,000 entries; if truncated, the comparison remains unverified. Missing tables, limited privileges, custom table/schema configurations, incomplete or conflicting source manifests also remain unverified, not clean. This first pass supports only canonical ledger locations and a single framework per invocation.
+
+A complete ledger comparison resolves the source-only *applied history not verified* question. It does not resolve separate Drizzle journal integrity or migration documentation questions and does not prove deployed schema equivalence. Source migrations absent from the selected ledger may intentionally be pending; older applied migrations absent from source may have been archived elsewhere. Both are verification questions. A mismatch between a source migration's SHA-256 and an applied ledger checksum is a high-severity finding requiring human-led investigation, never an automatic fix.
+
+Only aggregate counts, names of source files for detected mismatches and remediation/verification guidance flow into the canonical report. Raw ledger rows, credentials, and full SQL are not persisted to the report or Cloud metadata. Read-only access to the canonical ledger itself still requires explicit database privileges.
