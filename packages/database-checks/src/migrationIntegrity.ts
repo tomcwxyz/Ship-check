@@ -77,6 +77,35 @@ export const migrationIntegrityCheck: CheckDefinition = {
       } else seen.set(key, file);
     }
 
+    // Drizzle may also be used with hand-managed SQL. No journal is a verification
+    // question, not evidence that migrations were never applied.
+    const drizzleByRoot = new Map<string, string[]>();
+    for (const file of files) {
+      if (!drizzleSql.test(file)) continue;
+      const root = file.slice(0, file.lastIndexOf("/"));
+      drizzleByRoot.set(root, [...(drizzleByRoot.get(root) ?? []), file]);
+    }
+    for (const [root, sqlFiles] of drizzleByRoot) {
+      if (!context.hasFile(root + "/meta/_journal.json") && !context.hasFile(root + "/_meta/_journal.json")) {
+        gaps.push(gap(ID, "journal-not-visible:" + root,
+          "Drizzle migration journal is not visible",
+          sqlFiles.length + " direct Drizzle SQL file(s) exist in " + root + ", but no recognised Drizzle migration journal is present.",
+          "Confirm whether migrations are managed by Drizzle Kit, a custom runner or manually. Locate the authoritative applied history before comparing to a database.", sqlFiles[0]));
+      }
+      const prefixes = new Map<string, string>();
+      for (const sqlFile of sqlFiles) {
+        const basename = sqlFile.slice(root.length + 1);
+        const sequence = /^(\\d+)[_-]/.exec(basename)?.[1];
+        if (!sequence) continue;
+        const earlier = prefixes.get(sequence);
+        if (earlier) gaps.push(gap(ID, "duplicate-drizzle-sequence:" + root + ":" + sequence,
+          "Drizzle SQL filenames reuse a numeric sequence",
+          sqlFile + " and " + earlier + " share numeric prefix " + sequence + ". This may be intentional for hand-managed migrations.",
+          "Check the canonical Drizzle journal or custom migration runner to determine whether these SQL files are independently applied and safely ordered.", sqlFile));
+        else prefixes.set(sequence, sqlFile);
+      }
+    }
+
     for (const journal of context.files.filter((file) => drizzleJournal.test(file))) {
       const text = await context.readText(journal);
       if (text === null) {
