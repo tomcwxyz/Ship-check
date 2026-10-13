@@ -81,7 +81,7 @@ describe("live migration history reconciliation", () => {
     expect(result.gaps?.map((item) => item.id)).toContain("database.live-migration-comparison:other-source-migrations");
   });
 
-  it("does not compare ambiguous migration folders even when live ledger exists", async () {
+  it("does not compare ambiguous migration folders even when live ledger exists", async () => {
     const result = await run({ ...manifest, status: "ambiguous", entries: [] }, ledger([]));
     expect(result.observations ?? []).toHaveLength(0);
     expect(result.gaps?.[0]?.id).toBe("database.live-migration-comparison:source-ambiguous");
