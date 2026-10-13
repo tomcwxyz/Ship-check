@@ -4,6 +4,29 @@ import { ProjectEvidenceSourceSchema } from "./projectEvidence.js";
 export const DatabasePlatformSchema = z.enum(["postgres", "supabase", "neon"]);
 export type DatabasePlatform = z.infer<typeof DatabasePlatformSchema>;
 
+export const MigrationFrameworkSchema = z.enum(["drizzle", "prisma", "supabase"]);
+export type MigrationFramework = z.infer<typeof MigrationFrameworkSchema>;
+
+export const MigrationLedgerSchema = z.object({
+  framework: MigrationFrameworkSchema,
+  status: z.enum(["complete", "missing", "unreadable", "unsupported", "unavailable"]),
+  entries: z.array(z.object({
+    identifier: z.string().min(1).max(256),
+    checksum: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+    state: z.enum(["applied", "incomplete", "rolledback"])
+  }).strict()).max(1000),
+  truncated: z.boolean(),
+  limit: z.number().int().min(1).max(1000)
+}).strict().superRefine((value, ctx) => {
+  if (value.status !== "complete" && value.entries.length !== 0) {
+    ctx.addIssue({ code: "custom", message: "Incomplete ledger evidence must not contain entries.", path: ["entries"] });
+  }
+  if (value.entries.length > value.limit) {
+    ctx.addIssue({ code: "custom", message: "Migration ledger exceeds declared bound.", path: ["entries"] });
+  }
+});
+export type MigrationLedger = z.infer<typeof MigrationLedgerSchema>;
+
 export const DatabasePrivilegeSchema = z.enum([
   "SELECT",
   "INSERT",
@@ -49,6 +72,7 @@ export const DatabaseMetadataSnapshotSchema = z.object({
     inspectorBypassRls: z.boolean()
   }).strict(),
   tables: z.array(PostgresTableMetadataSchema),
+  migrationLedger: MigrationLedgerSchema.optional(),
   acquiredAt: z.string().datetime()
 }).strict().superRefine((snapshot, ctx) => {
   if (snapshot.source.type !== "database") {
