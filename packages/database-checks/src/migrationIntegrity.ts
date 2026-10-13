@@ -141,9 +141,6 @@ export const migrationIntegrityCheck: CheckDefinition = {
         summary: "Found " + files.length + " migration SQL file(s). This does not verify whether they ran on a real database.",
         evidence: evidence(files[0], "Representative source-controlled migration file.")
       });
-      gaps.push(gap(ID, "applied-state-unverified", "Applied migration history not verified",
-        "The repository contains migrations, but this source scan cannot establish what was applied to development or production.",
-        "Compare the repository to the migration ledger for each intended database environment using a read-only, explicitly authorised inspection."));
     }
     return { findings, gaps, observations };
   }
@@ -189,5 +186,28 @@ export const migrationDocumentationCheck: CheckDefinition = {
       "A migration contains potentially destructive SQL, but the inspected Markdown documentation did not establish a rollback or recovery procedure.",
       "Confirm a tested recovery/backup plan or an explicitly approved irreversible change. An external runbook may satisfy this control.", files[0]));
     return { gaps };
+  }
+};
+
+/**
+ * Dedicated source-control question, resolvable ONLY by a complete live-ledger
+ * comparison; other structural migration questions remain independent.
+ */
+export const migrationAppliedHistoryCheck: CheckDefinition = {
+  id: "database.migration-applied-history",
+  version: "1",
+  pack: "production-ready",
+  title: "Applied migration history",
+  description: "Asks for an environment-specific applied-migration comparison rather than assuming tracked SQL has been deployed.",
+  coverage: [{ area: "database", status: "partial" }],
+  appliesTo(context) { return sourceMigrations(context).length > 0; },
+  async run(context) {
+    return {
+      gaps: [gap(this.id, "not-verified",
+        "Applied migration history not verified",
+        "Repository migrations are present, but the selected database environment's migration ledger has not been compared with source.",
+        "Run an explicit, read-only migration-ledger comparison for a named database environment. Use a dedicated limited database credential.",
+        sourceMigrations(context)[0])]
+    };
   }
 };
