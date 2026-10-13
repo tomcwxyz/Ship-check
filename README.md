@@ -112,6 +112,18 @@ pnpm ship-check -- scan ./my-project \
   --database-platform supabase
 ```
 
+
+### Optional live migration history
+
+For a source project with Postgres migrations, you can explicitly compare a **single canonical applied-migration ledger** with the tracked files:
+
+```bash
+pnpm ship-check -- scan ./my-project --inspect-database --inspect-migrations \
+  --migration-framework drizzle --database-platform neon --format markdown
+```
+
+This requires a read-only database URL in `SHIP_CHECK_DATABASE_URL` (or the environment variable selected through `--database-url-env`). Use `prisma` or `supabase` for those ledger formats instead. The comparison is optional, local and capped; a missing or customised ledger is unverified, not safe or in sync. Only summarised outcomes enter the report. See [change and delivery assurance](./docs/CHANGE_DELIVERY_ASSURANCE.md).
+
 ## Scan scope and deeper checks
 
 Run one pack from the CLI:
