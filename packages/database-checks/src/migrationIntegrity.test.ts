@@ -41,6 +41,19 @@ describe("repository migration integrity", () => {
     expect(report.gaps.map((item) => item.id)).toContain("database.migration-applied-history:not-verified");
   });
 
+  it("keeps unjournalled duplicate Drizzle sequences as verification questions", async () => {
+    const root = await fixture({
+      "drizzle/0001_initial.sql": migration,
+      "drizzle/0001_backfill.sql": migration
+    });
+    const report = await scanProject(root, [migrationIntegrityCheck]);
+    expect(report.findings).toHaveLength(0);
+    expect(report.gaps.map((item) => item.id)).toEqual(expect.arrayContaining([
+      "database.migration-integrity:journal-not-visible:drizzle",
+      "database.migration-integrity:duplicate-drizzle-sequence:drizzle:0001"
+    ]));
+  });
+
   it("flags a Drizzle journal referencing absent SQL", async () => {
     const root = await fixture({
       "drizzle/meta/_journal.json": journal([{ idx: 0, tag: "0000_initial" }])
