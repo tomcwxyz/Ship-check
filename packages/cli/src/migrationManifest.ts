@@ -32,7 +32,7 @@ export async function loadMigrationManifest(
     const rows = (parsed as { entries: unknown[] }).entries;
     for (const row of rows) {
       if (!row || typeof row !== "object" || !("when" in row) || !("tag" in row) ||
-        !Number.isSafeInteger(row.when) || typeof row.tag !== "string" || !/^[a-zA-Z0-9_-]{1,200}$/.test(row.tag)) {
+        typeof row.when !== "number" || !Number.isSafeInteger(row.when) || typeof row.tag !== "string" || !/^[a-zA-Z0-9_-]{1,200}$/.test(row.tag)) {
         return { ...result, status: "invalid" };
       }
       const path = root + "/" + row.tag + ".sql";
