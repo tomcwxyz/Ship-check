@@ -32,6 +32,17 @@ describe("source migration manifests", () => {
     })]);
   });
 
+  it("does not claim to cover Drift-style manually maintained SQL outside the journal", async () => {
+    const root = await fixture({
+      "drizzle/meta/_journal.json": JSON.stringify({ entries: [{ idx: 0, tag: "0000_initial", when: 1700000000000 }] }),
+      "drizzle/0000_initial.sql": "CREATE TABLE example (id int);",
+      "drizzle/manual/bookings.sql": "ALTER TABLE bookings ADD COLUMN note text;"
+    });
+    const result = await loadMigrationManifest(root, "drizzle");
+    expect(result.status).toBe("complete");
+    expect(result.coversProjectMigrations).toBe(false);
+  });
+
   it("does not guess applied history when journal SQL is missing", async () => {
     const root = await fixture({
       "drizzle/meta/_journal.json": JSON.stringify({ entries: [{ idx: 0, tag: "0000_initial", when: 1 }] })
