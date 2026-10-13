@@ -20,7 +20,7 @@ A quiet scan therefore means **no confirmed findings in the areas checked**, not
 The current review areas include:
 
 - **Security boundaries** — tracked environment files and credentials, public secret-like configuration, paid endpoints, CORS, dangerous server execution, webhook and cron authentication questions, bounded object-level authorisation questions, and variable outbound-request destinations;
-- **Production readiness** — dependency lock discipline, repository-visible and deployed security-header evidence, server-surface inventory, selected GitHub Actions supply-chain boundaries, and bounded database change/access evidence;
+- **Production readiness** — dependency lock discipline, repository-visible and deployed security-header evidence, server-surface inventory, selected GitHub Actions supply-chain and PR quality evidence, and bounded database change/access evidence;
 - **Cost boundaries** — Vercel cron cadence composed with the work it reaches, plus frequent network polling that can create continuous compute, database or paid-service usage;
 - **Database evidence** — Postgres migration/change provenance, Drizzle journal and migration identifier consistency, migration/runbook documentation questions, destructive migration review, privileged credential boundaries, Supabase RLS provenance/live grant evidence, and Neon connection-strategy evidence;
 - **Runtime evidence** — HTTPS/redirect behaviour, representative browser security headers, visible cookie flags and bounded CORS evidence.
