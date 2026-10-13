@@ -53,6 +53,18 @@ describe("database inspection CLI boundary", () => {
     }, {})).toThrow(/MISSING_DATABASE_URL environment variable/);
   });
 
+  it("requires a separate opt-in and a named framework for ledger reads", () => {
+    const env = { SHIP_CHECK_DATABASE_URL: "postgresql://reader:secret@example.com/app" };
+    expect(() => resolveDatabaseInspection({ inspectDatabase: false, inspectMigrations: true }, env))
+      .toThrow(/require --inspect-database/);
+    expect(() => resolveDatabaseInspection({ inspectDatabase: true, inspectMigrations: true }, env))
+      .toThrow(/requires --migration-framework/);
+    expect(() => resolveDatabaseInspection({ inspectDatabase: true, migrationFramework: "drizzle" }, env))
+      .toThrow(/requires --inspect-migrations/);
+    expect(resolveDatabaseInspection({ inspectDatabase: true, inspectMigrations: true, migrationFramework: "drizzle" }, env))
+      .toMatchObject({ migrationFramework: "drizzle" });
+  });
+
   it("bounds the requested table inventory", () => {
     expect(() => resolveDatabaseInspection({
       inspectDatabase: true,
