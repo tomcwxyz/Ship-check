@@ -4,7 +4,7 @@ import type { MigrationLedger } from "@ship-check/schemas/databaseEvidence";
 import { createLiveMigrationComparisonCheck, type MigrationSourceManifest } from "./migrationComparison.js";
 
 const manifest: MigrationSourceManifest = {
-  framework: "drizzle", status: "complete",
+  framework: "drizzle", status: "complete", coversProjectMigrations: true,
   entries: [
     { identifier: "100", path: "drizzle/0000_initial.sql", checksum: "a".repeat(64) },
     { identifier: "200", path: "drizzle/0001_add.sql", checksum: "b".repeat(64) }
@@ -72,7 +72,16 @@ describe("live migration history reconciliation", () => {
     expect(absent.observations ?? []).toHaveLength(0);
   });
 
-  it("does not compare ambiguous migration folders even when live ledger exists", async () => {
+  it("does not resolve all migration history when manual SQL exists outside the selected ledger", async () => {
+    const result = await run({ ...manifest, coversProjectMigrations: false }, ledger([
+      { identifier: "100", checksum: "a".repeat(64), state: "applied" },
+      { identifier: "200", checksum: "b".repeat(64), state: "applied" }
+    ]));
+    expect(result.observations?.[0]?.resolvesCheckIds).toBeUndefined();
+    expect(result.gaps?.map((item) => item.id)).toContain("database.live-migration-comparison:other-source-migrations");
+  });
+
+  it("does not compare ambiguous migration folders even when live ledger exists", async () {
     const result = await run({ ...manifest, status: "ambiguous", entries: [] }, ledger([]));
     expect(result.observations ?? []).toHaveLength(0);
     expect(result.gaps?.[0]?.id).toBe("database.live-migration-comparison:source-ambiguous");
@@ -80,7 +89,7 @@ describe("live migration history reconciliation", () => {
 
   it("never asserts a hash match for Supabase where its ledger has no checksum", async () => {
     const expected: MigrationSourceManifest = {
-      framework: "supabase", status: "complete",
+      framework: "supabase", status: "complete", coversProjectMigrations: true,
       entries: [{ identifier: "20261013123456", path: "supabase/migrations/20261013123456_initial.sql" }]
     };
     const result = await run(expected, {
