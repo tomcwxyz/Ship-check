@@ -6,6 +6,7 @@ export type MigrationSourceManifest = {
   framework: MigrationFramework;
   status: "complete" | "absent" | "ambiguous" | "invalid";
   entries: Array<{ identifier: string; checksum?: string; path: string }>;
+  coversProjectMigrations?: boolean;
 };
 
 const ID = "database.live-migration-comparison";
@@ -97,6 +98,10 @@ export function createLiveMigrationComparisonCheck(manifest: MigrationSourceMani
         "Migration runs did not all complete",
         incomplete.length + " ledger record(s) were marked incomplete.",
         "Use the framework's recovery tooling to inspect these records before any further migration."));
+      if (!manifest.coversProjectMigrations) gaps.push(gap("other-source-migrations",
+        "Other repository migration SQL is not covered by this comparison",
+        "This comparison covers one selected framework but cannot establish applied history for other or manual migration files.",
+        "Identify the runners and applied histories for other SQL migrations separately."));
       if (unverifiedChecksums) gaps.push(gap("no-checksum-evidence",
         "Migration checksum evidence is incomplete",
         unverifiedChecksums + " migration checksum(s) could not be verified from the ledger.",
@@ -116,7 +121,7 @@ export function createLiveMigrationComparisonCheck(manifest: MigrationSourceMani
         summary: "Compared " + manifest.entries.length + " source migrations with " + applied.length +
           " applied ledger entries for " + ledger.framework + ". This is a migration-ledger comparison, not proof of deployed schema equivalence.",
         evidence: [{ kind: "configuration", detail: "One explicitly selected framework and database ledger were compared inside a bounded read-only inspection." }],
-        resolvesCheckIds: ["database.migration-applied-history"]
+        ...(manifest.coversProjectMigrations ? { resolvesCheckIds: ["database.migration-applied-history"] } : {})
       });
       return { findings, gaps, observations };
     }
