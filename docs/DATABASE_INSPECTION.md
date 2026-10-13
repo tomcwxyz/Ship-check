@@ -99,3 +99,11 @@ A completed database metadata inspection does not prove that:
 - the database is secure or compliant overall.
 
 Those limitations should remain visible as coverage or unanswered questions rather than being converted into a pass.
+
+## Optional migration-ledger inspection
+
+The default Postgres inspection continues to read only fixed system-catalog metadata queries. To compare repository migrations against the applied-migration history of one explicitly selected database, enable both `--inspect-database` and `--inspect-migrations`, and choose `--migration-framework drizzle|prisma|supabase`.
+
+This is a **wider evidence permission**: Ship Check reads up to 1,001 rows from a canonical migration bookkeeping table in one read-only transaction, retains at most 1,000 bounded entries for in-memory comparison, then rolls back and closes the connection. It never reads general application rows or executes migration SQL. The recognised table and its expected column names are fixed in the implementation; a customised ledger schema is reported as unverified. Metadata reading remains local and session-only. Do not use an administrative connection when a narrower read-only account will suffice.
+
+Only summary findings and evidence questions enter the report: no raw migration ledger rows, credential values, database URLs or SQL statements are exported. For scope, framework limitations and examples see [change and delivery assurance](./CHANGE_DELIVERY_ASSURANCE.md).
