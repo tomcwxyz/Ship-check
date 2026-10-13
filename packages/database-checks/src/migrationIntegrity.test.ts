@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { scanProject } from "@ship-check/core";
-import { migrationIntegrityCheck, migrationDocumentationCheck } from "./migrationIntegrity.js";
+import { migrationIntegrityCheck, migrationDocumentationCheck, migrationAppliedHistoryCheck } from "./migrationIntegrity.js";
 
 const roots: string[] = [];
 async function fixture(files: Record<string, string>) {
@@ -31,8 +31,14 @@ describe("repository migration integrity", () => {
     });
     const report = await scanProject(root, [migrationIntegrityCheck]);
     expect(report.findings).toHaveLength(0);
-    expect(report.gaps.map((item) => item.id)).toEqual(["database.migration-integrity:applied-state-unverified"]);
+    expect(report.gaps).toHaveLength(0);
     expect(report.observations[0]?.title).toContain("migration");
+  });
+
+  it("records applied-state uncertainty separately from structural integrity", async () => {
+    const root = await fixture({ "drizzle/0000_initial.sql": migration });
+    const report = await scanProject(root, [migrationIntegrityCheck, migrationAppliedHistoryCheck]);
+    expect(report.gaps.map((item) => item.id)).toContain("database.migration-applied-history:not-verified");
   });
 
   it("flags a Drizzle journal referencing absent SQL", async () => {
