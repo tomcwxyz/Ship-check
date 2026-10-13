@@ -1,5 +1,17 @@
 # Roadmap
 
+## Change and delivery assurance (October 2026)
+
+- [x] Add source-only Drizzle journal integrity, migration identifier consistency and clear applied-state uncertainty.
+- [x] Add migration documentation/recovery evidence questions without assuming external runbooks are missing.
+- [x] Add GitHub Actions PR quality evidence and explicit masking of test/build failures.
+- [x] Add a separate explicit read-only opt-in for canonical Drizzle, Prisma and Supabase migration ledgers and bounded repository/ledger comparison.
+- [ ] Calibrate live comparisons against representative Neon/Drizzle, Prisma and Supabase test environments; validate custom ledger handling and false positives.
+- [ ] Inspect actual required status checks/branch rulesets and real CI run outcomes and efficiency.
+- [ ] Add diff-aware schema change-to-verification evidence and real estate calibration.
+
+See [change and delivery assurance](./CHANGE_DELIVERY_ASSURANCE.md) for current scope and trust boundaries.
+
 ## Review-first reporting and recurring cost discipline (October 2026)
 
 - [x] Add a three-answer results overview: needs attention, needs verification, and unassessed areas, with explicit bounded coverage rather than a safety score.

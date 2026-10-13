@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { migrationLedgerSql } from "./migrationLedger.js";
 import {
   inspectPostgresDatabase,
   postgresInspectorSql,
@@ -126,6 +127,31 @@ describe("local Postgres database inspector", () => {
     expect(JSON.stringify(snapshot)).not.toContain("very-secret");
     expect(JSON.stringify(snapshot)).not.toContain("example.neon.tech");
     expect(JSON.stringify(snapshot)).not.toContain("reader");
+  });
+
+  it("does not read application migration ledger metadata unless separately opted in", async () => {
+    const normal = fakeClient();
+    const defaultSnapshot = await inspectPostgresDatabase({
+      connectionString,
+      platform: "neon",
+      clientFactory: normal.factory
+    });
+    expect(defaultSnapshot.migrationLedger).toBeUndefined();
+    expect(normal.queries.some((query) => query.text === migrationLedgerSql.discover)).toBe(false);
+
+    const opted = fakeClient();
+    const snapshot = await inspectPostgresDatabase({
+      connectionString,
+      platform: "neon",
+      migrationFramework: "drizzle",
+      clientFactory: opted.factory
+    });
+    expect(opted.queries.some((query) => query.text === migrationLedgerSql.discover)).toBe(true);
+    expect(snapshot.migrationLedger).toMatchObject({
+      framework: "drizzle", status: "missing", entries: []
+    });
+    expect(opted.queries.at(-1)?.text).toBe(postgresInspectorSql.rollback);
+    expect(opted.ended()).toBe(true);
   });
 
   it("marks a table inventory as truncated and never exceeds the requested bound", async () => {

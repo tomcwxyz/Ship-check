@@ -1,7 +1,9 @@
 import { inspectPostgresDatabase } from "@ship-check/database-inspector";
 import { liveDatabaseChecks } from "@ship-check/database-checks/live";
+import { createLiveMigrationComparisonCheck } from "@ship-check/database-checks";
+import { loadMigrationManifest } from "./migrationManifest.js";
 import { scanDatabaseMetadata } from "@ship-check/core/database";
-import { DatabasePlatformSchema, type DatabasePlatform } from "@ship-check/schemas/databaseEvidence";
+import { DatabasePlatformSchema, MigrationFrameworkSchema, type DatabasePlatform, type MigrationFramework } from "@ship-check/schemas/databaseEvidence";
 import type { CheckPack, ScanReport } from "@ship-check/schemas";
 import type { CheckDefinition } from "@ship-check/core";
 
@@ -13,6 +15,8 @@ export type DatabaseInspectionCliValues = {
   databaseUrlEnv?: string;
   databasePlatform?: string;
   databaseTableLimit?: string;
+  inspectMigrations?: boolean;
+  migrationFramework?: string;
 };
 
 export type ResolvedDatabaseInspection = {
@@ -20,13 +24,14 @@ export type ResolvedDatabaseInspection = {
   envName: string;
   platform: DatabasePlatform;
   tableLimit?: number;
+  migrationFramework?: MigrationFramework;
 };
 
 export function resolveDatabaseInspection(
   values: DatabaseInspectionCliValues,
   env: NodeJS.ProcessEnv = process.env
 ): ResolvedDatabaseInspection | null {
-  const hasDatabaseOptions = Boolean(values.databaseUrlEnv || values.databasePlatform || values.databaseTableLimit);
+  const hasDatabaseOptions = Boolean(values.databaseUrlEnv || values.databasePlatform || values.databaseTableLimit || values.inspectMigrations || values.migrationFramework);
   if (!values.inspectDatabase) {
     if (hasDatabaseOptions) {
       throw new Error("Database inspection options require --inspect-database. Ship Check never opens a database connection implicitly.");
@@ -43,6 +48,9 @@ export function resolveDatabaseInspection(
     throw new Error(`--inspect-database requires a PostgreSQL connection URL in the ${envName} environment variable.`);
   }
 
+  if (values.migrationFramework && !values.inspectMigrations) throw new Error("--migration-framework requires --inspect-migrations.");
+  if (values.inspectMigrations && !values.migrationFramework) throw new Error("--inspect-migrations requires --migration-framework drizzle|prisma|supabase.");
+  const migrationFramework = values.inspectMigrations ? MigrationFrameworkSchema.parse(values.migrationFramework) : undefined;
   const platform = DatabasePlatformSchema.parse(values.databasePlatform?.trim() || "postgres");
   let tableLimit: number | undefined;
   if (values.databaseTableLimit !== undefined) {
@@ -52,7 +60,7 @@ export function resolveDatabaseInspection(
     }
   }
 
-  return { connectionString, envName, platform, tableLimit };
+  return { connectionString, envName, platform, tableLimit, ...(migrationFramework ? { migrationFramework } : {}) };
 }
 
 export async function scanConfiguredDatabase(input: {
@@ -60,12 +68,19 @@ export async function scanConfiguredDatabase(input: {
   sourceChecks: CheckDefinition[];
   packs: CheckPack[];
   version: string;
+  sourceProjectPath?: string;
 }): Promise<ScanReport> {
   const metadata = await inspectPostgresDatabase({
     connectionString: input.inspection.connectionString,
     platform: input.inspection.platform,
-    tableLimit: input.inspection.tableLimit
+    tableLimit: input.inspection.tableLimit,
+    migrationFramework: input.inspection.migrationFramework
   });
   const checks = liveDatabaseChecks.filter((check) => input.packs.includes(check.pack));
+  if (input.inspection.migrationFramework) {
+    if (!input.sourceProjectPath) throw new Error("--inspect-migrations requires project source files, not only a deployment URL.");
+    const manifest = await loadMigrationManifest(input.sourceProjectPath, input.inspection.migrationFramework);
+    checks.push(createLiveMigrationComparisonCheck(manifest));
+  }
   return scanDatabaseMetadata(metadata, input.sourceChecks, checks, input.version);
 }

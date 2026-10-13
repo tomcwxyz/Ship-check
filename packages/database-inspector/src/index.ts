@@ -1,9 +1,11 @@
 import { createHash } from "node:crypto";
+import { inspectMigrationLedger } from "./migrationLedger.js";
 import pg from "pg";
 import {
   DatabaseMetadataSnapshotSchema,
   type DatabaseMetadataSnapshot,
   type DatabasePlatform,
+  type MigrationFramework,
   type DatabasePrivilege,
   type DatabaseRoleGrant,
   type PostgresTableMetadata,
@@ -103,6 +105,7 @@ export type InspectPostgresDatabaseOptions = {
   connectionString: string;
   platform?: DatabasePlatform;
   tableLimit?: number;
+  migrationFramework?: MigrationFramework;
   clientFactory?: PostgresInspectorClientFactory;
   now?: () => Date;
 };
@@ -267,6 +270,9 @@ export async function inspectPostgresDatabase(
     const tableRows = await client.query<TableRow>(TABLE_METADATA_SQL, [limit + 1]);
     const grantRows = await client.query<GrantRow>(CLIENT_GRANTS_SQL, [limit]);
     const { tables, truncated } = toTables(tableRows.rows, grantRows.rows, limit);
+    const migrationLedger = options.migrationFramework
+      ? await inspectMigrationLedger(client, options.migrationFramework)
+      : undefined;
 
     return DatabaseMetadataSnapshotSchema.parse({
       schemaVersion: "0.1",
@@ -294,6 +300,7 @@ export async function inspectPostgresDatabase(
         inspectorBypassRls: Boolean(role.inspector_bypass_rls)
       },
       tables,
+      ...(migrationLedger ? { migrationLedger } : {}),
       acquiredAt
     });
   } catch (error) {

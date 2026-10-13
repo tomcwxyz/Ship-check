@@ -20,9 +20,9 @@ A quiet scan therefore means **no confirmed findings in the areas checked**, not
 The current review areas include:
 
 - **Security boundaries** — tracked environment files and credentials, public secret-like configuration, paid endpoints, CORS, dangerous server execution, webhook and cron authentication questions, bounded object-level authorisation questions, and variable outbound-request destinations;
-- **Production readiness** — dependency lock discipline, repository-visible and deployed security-header evidence, server-surface inventory, selected GitHub Actions supply-chain boundaries, and bounded database change/access evidence;
+- **Production readiness** — dependency lock discipline, repository-visible and deployed security-header evidence, server-surface inventory, selected GitHub Actions supply-chain and PR quality evidence, and bounded database change/access evidence;
 - **Cost boundaries** — Vercel cron cadence composed with the work it reaches, plus frequent network polling that can create continuous compute, database or paid-service usage;
-- **Database evidence** — Postgres migration/change provenance, destructive migration review, privileged credential boundaries, Supabase RLS provenance/live grant evidence, and Neon connection-strategy evidence;
+- **Database evidence** — Postgres migration/change provenance, Drizzle journal and migration identifier consistency, migration/runbook documentation questions, destructive migration review, privileged credential boundaries, Supabase RLS provenance/live grant evidence, and Neon connection-strategy evidence;
 - **Runtime evidence** — HTTPS/redirect behaviour, representative browser security headers, visible cookie flags and bounded CORS evidence.
 
 Ship Check uses mature deterministic scanners where they provide stronger evidence than growing a home-made regex catalogue. Gitleaks is part of the normal secret-scanning path. OSV dependency vulnerability checking is optional because it can use the network. A deliberately small pinned local Semgrep ruleset is also optional.
@@ -111,6 +111,18 @@ pnpm ship-check -- scan ./my-project \
   --inspect-database \
   --database-platform supabase
 ```
+
+
+### Optional live migration history
+
+For a source project with Postgres migrations, you can explicitly compare a **single canonical applied-migration ledger** with the tracked files:
+
+```bash
+pnpm ship-check -- scan ./my-project --inspect-database --inspect-migrations \
+  --migration-framework drizzle --database-platform neon --format markdown
+```
+
+This requires a read-only database URL in `SHIP_CHECK_DATABASE_URL` (or the environment variable selected through `--database-url-env`). Use `prisma` or `supabase` for those ledger formats instead. The comparison is optional, local and capped; a missing or customised ledger is unverified, not safe or in sync. Only summarised outcomes enter the report. See [change and delivery assurance](./docs/CHANGE_DELIVERY_ASSURANCE.md).
 
 ## Scan scope and deeper checks
 

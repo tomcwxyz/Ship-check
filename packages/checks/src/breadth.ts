@@ -1,4 +1,5 @@
 import type { CheckDefinition, CheckExecution } from "@ship-check/core";
+import { ciQualityCheck } from "./ciQuality.js";
 import type { AssessmentGap, Finding } from "@ship-check/schemas";
 import { traceLocalImports, type TracedSource } from "./surface.js";
 
@@ -247,5 +248,6 @@ export const githubActionsSupplyChainCheck: CheckDefinition = {
 export const breadthChecks: CheckDefinition[] = [
   mutatingObjectAuthorisationCheck,
   outboundRequestBoundaryCheck,
-  githubActionsSupplyChainCheck
+  githubActionsSupplyChainCheck,
+  ciQualityCheck
 ];
