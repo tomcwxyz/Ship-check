@@ -5,9 +5,8 @@ const workflowPath = /^\.github\/workflows\/[^/]+\.ya?ml$/i;
 const testCommand = /\b(?:npm|pnpm|yarn|bun)(?:\s+run)?\s+(?:test(?::[\w-]+)?|check|lint|typecheck|type-check|build)\b|\b(?:pytest|vitest|jest|tsc|cargo\s+test|go\s+test|ruff\s+check|mypy)\b/i;
 const testScript = /\b(?:test|check|lint|typecheck|type-check|build)\b/i;
 const swallow = /(?:\b(?:npm|pnpm|yarn|bun)(?:\s+run)?\s+(?:test|lint|check|typecheck|build)\b|\b(?:pytest|vitest|jest|tsc|cargo\s+test|go\s+test)\b)[^\n]{0,160}(?:\|\|\s*true|;\s*exit\s+0\b)/i;
-const onPullRequest = /\bpull_request\s*:/m;
-const onPush = /\bpush\s*:/m;
-const onDispatchOnly = /\bworkflow_dispatch\s*:/m;
+const onPullRequest = /\bpull_request\s*:|\bon\s*:\s*\[[^\]]*\bpull_request\b/m;
+const onPush = /\bpush\s*:|\bon\s*:\s*\[[^\]]*\bpush\b/m;
 const id = "production.ci-quality";
 
 function gap(suffix: string, title: string, summary: string, verify: string, path?: string): AssessmentGap {
@@ -33,7 +32,7 @@ function finding(suffix: string, title: string, summary: string, path: string, l
 }
 
 function stripCommentLines(yaml: string): string {
-  return yaml.replace(/^\s*#.*$/gm, "");
+  return yaml.replace(/^[ \t]*#.*$/gm, "");
 }
 
 function triggerBlock(yaml: string): string {
@@ -80,7 +79,8 @@ export const ciQualityCheck: CheckDefinition = {
     let hasPR = false;
     let prQuality = false;
     let hasOtherAutomation = false;
-    let hasPRWithPaths = false;
+    let prWorkflowCount = 0;
+    let filteredPRWorkflowCount = 0;
     let reusablePR = false;
     for (const file of files) {
       const text = await context.readText(file);
@@ -94,11 +94,12 @@ export const ciQualityCheck: CheckDefinition = {
       const triggers = triggerBlock(clean);
       const pr = onPullRequest.test(triggers);
       hasPR ||= pr;
+      if (pr) prWorkflowCount += 1;
       hasOtherAutomation ||= onPush.test(triggers);
       if (pr) {
         if (qualityCommands(clean)) prQuality = true;
         if (/\buses\s*:\s*[^\s]+\/[^\s]+@/m.test(clean)) reusablePR = true;
-        if (/\bpull_request\s*:[\s\S]{0,400}?\bpaths(?:-ignore)?\s*:/m.test(triggers)) hasPRWithPaths = true;
+        if (/\bpull_request\s*:[\s\S]{0,400}?\bpaths(?:-ignore)?\s*:/m.test(triggers)) filteredPRWorkflowCount += 1;
       }
       const match = swallow.exec(clean);
       if (match) {
@@ -122,7 +123,7 @@ export const ciQualityCheck: CheckDefinition = {
       "Pull-request workflows exist, but no recognised test, lint, typecheck or build command was found.",
       reusablePR ? "Inspect any called reusable workflow and confirm its quality checks and required gate status." :
         "Confirm tests, type checking and builds run on PRs; add them if they are absent."));
-    if (hasPRWithPaths) gaps.push(gap("pr-path-filters",
+    if (prWorkflowCount > 0 && filteredPRWorkflowCount === prWorkflowCount) gaps.push(gap("pr-path-filters",
       "Pull-request validation may skip some changes",
       "At least one pull-request workflow uses paths or paths-ignore filters. Its coverage depends on which files change.",
       "Check that at least one mandatory workflow runs for all relevant changes and that branch protection cannot be bypassed by a skipped check."));
@@ -133,7 +134,7 @@ export const ciQualityCheck: CheckDefinition = {
       summary: "At least one pull-request workflow contains recognised quality commands. This does not prove that the checks succeed or are required before merge.",
       evidence: [{ kind: "file-presence", path: files[0], detail: "GitHub Actions workflows are visible in source." }]
     });
-    if (onDispatchOnly && !hasOtherAutomation && !hasPR && hasScripts) {
+    if (files.length > 0 && !hasOtherAutomation && !hasPR && hasScripts) {
       gaps.push(gap("manual-only", "Quality checks may require manual triggering",
         "Workflows were found without a recognised push or pull-request trigger.",
         "Verify what automatically runs on pull requests and main-branch changes."));
