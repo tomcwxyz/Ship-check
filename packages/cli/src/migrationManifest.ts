@@ -6,6 +6,7 @@ export type MigrationManifest = {
   framework: MigrationFramework;
   status: "complete" | "absent" | "ambiguous" | "invalid";
   entries: Array<{ identifier: string; checksum?: string; path: string }>;
+  coversProjectMigrations?: boolean;
 };
 
 const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
@@ -60,5 +61,8 @@ export async function loadMigrationManifest(
   if (entries.length === 0) return result;
   if (entries.length > 1000) return { ...result, status: "ambiguous" };
   if (new Set(entries.map((entry) => entry.identifier)).size !== entries.length) return { ...result, status: "invalid" };
-  return { framework, status: "complete", entries };
+  const otherMigrationSql = context.files.filter((file) =>
+    /(?:^|\\/)(?:drizzle|supabase\\/migrations|prisma\\/migrations|migrations?|db\\/migrations?|database\\/migrations?)\\/.+\\.sql$/i.test(file)
+    && !entries.some((entry) => entry.path === file));
+  return { framework, status: "complete", entries, coversProjectMigrations: otherMigrationSql.length === 0 };
 }
