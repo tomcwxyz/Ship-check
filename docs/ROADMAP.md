@@ -1,5 +1,16 @@
 # Roadmap
 
+## Change and delivery assurance (October 2026)
+
+- [x] Add source-only Drizzle journal integrity, migration identifier consistency and clear applied-state uncertainty.
+- [x] Add migration documentation/recovery evidence questions without assuming external runbooks are missing.
+- [x] Add GitHub Actions PR quality evidence and explicit masking of test/build failures.
+- [ ] Compare versioned migrations with explicitly selected live database migration ledgers through opt-in read-only inspection.
+- [ ] Inspect actual required status checks/branch rulesets and real CI run outcomes and efficiency.
+- [ ] Add diff-aware schema change-to-verification evidence and real estate calibration.
+
+See [change and delivery assurance](./CHANGE_DELIVERY_ASSURANCE.md) for current scope and trust boundaries.
+
 ## Review-first reporting and recurring cost discipline (October 2026)
 
 - [x] Add a three-answer results overview: needs attention, needs verification, and unassessed areas, with explicit bounded coverage rather than a safety score.
