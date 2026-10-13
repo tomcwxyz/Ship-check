@@ -43,7 +43,7 @@ export function createLiveMigrationComparisonCheck(manifest: MigrationSourceMani
     title: "Live migration ledger versus repository",
     description: "Compares selected environment migration metadata with a single source migration framework; never executes migration SQL.",
     coverage: [{ area: "database", status: "partial" }],
-    run(context) {
+    async run(context) {
       const ledger: MigrationLedger | undefined = context.metadata.migrationLedger;
       const gaps: AssessmentGap[] = [];
       const findings: Finding[] = [];
