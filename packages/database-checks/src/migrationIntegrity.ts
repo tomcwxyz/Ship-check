@@ -95,7 +95,7 @@ export const migrationIntegrityCheck: CheckDefinition = {
       const prefixes = new Map<string, string>();
       for (const sqlFile of sqlFiles) {
         const basename = sqlFile.slice(root.length + 1);
-        const sequence = /^(\\d+)[_-]/.exec(basename)?.[1];
+        const sequence = /^(\d+)[_-]/.exec(basename)?.[1];
         if (!sequence) continue;
         const earlier = prefixes.get(sequence);
         if (earlier) gaps.push(gap(ID, "duplicate-drizzle-sequence:" + root + ":" + sequence,
