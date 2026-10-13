@@ -62,7 +62,7 @@ export async function loadMigrationManifest(
   if (entries.length > 1000) return { ...result, status: "ambiguous" };
   if (new Set(entries.map((entry) => entry.identifier)).size !== entries.length) return { ...result, status: "invalid" };
   const otherMigrationSql = context.files.filter((file) =>
-    /(?:^|\\/)(?:drizzle|supabase\\/migrations|prisma\\/migrations|migrations?|db\\/migrations?|database\\/migrations?)\\/.+\\.sql$/i.test(file)
+    /(?:^|\/)(?:drizzle|supabase\/migrations|prisma\/migrations|migrations?|db\/migrations?|database\/migrations?)\/.+\.sql$/i.test(file)
     && !entries.some((entry) => entry.path === file));
   return { framework, status: "complete", entries, coversProjectMigrations: otherMigrationSql.length === 0 };
 }
