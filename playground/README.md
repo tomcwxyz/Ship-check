@@ -47,7 +47,7 @@ On Vercel Sandbox, Vercel OIDC authenticates automatically to the linked Vercel 
 
 ## Deploy
 
-Create a **separate Vercel project** pointing to `tomcwxyz/Ship-check`, with Root Directory = `playground`, Framework = Next.js, Install Command = `npm ci` once an npm lockfile has been generated and committed. Until then, use `npm install` in preview only. Keep the existing `ship-check` Cloud R0 project untouched.
+Create a **separate Vercel project** pointing to `tomcwxyz/Ship-check`, with Root Directory = `playground`, Framework = Next.js, Install Command = `npm ci` once an npm lockfile has been generated and committed. Until then, use `npm install` in preview only. The app pins Next.js 15.5.28 and overrides its vulnerable PostCSS transitive dependency to 8.5.31; the combination passed the runtime npm audit, unit tests and Next.js build in an isolated test sandbox. Keep the existing `ship-check` Cloud R0 project untouched.
 
 Before sharing a public link: ensure no deployment password/SSO for the playground hostname, configure rate limiting, verify the pinned CLI on a real public fixture and a live website, verify 429 response on a fourth request, verify no cloud retention of reports, test malicious inputs and redirects, and review Sandbox billing/quotas.
 
