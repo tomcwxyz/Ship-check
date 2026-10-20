@@ -8,7 +8,7 @@ export type Coverage = { area: string; status: "assessed" | "partial" | "not-ass
 export type ScanReport = {
   schemaVersion: "0.1";
   tool: { name: "ship-check"; version: string };
-  project: { path: string; fileCount: number };
+  project: { path: string; fileCount: number; snapshot?: { source: { executionLocation: string } } };
   findings: Finding[];
   gaps: Gap[];
   coverage: Coverage[];
