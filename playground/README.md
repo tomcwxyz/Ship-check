@@ -17,8 +17,8 @@ A deliberately separate, no-login Next.js app in the existing Ship-check reposit
 - Vercel Sandbox isolates the scanned project from app secrets. Only the fixed, published CLI is executed. User input is passed as argument data, never a shell string.
 - Public GitHub size is checked against the GitHub repository API before scan (20,000 KiB upper bound). GitHub's reported size is not a decompression limit, so runner CPU/memory/timeouts are also required.
 - Anonymous scans require a Vercel-injected real client IP and durable Upstash Redis rate limiting. Without either, scans are **disabled** rather than unmetered.
-- Three scans per visitor per 24-hour key TTL, server-enforced. IP identity is pseudonymised using SHA-256 before use as a Redis key; it is not an anonymity guarantee. Deploy upstream protection against proxies / distributed abuse before scaling.
-- Target site validation rejects IP literals, local names, credentials, alternate ports and HTTP. DNS-based SSRF remains a review concern for the live-site flow: sandbox isolation limits reachability, but egress policy/DNS revalidation should be hardened before broad public launch.
+- Three scans per visitor per 24-hour key TTL, server-enforced. IP identity is pseudonymised using a keyed HMAC-SHA-256 before use as a Redis key; it is not an anonymity guarantee. Deploy upstream protection against proxies / distributed abuse before scaling.
+- Target site validation rejects IP literals, local names, credentials, alternate ports and HTTP. Sandbox egress is restricted to registry.npmjs.org plus the exact scan target (and www/apex variant for websites), with explicit private/link-local CIDR denies. Redirects to unrelated hosts are blocked by egress policy rather than followed blindly. Keep reviewing DNS rebinding and runtime behaviour before broad public launch.
 - Report returned only to the requesting browser with no-store cache headers. Avoid server logging raw report content. The originating repository may remain publicly available at GitHub.
 - Scans use the canonical engine's bounded, non-mutating checks; this is **not** a security certificate or penetration test.
 - Host limit: 180 seconds; sandbox limit: 150 seconds. Run-time GitHub API, npm or sandbox availability can cause a graceful error.
@@ -38,10 +38,10 @@ Use an actual Upstash Redis REST database and Vercel Sandbox project identity be
 ```text
 UPSTASH_REDIS_REST_URL
 UPSTASH_REDIS_REST_TOKEN
-SHIP_CHECK_PLAYGROUND_SCANNER_VERSION=0.0.0-alpha.10
+SHIP_CHECK_PLAYGROUND_SCANNER_VERSION=0.0.0-alpha.9
 ```
 
-The pinned `@good-ship/ship-check` release must **already be published and validated**. Do not silently fall back to a different scanner or `latest`. If the package/version is not available, finish publication/testing before enabling scans.
+The pinned `@good-ship/ship-check@0.0.0-alpha.9` release has been smoke-tested in a Vercel Sandbox against a real public GitHub repository (20 October 2026). The repository's newer alpha.10 has not yet been published. Managed scan provenance is corrected in the hosted wrapper until the next CLI release supports that execution boundary natively. Do not silently fall back to a different scanner or `latest`. If the package/version is not available, finish publication/testing before enabling scans.
 
 On Vercel Sandbox, Vercel OIDC authenticates automatically to the linked Vercel project. For local sandbox calls, configure a development OIDC token using Vercel's documented workflow.
 

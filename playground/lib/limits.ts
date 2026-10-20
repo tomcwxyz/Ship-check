@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { isIP } from "node:net";
 import type { NextRequest } from "next/server";
 
@@ -28,7 +28,9 @@ export async function claimAnonymousScan(request: NextRequest): Promise<void> {
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!base || !token || !/^https:\/\//.test(base))
     throw new LimitsUnavailable("Anonymous scanning is not configured.");
-  const key = "playground:v1:" + createHash("sha256").update(extractClientIp(request)).digest("hex");
+  // HMAC prevents offline reversal of the small IP-address search space.
+  const key = "playground:v1:" + createHmac("sha256", token)
+    .update(extractClientIp(request)).digest("hex");
   try {
     // Atomic initial quota key with TTL. Existing keys are incremented (no sliding expiry).
     const first = await redisCommand(base, token, ["SET", key, "1", "EX", 86400, "NX"]);

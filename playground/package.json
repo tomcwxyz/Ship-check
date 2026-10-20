@@ -8,11 +8,11 @@
     "build": "next build",
     "start": "next start",
     "check": "tsc --noEmit",
-    "test": "node --test lib/validation.test.mjs"
+    "test": "node --test lib/*.test.mjs"
   },
   "dependencies": {
     "@vercel/sandbox": "3.8.0",
-    "next": "15.5.25",
+    "next": "15.5.28",
     "react": "19.3.0",
     "react-dom": "19.3.0"
   },
@@ -23,6 +23,6 @@
     "typescript": "^5.9.2"
   },
   "engines": {
-    "node": ">=22.12.0"
+    "node": "24.x"
   }
 }

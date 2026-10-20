@@ -1,6 +1,7 @@
 import { Sandbox } from "@vercel/sandbox";
 import type { ScanReport } from "./types";
 import type { ParsedSource } from "./sourceTypes";
+import { scanEgressPolicy } from "./egress.mjs";
 
 const MAX_REPO_KB = 20_000;
 const MAX_REPORT_CHARS = 1_200_000;
@@ -35,10 +36,15 @@ function checkScanReport(value: unknown): asserts value is ScanReport {
 
 export async function scanInSandbox(source: ParsedSource): Promise<ScanReport> {
   if (source.kind === "github") await checkPublicGithubSource(source.target);
-  const version = process.env.SHIP_CHECK_PLAYGROUND_SCANNER_VERSION || "0.0.0-alpha.10";
+  const version = process.env.SHIP_CHECK_PLAYGROUND_SCANNER_VERSION || "0.0.0-alpha.9";
   if (!/^\d+\.\d+\.\d+-alpha\.\d+$/.test(version))
     throw new Error("A pinned Ship-check alpha version must be configured.");
-  const sandbox = await Sandbox.create({ runtime: "node24", persistent: false, timeout: 150_000 });
+  const sandbox = await Sandbox.create({
+    persistent: false,
+    resources: { vcpus: 1 },
+    timeout: 150_000,
+    networkPolicy: scanEgressPolicy(source)
+  });
   try {
     const spec = `@good-ship/ship-check@${version}`;
     const run = await sandbox.runCommand({
@@ -55,6 +61,11 @@ export async function scanInSandbox(source: ParsedSource): Promise<ScanReport> {
     let parsed: unknown;
     try { parsed = JSON.parse(stdout); } catch { throw new Error("The scanner did not return a complete JSON report."); }
     checkScanReport(parsed);
+    // CLI alpha.9 assumes local execution; annotate only the hosted provenance
+    // (not finding/evidence content) until the next canonical CLI release supports it.
+    if (parsed.project.snapshot?.source) {
+      parsed.project.snapshot.source.executionLocation = "ship-check-managed";
+    }
     return parsed;
   } finally {
     await sandbox.stop();

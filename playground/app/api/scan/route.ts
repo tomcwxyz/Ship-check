@@ -11,6 +11,24 @@ const headers = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosnif
 function error(status: number, message: string) {
   return NextResponse.json({ error: message }, { status, headers });
 }
+async function readBoundedJson(request: NextRequest): Promise<unknown> {
+  if (!request.body) throw new Error("Enter a project to scan.");
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > 1024) {
+      await reader.cancel();
+      throw new Error("Request too large.");
+    }
+    chunks.push(value);
+  }
+  const raw = Buffer.concat(chunks).toString("utf8");
+  return JSON.parse(raw);
+}
 export async function POST(request: NextRequest) {
   const origin = request.headers.get("origin");
   if (!origin || origin !== request.nextUrl.origin) return error(403, "This request must come from the playground.");
@@ -20,14 +38,13 @@ export async function POST(request: NextRequest) {
     return error(413, "Request too large.");
   let source: ParsedSource;
   try {
-    const raw = await request.text();
-    if (Buffer.byteLength(raw) > 1024) return error(413, "Request too large.");
-    const body: unknown = JSON.parse(raw);
+    const body = await readBoundedJson(request);
     if (!body || typeof body !== "object") throw new Error("Enter a project to scan.");
     const { url, kind } = body as { url?: unknown; kind?: unknown };
     source = parseSource(url, kind) as ParsedSource;
   } catch (cause) {
-    return error(400, cause instanceof Error ? cause.message : "Invalid scan request.");
+    const message = cause instanceof Error ? cause.message : "Invalid scan request.";
+    return error(message === "Request too large." ? 413 : 400, message);
   }
   try {
     await claimAnonymousScan(request);
