@@ -18,7 +18,7 @@ concurrency:
 
 permissions:
   contents: read
-  id-token: write
+  id-token: write # npm Trusted Publishing uses ephemeral GitHub OIDC credentials
 
 jobs:
   preflight:
@@ -128,7 +128,6 @@ jobs:
       - name: Publish platform scanner packages
         shell: bash
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ inputs.version }}
           SUFFIX: ${{ matrix.suffix }}
         run: |
@@ -177,7 +176,6 @@ jobs:
       - name: Publish main package
         shell: bash
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
