@@ -77,7 +77,7 @@ function routeForCronPath(files: string[], cronPath: string): string | undefined
     `(^|/)(?:app/${escaped}/route|pages/${escaped}(?:/index)?)\\.(?:js|jsx|ts|tsx)$`,
     "i"
   );
-  // Prefer the exact route, then support Next.js single-segment dynamic routes.
+  // Prefer the exact route, then recognise Next.js single-segment parameter routes.
   // /api/benchmark-refresh/foo maps to app/api/benchmark-refresh/[source]/route.ts.
   const exact = files.find((file) => pattern.test(file));
   if (exact) return exact;
@@ -85,86 +85,7 @@ function routeForCronPath(files: string[], cronPath: string): string | undefined
     `(?:${escapeRegExp(segment)}|\\[[^/]+\\])`
   ).join("/");
   const dynamicPattern = new RegExp(
-    `(^|/)(?:app/${dynamicSegments}/route|pages/${dynamicSegments}(?:/index)?)\\.(?:js|jsx|ts|tsx)import type { TracedSource } from "@ship-check/checks/surface";
-import { traceLocalImports } from "@ship-check/checks/surface";
-import type { CheckDefinition, ProjectContext } from "@ship-check/core";
-import type { Finding, Severity } from "@ship-check/schemas";
-
-function lineNumber(text: string, index: number): number {
-  return text.slice(0, index).split("\n").length;
-}
-
-function finding(input: {
-  checkId: string;
-  suffix: string;
-  title: string;
-  summary: string;
-  severity: Severity;
-  confidence?: Finding["confidence"];
-  evidence: Finding["evidence"];
-  why: string;
-  fix: string;
-  verify: string;
-  agentPrompt: string;
-}): Finding {
-  return {
-    id: `${input.checkId}:${input.suffix}`,
-    checkId: input.checkId,
-    pack: "cost-aware",
-    title: input.title,
-    summary: input.summary,
-    severity: input.severity,
-    confidence: input.confidence ?? "high",
-    evidence: input.evidence,
-    remediation: {
-      why: input.why,
-      fix: input.fix,
-      verify: input.verify,
-      agentPrompt: input.agentPrompt
-    }
-  };
-}
-
-function cronIntervalMinutes(schedule: string): number | null {
-  const fields = schedule.trim().split(/\s+/);
-  if (fields.length !== 5) return null;
-  const [minute, hour, dayOfMonth, month, dayOfWeek] = fields;
-  if (dayOfMonth !== "*" || month !== "*" || dayOfWeek !== "*") return null;
-
-  if (minute === "*" && hour === "*") return 1;
-  const minuteStep = /^\*\/(\d+)$/.exec(minute);
-  if (minuteStep && hour === "*") return Number(minuteStep[1]);
-
-  const minuteList = /^\d+(?:,\d+)+$/.exec(minute);
-  if (minuteList && hour === "*") {
-    const values = minute.split(",").map(Number).sort((a, b) => a - b);
-    const gaps = values.map((value, index) => {
-      const next = values[(index + 1) % values.length];
-      return index === values.length - 1 ? 60 - value + next : next - value;
-    });
-    return Math.min(...gaps);
-  }
-
-  if (/^\d+$/.test(minute) && hour === "*") return 60;
-  if (/^\d+$/.test(minute) && /^\d+$/.test(hour)) return 24 * 60;
-  const hourStep = /^\*\/(\d+)$/.exec(hour);
-  if (/^\d+$/.test(minute) && hourStep) return Number(hourStep[1]) * 60;
-  return null;
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function routeForCronPath(files: string[], cronPath: string): string | undefined {
-  const normalised = cronPath.replace(/^\/+|\/+$/g, "");
-  if (!normalised.startsWith("api/")) return undefined;
-  const escaped = escapeRegExp(normalised);
-  const pattern = new RegExp(
-    `(^|/)(?:app/${escaped}/route|pages/${escaped}(?:/index)?)\\.(?:js|jsx|ts|tsx)$`,
-    "i"
-  );
-,
+    `(^|/)(?:app/${dynamicSegments}/route|pages/${dynamicSegments}(?:/index)?)\\.(?:js|jsx|ts|tsx)$`,
     "i"
   );
   return files.find((file) => dynamicPattern.test(file));
