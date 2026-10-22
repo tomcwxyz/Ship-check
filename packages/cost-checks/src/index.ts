@@ -77,7 +77,18 @@ function routeForCronPath(files: string[], cronPath: string): string | undefined
     `(^|/)(?:app/${escaped}/route|pages/${escaped}(?:/index)?)\\.(?:js|jsx|ts|tsx)$`,
     "i"
   );
-  return files.find((file) => pattern.test(file));
+  // Prefer the exact route, then recognise Next.js single-segment parameter routes.
+  // /api/benchmark-refresh/foo maps to app/api/benchmark-refresh/[source]/route.ts.
+  const exact = files.find((file) => pattern.test(file));
+  if (exact) return exact;
+  const dynamicSegments = normalised.split("/").map((segment) =>
+    `(?:${escapeRegExp(segment)}|\\[[^/]+\\])`
+  ).join("/");
+  const dynamicPattern = new RegExp(
+    `(^|/)(?:app/${dynamicSegments}/route|pages/${dynamicSegments}(?:/index)?)\\.(?:js|jsx|ts|tsx)$`,
+    "i"
+  );
+  return files.find((file) => dynamicPattern.test(file));
 }
 
 type WorkMarker = {

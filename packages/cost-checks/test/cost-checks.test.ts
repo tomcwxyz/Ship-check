@@ -55,6 +55,23 @@ describe("cost-aware checks", () => {
     expect(JSON.stringify(cronFindings)).not.toContain("/api/hourly is scheduled");
   });
 
+  it("resolves daily cost-bearing cron routes through a Next.js dynamic parameter", async () => {
+    const root = await temporaryDirectory();
+    const handler = path.join(root, "src/app/api/admin/benchmark-refresh/[source]/route.ts");
+    await fs.mkdir(path.dirname(handler), { recursive: true });
+    await fs.writeFile(path.join(root, "vercel.json"), JSON.stringify({ crons: [
+      { path: "/api/admin/benchmark-refresh/lmarena-text", schedule: "0 6 * * *" }
+    ] }));
+    await fs.writeFile(handler,
+      'export async function GET(request) { await db.query("SELECT 1"); return Response.json({ ok: true }); }'
+    );
+    const report = await scanProject(root, costAwareChecks);
+    expect(report.findings.some((finding) =>
+      finding.checkId === "cost.recurring-provider-work" &&
+      finding.title === "Review recurring database or paid-service work"
+    )).toBe(true);
+  });
+
   it("does not treat a short timer as polling unless the file also performs network work", async () => {
     const root = await temporaryDirectory();
     await fs.writeFile(path.join(root, "timer.ts"), "setInterval(() => tick(), 30000);\n");

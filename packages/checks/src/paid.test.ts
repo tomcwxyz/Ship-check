@@ -109,6 +109,41 @@ describe("calibrated paid endpoint detection", () => {
     expect(report.findings[0]?.evidence.some((item) => item.path === "lib/ai.ts")).toBe(true);
   });
 
+  it("recognises a real bearer-token rejection before metered classifier work", async () => {
+    const root = await fixture({
+      "src/app/api/admin/classifier-eval/route.ts": [
+        'import { classifyTask } from "@/lib/classification";',
+        "export async function GET(request) {",
+        "  const secret = process.env.CRON_SECRET;",
+        '  if (!secret) return NextResponse.json({ error: "Not configured" }, { status: 500 });',
+        '  if (request.headers.get("authorization") !== `Bearer ${secret}`) {',
+        '    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });',
+        "  }",
+        "  const result = await classifyTask('example');",
+        "  return NextResponse.json({ result });",
+        "}"
+      ].join("\n"),
+      "src/lib/classification.ts": 'export async function classifyTask(input) { return client.messages.create({ model: "example", messages: [{ role: "user", content: input }] }); }'
+    });
+    const report = await scanProject(root, [calibratedPaidEndpointCheck]);
+    expect(report.findings).toHaveLength(0);
+  });
+
+  it("still flags metered work if a token is only read but no 401 guard rejects callers", async () => {
+    const root = await fixture({
+      "app/api/admin/eval/route.ts": [
+        "export async function GET(request) {",
+        '  const token = request.headers.get("authorization");',
+        "  const cronSecret = process.env.CRON_SECRET;",
+        "  return client.messages.create({ model: 'example', messages: [] });",
+        "}"
+      ].join("\n")
+    });
+    const report = await scanProject(root, [calibratedPaidEndpointCheck]);
+    expect(report.findings).toHaveLength(1);
+    expect(report.findings[0]?.severity).toBe("high");
+  });
+
   it("accepts a visible authentication boundary before paid work", async () => {
     const root = await fixture({
       "app/api/ask/route.ts": [
