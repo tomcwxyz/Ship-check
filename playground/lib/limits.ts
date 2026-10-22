@@ -24,8 +24,10 @@ async function redisCommand(url: string, token: string, args: Array<string | num
   return (body as { result: unknown }).result;
 }
 export async function claimAnonymousScan(request: NextRequest): Promise<void> {
-  const base = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  // Vercel KV (Upstash-backed) provisions KV_REST_API_* variables. Also accept
+  // standard Upstash credentials for non-Marketplace installations.
+  const base = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!base || !token || !/^https:\/\//.test(base))
     throw new LimitsUnavailable("Anonymous scanning is not configured.");
   // HMAC prevents offline reversal of the small IP-address search space.
