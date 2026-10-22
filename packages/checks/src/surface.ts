@@ -462,7 +462,482 @@ function routeForCronPath(files: string[], cronPath: string): string | undefined
     `(^|/)(?:app/${escaped}/route|pages/${escaped}(?:/index)?)\\.(?:js|jsx|ts|tsx)$`,
     "i"
   );
-  return files.find((file) => pattern.test(file));
+  // Prefer the exact route, then support Next.js single-segment dynamic routes.
+  // /api/benchmark-refresh/foo maps to app/api/benchmark-refresh/[source]/route.ts.
+  const exact = files.find((file) => pattern.test(file));
+  if (exact) return exact;
+  const dynamicSegments = normalised.split("/").map((segment) =>
+    `(?:${escapeRegExp(segment)}|\\[[^/]+\\])`
+  ).join("/");
+  const dynamicPattern = new RegExp(
+    `(^|/)(?:app/${dynamicSegments}/route|pages/${dynamicSegments}(?:/index)?)\\.(?:js|jsx|ts|tsx)import path from "node:path";
+import type { CheckDefinition, CheckExecution, ProjectContext } from "@ship-check/core";
+import type { AssessmentGap, Finding } from "@ship-check/schemas";
+
+const SOURCE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"];
+const MAX_IMPORT_DEPTH = 2;
+const MAX_IMPORTED_FILES = 20;
+
+function finding(input: {
+  checkId: string;
+  suffix: string;
+  title: string;
+  summary: string;
+  severity: Finding["severity"];
+  confidence: Finding["confidence"];
+  evidence: Finding["evidence"];
+  why: string;
+  fix: string;
+  verify: string;
+  agentPrompt: string;
+}): Finding {
+  return {
+    id: `${input.checkId}:${input.suffix}`,
+    checkId: input.checkId,
+    pack: "secure-build",
+    title: input.title,
+    summary: input.summary,
+    severity: input.severity,
+    confidence: input.confidence,
+    evidence: input.evidence,
+    remediation: {
+      why: input.why,
+      fix: input.fix,
+      verify: input.verify,
+      agentPrompt: input.agentPrompt
+    }
+  };
+}
+
+function gap(input: {
+  checkId: string;
+  area: AssessmentGap["area"];
+  suffix: string;
+  title: string;
+  summary: string;
+  evidence: AssessmentGap["evidence"];
+  verify: string;
+}): AssessmentGap {
+  return {
+    id: `${input.checkId}:${input.suffix}`,
+    checkId: input.checkId,
+    pack: "secure-build",
+    area: input.area,
+    title: input.title,
+    summary: input.summary,
+    evidence: input.evidence,
+    verify: input.verify
+  };
+}
+
+function isApiHandler(file: string): boolean {
+  return /(^|\/)(?:app\/api\/.+\/route|pages\/api\/.+|api\/.+)\.(?:js|jsx|ts|tsx)$/i.test(file);
+}
+
+function importSpecifiers(text: string): string[] {
+  const specifiers = new Set<string>();
+  const patterns = [
+    /\b(?:import|export)\s+(?:type\s+)?(?:[\s\S]*?\s+from\s+)?["']([^"']+)["']/g,
+    /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g,
+    /\brequire\s*\(\s*["']([^"']+)["']\s*\)/g
+  ];
+  for (const pattern of patterns) {
+    pattern.lastIndex = 0;
+    for (let match = pattern.exec(text); match; match = pattern.exec(text)) {
+      if (match[1]) specifiers.add(match[1]);
+    }
+  }
+  return [...specifiers];
+}
+
+type PathAliasRule = {
+  pattern: string;
+  targets: string[];
+};
+
+type PathAliasConfig = {
+  file: string;
+  directory: string;
+  baseDirectory: string;
+  rules: PathAliasRule[];
+};
+
+const pathAliasConfigCache = new WeakMap<ProjectContext, Promise<PathAliasConfig[]>>();
+
+function stripJsonComments(text: string): string {
+  let output = "";
+  let inString = false;
+  let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const current = text[index];
+    const next = text[index + 1];
+
+    if (lineComment) {
+      if (current === "\n" || current === "\r") {
+        lineComment = false;
+        output += current;
+      } else {
+        output += " ";
+      }
+      continue;
+    }
+
+    if (blockComment) {
+      if (current === "*" && next === "/") {
+        output += "  ";
+        blockComment = false;
+        index += 1;
+      } else {
+        output += current === "\n" || current === "\r" ? current : " ";
+      }
+      continue;
+    }
+
+    if (inString) {
+      output += current;
+      if (escaped) escaped = false;
+      else if (current === "\\") escaped = true;
+      else if (current === '"') inString = false;
+      continue;
+    }
+
+    if (current === '"') {
+      inString = true;
+      output += current;
+      continue;
+    }
+    if (current === "/" && next === "/") {
+      lineComment = true;
+      output += "  ";
+      index += 1;
+      continue;
+    }
+    if (current === "/" && next === "*") {
+      blockComment = true;
+      output += "  ";
+      index += 1;
+      continue;
+    }
+    output += current;
+  }
+
+  return output;
+}
+
+function stripTrailingCommas(text: string): string {
+  let output = "";
+  let inString = false;
+  let escaped = false;
+
+  for (let index = 0; index < text.length; index += 1) {
+    const current = text[index];
+    if (inString) {
+      output += current;
+      if (escaped) escaped = false;
+      else if (current === "\\") escaped = true;
+      else if (current === '"') inString = false;
+      continue;
+    }
+    if (current === '"') {
+      inString = true;
+      output += current;
+      continue;
+    }
+    if (current === ",") {
+      let nextIndex = index + 1;
+      while (nextIndex < text.length && /\s/.test(text[nextIndex])) nextIndex += 1;
+      if (text[nextIndex] === "}" || text[nextIndex] === "]") continue;
+    }
+    output += current;
+  }
+
+  return output;
+}
+
+function parseJsonConfig(text: string): Record<string, unknown> | null {
+  try {
+    const parsed = JSON.parse(stripTrailingCommas(stripJsonComments(text)));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function configDirectory(file: string): string {
+  const directory = path.posix.dirname(file);
+  return directory === "." ? "" : directory;
+}
+
+function repoPath(base: string, target: string): string | null {
+  if (target.startsWith("/")) return null;
+  const resolved = path.posix.normalize(path.posix.join(base, target)).replace(/^\.\//, "");
+  if (resolved === ".." || resolved.startsWith("../")) return null;
+  return resolved;
+}
+
+async function readPathAliasConfigs(context: ProjectContext): Promise<PathAliasConfig[]> {
+  const configs: PathAliasConfig[] = [];
+  const configFiles = context.files.filter((file) => /(^|\/)(?:tsconfig|jsconfig)\.json$/i.test(file));
+
+  for (const file of configFiles) {
+    const text = await context.readText(file);
+    if (!text) continue;
+    const config = parseJsonConfig(text);
+    if (!config) continue;
+    const compilerOptions = config.compilerOptions;
+    if (!compilerOptions || typeof compilerOptions !== "object" || Array.isArray(compilerOptions)) continue;
+    const options = compilerOptions as Record<string, unknown>;
+    const paths = options.paths;
+    if (!paths || typeof paths !== "object" || Array.isArray(paths)) continue;
+
+    const directory = configDirectory(file);
+    const baseUrl = typeof options.baseUrl === "string" ? options.baseUrl : ".";
+    const baseDirectory = repoPath(directory, baseUrl);
+    if (baseDirectory === null) continue;
+
+    const rules: PathAliasRule[] = [];
+    for (const [pattern, rawTargets] of Object.entries(paths as Record<string, unknown>)) {
+      if (!pattern || (pattern.match(/\*/g)?.length ?? 0) > 1 || !Array.isArray(rawTargets)) continue;
+      const targets = rawTargets.filter(
+        (target): target is string => typeof target === "string" && (target.match(/\*/g)?.length ?? 0) <= 1
+      );
+      if (targets.length > 0) rules.push({ pattern, targets });
+    }
+    if (rules.length > 0) configs.push({ file, directory, baseDirectory, rules });
+  }
+
+  return configs.sort((left, right) => right.directory.split("/").filter(Boolean).length - left.directory.split("/").filter(Boolean).length);
+}
+
+function pathAliasConfigs(context: ProjectContext): Promise<PathAliasConfig[]> {
+  const cached = pathAliasConfigCache.get(context);
+  if (cached) return cached;
+  const loading = readPathAliasConfigs(context);
+  pathAliasConfigCache.set(context, loading);
+  return loading;
+}
+
+function configApplies(config: PathAliasConfig, fromFile: string): boolean {
+  return config.directory === "" || fromFile.startsWith(`${config.directory}/`);
+}
+
+function aliasCapture(pattern: string, specifier: string): string | null {
+  const wildcard = pattern.indexOf("*");
+  if (wildcard === -1) return pattern === specifier ? "" : null;
+  const prefix = pattern.slice(0, wildcard);
+  const suffix = pattern.slice(wildcard + 1);
+  if (!specifier.startsWith(prefix) || !specifier.endsWith(suffix)) return null;
+  return specifier.slice(prefix.length, specifier.length - suffix.length);
+}
+
+function configuredAliasBases(configs: PathAliasConfig[], fromFile: string, specifier: string): string[] {
+  const bases: string[] = [];
+  for (const config of configs) {
+    if (!configApplies(config, fromFile)) continue;
+    let matchedConfig = false;
+    for (const rule of config.rules) {
+      const capture = aliasCapture(rule.pattern, specifier);
+      if (capture === null) continue;
+      matchedConfig = true;
+      for (const target of rule.targets) {
+        const mappedTarget = target.includes("*") ? target.replace("*", capture) : target;
+        const candidate = repoPath(config.baseDirectory, mappedTarget);
+        if (candidate !== null) bases.push(candidate);
+      }
+    }
+    if (matchedConfig) break;
+  }
+  return [...new Set(bases)];
+}
+
+function candidateBases(fromFile: string, specifier: string, configs: PathAliasConfig[]): string[] {
+  if (specifier.startsWith("./") || specifier.startsWith("../")) {
+    return [path.posix.normalize(path.posix.join(path.posix.dirname(fromFile), specifier))];
+  }
+
+  const configured = configuredAliasBases(configs, fromFile, specifier);
+  if (configured.length > 0) return configured;
+
+  if (specifier.startsWith("@/") || specifier.startsWith("~/")) {
+    const aliasPath = path.posix.normalize(specifier.slice(2));
+    return [aliasPath, `src/${aliasPath}`];
+  }
+  return [];
+}
+
+function resolutionCandidates(base: string): string[] {
+  const candidates = [base];
+  if (!SOURCE_EXTENSIONS.some((extension) => base.endsWith(extension))) {
+    candidates.push(...SOURCE_EXTENSIONS.map((extension) => `${base}${extension}`));
+    candidates.push(...SOURCE_EXTENSIONS.map((extension) => `${base}/index${extension}`));
+  }
+  return candidates;
+}
+
+function resolveLocalImport(
+  context: ProjectContext,
+  fromFile: string,
+  specifier: string,
+  configs: PathAliasConfig[]
+): string | null {
+  for (const base of candidateBases(fromFile, specifier, configs)) {
+    if (base === ".." || base.startsWith("../")) continue;
+    const resolved = resolutionCandidates(base).find((candidate) => context.hasFile(candidate));
+    if (resolved) return resolved;
+  }
+  return null;
+}
+
+export type TracedSource = { file: string; text: string; depth: number };
+
+export async function traceLocalImports(
+  context: ProjectContext,
+  entryFile: string,
+  maxDepth = MAX_IMPORT_DEPTH,
+  maxFiles = MAX_IMPORTED_FILES
+): Promise<TracedSource[]> {
+  const configs = await pathAliasConfigs(context);
+  const queue: Array<{ file: string; depth: number }> = [{ file: entryFile, depth: 0 }];
+  const visited = new Set<string>();
+  const output: TracedSource[] = [];
+
+  while (queue.length > 0 && output.length < maxFiles) {
+    const current = queue.shift();
+    if (!current || visited.has(current.file)) continue;
+    visited.add(current.file);
+    const text = await context.readText(current.file);
+    if (!text) continue;
+    output.push({ file: current.file, text, depth: current.depth });
+    if (current.depth >= maxDepth) continue;
+    for (const specifier of importSpecifiers(text)) {
+      const resolved = resolveLocalImport(context, current.file, specifier, configs);
+      if (resolved && !visited.has(resolved)) queue.push({ file: resolved, depth: current.depth + 1 });
+    }
+  }
+
+  return output;
+}
+
+function firstMatchingSource(sources: TracedSource[], pattern: RegExp): TracedSource | null {
+  for (const source of sources) {
+    pattern.lastIndex = 0;
+    if (pattern.test(source.text)) return source;
+  }
+  return null;
+}
+
+function inspectedHelpers(sources: TracedSource[]): string[] {
+  return sources.filter((source) => source.depth > 0).map((source) => source.file);
+}
+
+const requestHandlerPattern = /export\s+(?:async\s+)?function\s+(?:GET|POST|PUT|PATCH|DELETE)|export\s+const\s+(?:GET|POST|PUT|PATCH|DELETE)/;
+const paidProviderPattern = /\b(?:OpenAI|Anthropic|Resend|Firecrawl|Stripe|generateText|generateObject|streamText|chat\.completions|responses\.create|messages\.create|emails\.send)\b/i;
+const abuseControlPattern = /\b(?:rate.?limit|Ratelimit|turnstile|captcha|hcaptcha|recaptcha|requireAuth|requireUser|requireSession|getServerSession|currentUser|verifyToken|verifySession|auth\s*\(|getUser\s*\(|session\s*=)\b/i;
+
+export const importedAwarePaidEndpointCheck: CheckDefinition = {
+  appliesTo: (context) => context.files.some(isApiHandler),
+  id: "secure.paid-endpoint-abuse-control",
+  pack: "secure-build",
+  title: "Paid public endpoints",
+  description: "Trace bounded local imports from API handlers before deciding whether paid-service work lacks visible auth or abuse controls.",
+  principles: ["practice.preserve-safety", "practice.cost-discipline"],
+  async run(context): Promise<CheckExecution> {
+    const findings: Finding[] = [];
+    for (const file of context.files.filter(isApiHandler)) {
+      const entryText = await context.readText(file);
+      if (!entryText || !requestHandlerPattern.test(entryText)) continue;
+      const sources = await traceLocalImports(context, file);
+      const paidSource = firstMatchingSource(sources, paidProviderPattern);
+      if (!paidSource) continue;
+      const controlSource = firstMatchingSource(sources, abuseControlPattern);
+      if (controlSource) continue;
+      const helpers = inspectedHelpers(sources);
+      findings.push(finding({
+        checkId: this.id,
+        suffix: file,
+        title: "Paid API work appears reachable without an obvious abuse control",
+        summary: `${file} reaches paid-service code${paidSource.file !== file ? ` via ${paidSource.file}` : ""}, but Ship Check found no recognised authentication, rate-limit or bot-control marker in the handler or ${helpers.length} traced local helper${helpers.length === 1 ? "" : "s"}.`,
+        severity: "high",
+        confidence: "medium",
+        evidence: [
+          { kind: "file-match", path: file, detail: `Public request handler inspected with up to ${MAX_IMPORT_DEPTH} local import levels.` },
+          ...(paidSource.file !== file ? [{ kind: "file-match" as const, path: paidSource.file, detail: "Paid-service marker reached through a traced local import." }] : [])
+        ],
+        why: "Public endpoints that trigger paid services can be scripted repeatedly, creating cost spikes or spam even when normal usage looks fine.",
+        fix: "Add the narrowest appropriate server-side rate limit plus authentication or bot protection at a boundary that reliably executes before paid work. If protection exists outside the traced local import graph, document and test it.",
+        verify: "Exercise the endpoint anonymously and above the intended rate threshold, confirm requests are rejected before paid work begins, then rerun Ship Check.",
+        agentPrompt: `Review ${file} and its local call path to ${paidSource.file}. Add or prove the narrowest appropriate authentication/rate-limit/bot boundary before paid work, preserve legitimate usage, and add an abuse-path test.`
+      }));
+    }
+    return {
+      findings,
+      coverage: [
+        { area: "access-control", status: "partial" },
+        { area: "cost", status: "partial" }
+      ]
+    };
+  }
+};
+
+const webhookMarkerPattern = /\b(?:stripe\.webhooks|svix|webhook)\b/i;
+const webhookVerificationPattern = /\b(?:constructEvent|verifyWebhook|verifySignature|webhooks\.verify|createHmac|timingSafeEqual|svix)\b/i;
+
+export const importedAwareWebhookCheck: CheckDefinition = {
+  appliesTo: (context) => context.files.some(isApiHandler),
+  id: "secure.webhook-signature-verification",
+  pack: "secure-build",
+  title: "Webhook signature verification",
+  description: "Trace bounded local imports from webhook handlers before recording a signature-verification evidence gap.",
+  principles: ["practice.preserve-safety"],
+  async run(context): Promise<CheckExecution> {
+    const gaps: AssessmentGap[] = [];
+    let candidates = 0;
+    for (const file of context.files.filter(isApiHandler)) {
+      const sources = await traceLocalImports(context, file);
+      if (sources.length === 0) continue;
+      const looksLikeWebhook = /webhooks?/i.test(file) || Boolean(firstMatchingSource(sources, webhookMarkerPattern));
+      if (!looksLikeWebhook) continue;
+      candidates += 1;
+      if (firstMatchingSource(sources, webhookVerificationPattern)) continue;
+      const helpers = inspectedHelpers(sources);
+      gaps.push(gap({
+        checkId: this.id,
+        area: "access-control",
+        suffix: file,
+        title: "Webhook verification could not be established",
+        summary: `${file} looks like a webhook receiver, but Ship Check found no recognised signature/HMAC verification marker in the handler or ${helpers.length} traced local helper${helpers.length === 1 ? "" : "s"}. Verification may still live in middleware, a package wrapper or upstream infrastructure.`,
+        evidence: [{ kind: "file-match", path: file, detail: `Webhook-like request boundary inspected with up to ${MAX_IMPORT_DEPTH} local import levels.` }],
+        verify: "Trace the deployed request from ingress to side effect and confirm the provider signature is verified against the correct/raw request material before any trusted action occurs."
+      }));
+    }
+    return {
+      gaps,
+      coverage: candidates > 0 ? [{ area: "access-control", status: "partial" }] : []
+    };
+  }
+};
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function routeForCronPath(files: string[], cronPath: string): string | undefined {
+  const normalised = cronPath.replace(/^\/+|\/+$/g, "");
+  if (!normalised.startsWith("api/")) return undefined;
+  const escaped = escapeRegExp(normalised);
+  const pattern = new RegExp(
+    `(^|/)(?:app/${escaped}/route|pages/${escaped}(?:/index)?)\\.(?:js|jsx|ts|tsx)$`,
+    "i"
+  );
+,
+    "i"
+  );
+  return files.find((file) => dynamicPattern.test(file));
 }
 
 const cronAuthPattern = /\b(?:CRON_SECRET|cronSecret|verifyCron|requireCron|authorization|Bearer)\b/i;
