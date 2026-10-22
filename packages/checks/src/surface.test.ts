@@ -209,6 +209,38 @@ describe("cron auth tracing", () => {
     expect(report.checks[0]?.status).toBe("passed");
   });
 
+  it("maps concrete cron paths onto a parameterised Next.js handler", async () => {
+    const root = await fixture({
+      "vercel.json": JSON.stringify({ crons: [
+        { path: "/api/admin/benchmark-refresh/artificialanalysis", schedule: "0 7 * * 1" },
+        { path: "/api/admin/benchmark-refresh/lmarena-text", schedule: "0 6 * * 1" }
+      ] }),
+      "src/app/api/admin/benchmark-refresh/[source]/route.ts": [
+        'export async function GET(request, { params }) {',
+        '  const { source } = await params;',
+        '  if (!new Set(["artificialanalysis", "lmarena-text"]).has(source)) return Response.json({}, { status: 404 });',
+        '  if (!process.env.CRON_SECRET) return Response.json({}, { status: 503 });',
+        '  if (request.headers.get("authorization") !== `Bearer ${process.env.CRON_SECRET}`) return Response.json({}, { status: 401 });',
+        '  return Response.json({ ok: true });',
+        '}'
+      ].join("\n")
+    });
+    const report = await scanProject(root, [importedAwareVercelCronAuthCheck]);
+    expect(report.gaps).toHaveLength(0);
+    expect(report.checks[0]?.status).toBe("passed");
+  });
+
+  it("still reports an unverified control for an unauthenticated parameterised cron handler", async () => {
+    const root = await fixture({
+      "vercel.json": JSON.stringify({ crons: [{ path: "/api/admin/benchmark-refresh/lmarena-webdev", schedule: "0 6 * * 1" }] }),
+      "src/app/api/admin/benchmark-refresh/[source]/route.ts": 'export async function GET(request) { return Response.json({ ok: true }); }'
+    });
+    const report = await scanProject(root, [importedAwareVercelCronAuthCheck]);
+    expect(report.gaps).toHaveLength(1);
+    expect(report.gaps[0]?.id).not.toContain("missing-route");
+    expect(report.gaps[0]?.summary).toContain("[source]/route.ts");
+  });
+
   it("keeps a gap when the imported helper has no scheduler authentication", async () => {
     const root = await fixture({
       "vercel.json": JSON.stringify({ crons: [{ path: "/api/cron/daily", schedule: "0 8 * * *" }] }),
