@@ -55,6 +55,17 @@ export async function POST(request: NextRequest) {
     if (cause instanceof LimitsUnavailable) return error(503, "Scans are temporarily unavailable; please try again later.");
     if (cause instanceof Error && /repository|report|scan|GitHub|pinned/i.test(cause.message))
       return error(422, cause.message);
+    // Diagnostics intentionally avoid messages, request targets, source and report
+    // content, which can contain sensitive security evidence.
+    const diagnostic = cause && typeof cause === "object"
+      ? cause as { name?: unknown; code?: unknown; status?: unknown; statusCode?: unknown }
+      : {};
+    console.error("[ship-check-playground] scan failed", {
+      name: typeof diagnostic.name === "string" ? diagnostic.name.slice(0, 60) : "unknown",
+      code: typeof diagnostic.code === "string" ? diagnostic.code.slice(0, 60) : undefined,
+      status: typeof diagnostic.status === "number" ? diagnostic.status : undefined,
+      statusCode: typeof diagnostic.statusCode === "number" ? diagnostic.statusCode : undefined
+    });
     return error(503, "The scan could not be completed just now.");
   }
 }
