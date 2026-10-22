@@ -1,4 +1,4 @@
-# Ship Check Alpha 0.9 tester guide
+# Ship Check Alpha 0.10 tester guide
 
 **Alpha version:** 0.0.0-alpha.10
 
@@ -60,6 +60,10 @@ On at least one finding, save a review decision such as **Useful** or **Fixed ·
 If you have several projects in one development folder, you can also try **Folder of projects** after the single-project test.
 
 ## Option 2 — npm / npx
+
+For a full command reference — including where reports are saved, multi-repository scans, deeper checks, and repair comparisons — see the [practical npm / npx CLI guide](CLI_GUIDE.md).
+
+**Output is printed to the terminal by default.** To save Markdown, add `> ship-check-review.md` (ideally in a directory outside the scanned repository).
 
 `@good-ship/ship-check@alpha` is published on npm. You can run it without a global install.
 
