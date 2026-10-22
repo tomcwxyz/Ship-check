@@ -3,6 +3,13 @@ import type { ScanReport } from "./types";
 import type { ParsedSource } from "./sourceTypes";
 import { scanEgressPolicy } from "./egress.mjs";
 
+export class ScanStageError extends Error {
+  constructor(readonly stage: "github-preflight" | "sandbox-startup" | "scanner-run" | "scanner-output", cause?: unknown) {
+    super("A playground infrastructure check failed.", { cause });
+    this.name = "ScanStageError";
+  }
+}
+
 const MAX_REPO_KB = 20_000;
 const MAX_REPORT_CHARS = 1_200_000;
 
@@ -35,28 +42,44 @@ function checkScanReport(value: unknown): asserts value is ScanReport {
 }
 
 export async function scanInSandbox(source: ParsedSource): Promise<ScanReport> {
-  if (source.kind === "github") await checkPublicGithubSource(source.target);
+  if (source.kind === "github") {
+    try { await checkPublicGithubSource(source.target); }
+    catch (cause) {
+      if (cause instanceof Error && /Invalid repository|Repository not found|larger than|Private repositories|GitHub repository could not/.test(cause.message)) throw cause;
+      throw new ScanStageError("github-preflight", cause);
+    }
+  }
   const version = process.env.SHIP_CHECK_PLAYGROUND_SCANNER_VERSION || "0.0.0-alpha.9";
   if (!/^\d+\.\d+\.\d+-alpha\.\d+$/.test(version))
     throw new Error("A pinned Ship-check alpha version must be configured.");
-  const sandbox = await Sandbox.create({
-    persistent: false,
-    resources: { vcpus: 1 },
-    timeout: 150_000,
-    networkPolicy: scanEgressPolicy(source)
-  });
+  let sandbox: Awaited<ReturnType<typeof Sandbox.create>>;
+  try {
+    sandbox = await Sandbox.create({
+      persistent: false,
+      resources: { vcpus: 1 },
+      timeout: 150_000,
+      networkPolicy: scanEgressPolicy(source)
+    });
+  } catch (cause) {
+    throw new ScanStageError("sandbox-startup", cause);
+  }
   try {
     const spec = `@good-ship/ship-check@${version}`;
-    const run = await sandbox.runCommand({
-      cmd: "npm",
-      args: ["exec", "--yes", `--package=${spec}`, "--", "ship-check", "scan",
-        source.target, "--format", "json", "--fail-on", "never"]
-    });
+    let run: Awaited<ReturnType<typeof sandbox.runCommand>>;
+    try {
+      run = await sandbox.runCommand({
+        cmd: "npm",
+        args: ["exec", "--yes", `--package=${spec}`, "--", "ship-check", "scan",
+          source.target, "--format", "json", "--fail-on", "never"]
+      });
+    } catch (cause) {
+      throw new ScanStageError("scanner-run", cause);
+    }
     if (run.exitCode !== 0) {
       // Do not reflect potentially sensitive or untrusted runner stderr to the browser.
-      throw new Error("The scan could not complete. Please try a smaller or different public target.");
+      throw new ScanStageError("scanner-run");
     }
-    const stdout = await run.stdout();
+    const stdout = await run.stdout().catch((cause) => { throw new ScanStageError("scanner-output", cause); });
     if (!stdout || stdout.length > MAX_REPORT_CHARS) throw new Error("The resulting report exceeded the playground limit.");
     let parsed: unknown;
     try { parsed = JSON.parse(stdout); } catch { throw new Error("The scanner did not return a complete JSON report."); }

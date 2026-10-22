@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parseSource } from "../../../lib/validation.mjs";
 import { claimAnonymousScan, LimitsUnavailable, RateLimited } from "../../../lib/limits";
-import { scanInSandbox } from "../../../lib/scanner";
+import { scanInSandbox, ScanStageError } from "../../../lib/scanner";
 import type { ParsedSource } from "../../../lib/sourceTypes";
 
 export const runtime = "nodejs";
@@ -52,6 +52,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ report }, { headers });
   } catch (cause) {
     if (cause instanceof RateLimited) return error(429, cause.message);
+    if (cause instanceof ScanStageError) {
+      // A fixed stage identifier aids diagnosis without exposing input, output or credentials.
+      console.error("[ship-check-playground] stage failed:", cause.stage);
+      return NextResponse.json({ error: "The scanning service is temporarily unavailable.", code: cause.stage }, { status: 503, headers });
+    }
     if (cause instanceof LimitsUnavailable) return error(503, "Scans are temporarily unavailable; please try again later.");
     if (cause instanceof Error && /repository|report|scan|GitHub|pinned/i.test(cause.message))
       return error(422, cause.message);
