@@ -176,23 +176,60 @@ await fs.writeFile(
   path.join(mainOutput, "README.md"),
   `# @good-ship/ship-check
 
-Evidence-led pre-ship software assurance.
+**Know what needs attention before you ship — and what still needs checking.**
 
-## Run without installing globally
+Ship Check is a local-first software assurance CLI. It distinguishes confirmed findings, unanswered controls and assessment coverage.
 
-\`\`\`bash
-npx --yes @good-ship/ship-check scan . --format markdown
-npx --yes @good-ship/ship-check scan . --git-history-secrets --format markdown
-npx --yes @good-ship/ship-check scan-dir ~/Code --format markdown
-npx --yes @good-ship/ship-check focus ./ship-check-report.json
-npx --yes @good-ship/ship-check skill install .
-\`\`\`
+## Get started
 
-The package contains the bundled JavaScript Ship Check engine rather than depending on the internal monorepo workspace graph.
+Node.js 22.12.0 or newer is required. From a project directory:
 
-Pinned Gitleaks and OSV-Scanner binaries are supplied through OS/CPU-specific optional packages and resolved at runtime. OSV execution still remains explicitly opt-in via \`--networked-dependency-scan\`.
+~~~bash
+npx --yes @good-ship/ship-check@alpha --version
+npx --yes @good-ship/ship-check@alpha scan .
+~~~
 
-Source: https://github.com/tomcwxyz/Ship-check
+No global installation required. The scan enables Secure Build, Production Ready and Cost Aware by default.
+
+## Where do reports go?
+
+**Reports print to the terminal by default. They are not saved to a file automatically.**
+
+Save a Markdown report outside the repo to avoid accidentally committing evidence:
+
+~~~bash
+mkdir -p ~/ship-check-reports
+npx --yes @good-ship/ship-check@alpha scan . --format markdown > ~/ship-check-reports/review.md
+~~~
+
+Save complete JSON for comparison and focused repair:
+
+~~~bash
+npx --yes @good-ship/ship-check@alpha scan . --format json > ~/ship-check-reports/before.json
+npx --yes @good-ship/ship-check@alpha focus ~/ship-check-reports/before.json
+~~~
+
+## More ways to use Ship Check
+
+| Task | Command |
+| --- | --- |
+| Scan a directory of projects | npx --yes @good-ship/ship-check@alpha scan-dir ~/Code |
+| Check current and historical secrets | npx --yes @good-ship/ship-check@alpha scan . --git-history-secrets |
+| Check dependencies with OSV | npx --yes @good-ship/ship-check@alpha scan . --networked-dependency-scan |
+| Inspect a GitHub repository | npx --yes @good-ship/ship-check@alpha scan owner/repository |
+| Scan source and a live deployment | npx --yes @good-ship/ship-check@alpha scan . --deployment-url https://example.com |
+| Discover AI/workflow signals | npx --yes @good-ship/ship-check@alpha discover-ai . |
+| Install the coding-agent skill | npx --yes @good-ship/ship-check@alpha skill install . |
+
+The OSV check is opt-in because it may send dependency names and versions to the OSV service. Pinned Gitleaks and OSV-Scanner binaries are supplied through platform-specific optional npm packages. Local Semgrep scans require a compatible Semgrep installation.
+
+## Full CLI guide and support
+
+- [Practical npm / npx CLI guide](https://github.com/tomcwxyz/Ship-check/blob/main/docs/CLI_GUIDE.md) — reports, all major commands and safe-use notes.
+- [GitHub repository](https://github.com/tomcwxyz/Ship-check) — source, licence and architecture.
+- [Report an issue](https://github.com/tomcwxyz/Ship-check/issues) — feedback, without sensitive report content.
+
+A quiet scan does not prove a project is secure or ready to ship. Findings, unanswered checks and unavailable evidence are deliberately distinguished.
 `
 );
 
