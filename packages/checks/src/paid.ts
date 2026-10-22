@@ -17,7 +17,7 @@ const ABUSE_CONTROL_PATTERN = /\b(?:rate.?limit|Ratelimit|turnstile|captcha|hcap
 // CRON_SECRET or Authorization reference as evidence of authentication.
 // This covers common Vercel cron handlers, including Bearing's classifier-eval route.
 // The test requires an actual 401 return from the conditional branch.
-const REJECT_INVALID_BEARER = /if\\s*\\([\\s\\S]{0,220}\\bheaders\\.get\\(\\s*["']authorization["']\\s*\\)\\s*!==?\\s*`Bearer \\$\\{[^}]+\\}`\\s*\\)\\s*\\{?\\s*return\\s+(?:NextResponse|Response)\\.json\\([\\s\\S]{0,160}\\bstatus\\s*:\\s*401\\b/i;
+const REJECT_INVALID_BEARER = /if\s*\([\s\S]{0,220}\bheaders\.get\(\s*["']authorization["']\s*\)\s*!==?\s*`Bearer \$\{[^}]+\}`\s*\)\s*\{?\s*return\s+(?:NextResponse|Response)\.json\([\s\S]{0,160}\bstatus\s*:\s*401\b/i;
 
 const MAX_IMPORT_DEPTH = 2;
 
