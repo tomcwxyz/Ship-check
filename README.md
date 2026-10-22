@@ -1,367 +1,91 @@
 # Ship Check
 
-**Know what needs attention before you ship — and what still needs checking.**
+**Know what needs fixing before you ship — and what still needs checking.**
 
-Ship Check is a local-first project assurance tool for software built quickly, including with AI-assisted development tools. Give it the project evidence you have — source, an exported project, a live deployment, or explicitly authorised database metadata — and it runs repeatable deterministic checks, explains the evidence in plain language, separates confirmed concerns from unanswered questions, and produces repair or verification instructions that can be handed back to an agent or developer.
+Ship Check is an open-source, local-first tool for reviewing software projects, including those built with AI coding tools. It checks the evidence you give it, highlights concrete concerns, makes unanswered questions visible and suggests what to fix or verify next.
 
-The standalone CLI/desktop review is the primary product surface. The same canonical engine can also be invoked by [RACK](https://github.com/tomcwxyz/rack), informed by purpose-bound [TOPO](https://github.com/tomcwxyz/TOPO) context, and contribute metadata-only assurance signals to wider Organisational OS work.
+**[Try the free playground](https://check.good-ship.co.uk)** · **[CLI guide](docs/CLI_GUIDE.md)** · **[Source code](https://check.good-ship.co.uk/source)**
 
-## Quick start with npx
+## Try it in your browser
 
-**Node.js 22.12.0+** is required. From any project folder, run the published CLI without a global installation:
+At [check.good-ship.co.uk](https://check.good-ship.co.uk), enter a **public GitHub repository** to get a bounded review — no account or installation needed.
 
-~~~bash
+The playground offers three scans per visitor per day, a clear view of findings and gaps, and downloadable Markdown and JSON reports. It does not retain source code or scan history. Private repositories, local folders and live-website-only scans aren't available in the playground yet.
+
+For broader or private project checks, use the local CLI.
+
+## Run Ship Check locally
+
+You'll need **Node.js 22.12.0 or newer**. In the folder containing your project, run:
+
+```bash
 npx --yes @good-ship/ship-check@alpha scan .
-~~~
+```
 
-The default scans security, production-readiness and cost-related evidence and prints findings to your terminal. **Reports are not saved automatically.** To save a Markdown review:
+The scan runs on your machine and prints a report to the terminal. **Nothing is saved automatically.** To keep a Markdown review, save it outside the project being checked:
 
-~~~bash
+```bash
 mkdir -p ~/ship-check-reports
 npx --yes @good-ship/ship-check@alpha scan . --format markdown > ~/ship-check-reports/review.md
-~~~
+```
 
-For an entire directory of repositories:
+Other ways to review a project:
 
-~~~bash
+```bash
+# Public GitHub repository (Git required)
+npx --yes @good-ship/ship-check@alpha scan owner/repository
+
+# Live website (bounded HTTP checks)
+npx --yes @good-ship/ship-check@alpha scan https://example.com
+
+# A folder containing multiple projects
 npx --yes @good-ship/ship-check@alpha scan-dir ~/Code --max-depth 4
-~~~
+```
 
-For further scanning options, deeper checks, JSON repair loops, runtime/database evidence, and a complete command reference, see **[the practical npm / npx CLI guide](docs/CLI_GUIDE.md)**.
+The local tool also supports exported ZIP projects, optional Git-history and dependency checks, and explicitly authorised read-only Postgres metadata inspection. See the [CLI guide](docs/CLI_GUIDE.md) for exact commands, evidence boundaries and additional options.
 
-## Evidence-led review
+## What the report tells you
 
-Ship Check is deliberately narrower than a penetration test or general-purpose AI code reviewer. It is built around four evidence states:
+Ship Check distinguishes four kinds of evidence:
 
-1. **Finding** — the available evidence supports a concrete concern.
-2. **Observed** — useful project context was discovered; this is not automatically a safety claim.
-3. **Unverified** — a relevant boundary exists but the available evidence is not enough to establish it.
-4. **Coverage** — the bounded areas Ship Check did or did not assess.
+- **Finding:** there's evidence of a particular concern and an action to consider.
+- **Unverified:** something important needs checking, but the evidence isn't enough to decide.
+- **Observed:** useful project context, not automatically a pass or a problem.
+- **Coverage:** what was inspected, partly assessed or not assessed.
 
-A quiet scan therefore means **no confirmed findings in the areas checked**, not “safe to ship”. A stronger evidence source may resolve an earlier unanswered question only when a check explicitly declares that it verifies the same control.
+Checks cover selected **security, production-readiness and cost** concerns, with deeper checks available by opt-in. Ship Check deliberately avoids an overall “safe to ship” score. No findings means no confirmed problems **within the areas assessed**, not proof of safety.
 
-The current review areas include:
+Reports may contain file paths and evidence excerpts. Review them before sharing, especially for private projects.
 
-- **Security boundaries** — tracked environment files and credentials, public secret-like configuration, paid endpoints, CORS, dangerous server execution, webhook and cron authentication questions, bounded object-level authorisation questions, and variable outbound-request destinations;
-- **Production readiness** — dependency lock discipline, repository-visible and deployed security-header evidence, server-surface inventory, selected GitHub Actions supply-chain boundaries, and bounded database change/access evidence;
-- **Cost boundaries** — Vercel cron cadence composed with the work it reaches, plus frequent network polling that can create continuous compute, database or paid-service usage;
-- **Database evidence** — Postgres migration/change provenance, destructive migration review, privileged credential boundaries, Supabase RLS provenance/live grant evidence, and Neon connection-strategy evidence;
-- **Runtime evidence** — HTTPS/redirect behaviour, representative browser security headers, visible cookie flags and bounded CORS evidence.
+## Working with a coding agent
 
-Ship Check uses mature deterministic scanners where they provide stronger evidence than growing a home-made regex catalogue. Gitleaks is part of the normal secret-scanning path. OSV dependency vulnerability checking is optional because it can use the network. A deliberately small pinned local Semgrep ruleset is also optional.
-
-## Project evidence sources
-
-The repository is an important source of evidence, but not the product boundary. Current inputs are:
-
-- local folder;
-- GitHub repository via shallow transient checkout;
-- exported project ZIP, including hosted-builder exports such as Lovable;
-- live `http://` / `https://` deployment URL;
-- explicitly opted-in read-only Postgres metadata.
-
-The desktop presents these around user intent: **Folder**, **GitHub**, **Project ZIP**, and **Live site**. A source-based review can optionally add a live deployment URL and/or database metadata so multiple evidence sources are combined into one report without losing provenance.
-
-### Local folder
+You can use a report's suggested FIX or VERIFY steps with a developer or coding agent, then rerun the scan. The CLI also includes an installable Agent Skill:
 
 ```bash
-pnpm ship-check -- scan ./my-project
+npx --yes @good-ship/ship-check@alpha skill install .
 ```
 
-### GitHub repository
+Keep the tool's deterministic evidence separate from the agent's interpretation, and verify any changes.
 
-```bash
-pnpm ship-check -- scan tomcwxyz/Ship-check
-pnpm ship-check -- scan https://github.com/tomcwxyz/Ship-check --ref main
-```
+## Guides and development
 
-For a GitHub source, Ship Check asks the installed Git client to make a shallow temporary checkout, scans it with the same local engine, then removes the checkout. Existing Git credentials or SSH keys can be used for private repositories; credentials embedded in repository URLs are rejected.
+- [CLI and npx: getting started, deeper scans and saving reports](docs/CLI_GUIDE.md)
+- [GitHub Actions and CI](docs/CI.md)
+- [Database inspection and privacy boundary](docs/DATABASE_INSPECTION.md)
+- [Desktop alpha testing](docs/ALPHA_TESTER_GUIDE.md)
+- [Architecture](docs/ARCHITECTURE.md) · [Roadmap](docs/ROADMAP.md)
+- [Issues and feedback](https://check.good-ship.co.uk/issues) — please don't attach secrets or unredacted reports.
 
-### Exported project ZIP
-
-```bash
-pnpm ship-check -- scan ./lovable-export.zip
-```
-
-ZIP extraction is bounded and ephemeral. Archive traversal, symlinks/special entries and excessive expansion are rejected before the canonical source scanner sees the project.
-
-### Live site
-
-```bash
-pnpm ship-check -- scan https://example.com
-```
-
-A URL-only review uses bounded, non-mutating HTTP evidence. Source, database and other unavailable areas remain explicitly `not assessed` rather than being treated as safe.
-
-Source plus deployment:
-
-```bash
-pnpm ship-check -- scan ./my-project --deployment-url https://example.com
-```
-
-## Optional live database metadata
-
-Database inspection is explicit and currently requires the Production Ready pack. Ship Check reads the connection URL from an environment variable; do not put a database URL on the command line.
-
-```bash
-export SHIP_CHECK_DATABASE_URL='postgresql://...'
-pnpm ship-check -- scan ./my-project \
-  --inspect-database \
-  --database-platform supabase
-```
-
-Use another environment-variable name when preferred:
-
-```bash
-pnpm ship-check -- scan ./my-project \
-  --inspect-database \
-  --database-url-env MY_READONLY_DATABASE_URL \
-  --database-platform neon
-```
-
-The local inspector opens a read-only transaction, verifies that boundary, runs only Ship Check-owned fixed system-catalog queries, reads no application rows, rolls back and closes the connection. Raw metadata is not embedded wholesale into the canonical report. Use a dedicated least-privilege metadata-reading credential where practical.
-
-In the desktop, the connection URL is session-only: it is passed to the bundled engine through a child-process environment variable and cleared after the scan. It is not placed in command arguments, app state, reports or diagnostics.
-
-See [`docs/DATABASE_INSPECTION.md`](./docs/DATABASE_INSPECTION.md) for the full trust and evidence boundary.
-
-Source + deployment + database can be reviewed together:
-
-```bash
-export SHIP_CHECK_DATABASE_URL='postgresql://...'
-pnpm ship-check -- scan ./my-project \
-  --deployment-url https://example.com \
-  --inspect-database \
-  --database-platform supabase
-```
-
-## Scan scope and deeper checks
-
-Run one pack from the CLI:
-
-```bash
-pnpm ship-check -- scan ./my-project --pack cost-aware
-```
-
-Run the optional known-dependency-vulnerability check:
-
-```bash
-pnpm ship-check -- scan ./my-project --networked-dependency-scan
-```
-
-OSV-Scanner is resolved locally but only runs when this flag is supplied; package identifiers and versions may be sent to the OSV service. Results are grouped around the affected package/version so duplicate manifests and advisory aliases do not inflate the first-line dependency count.
-
-Run an explicit Git-history credential review for a real Git repository:
-
-```bash
-pnpm ship-check -- scan ./my-project --git-history-secrets
-```
-
-Historical exposure is kept separate from current-source credential findings. A removed or rewritten historical value still needs revocation/rotation where it was a live credential. GitHub repository inputs remain shallow by default and request full history only when this option is enabled.
-
-Run the optional local Semgrep rules, when a compatible trusted Semgrep CLI is installed:
-
-```bash
-pnpm ship-check -- scan ./my-project --pack secure-build --local-semgrep-scan
-```
-
-JSON remains the complete portable report:
-
-```bash
-pnpm ship-check -- scan ./my-project --format json > ship-check-report.json
-```
-
-For a human/developer/agent hand-off that keeps findings, unanswered controls, missing scanner evidence and coverage distinct:
-
-```bash
-pnpm ship-check -- scan ./my-project --format markdown > ship-check-review.md
-```
-
-For a repair loop, retain complete JSON before and after the change and compare with the same Ship Check transition semantics used in CI:
-
-```bash
-pnpm ship-check -- scan ./my-project --format json > before.json
-# make the verified, narrowly scoped repair
-pnpm ship-check -- scan ./my-project --format json > after.json
-pnpm ship-check -- compare before.json after.json --format markdown
-```
-
-The comparison distinguishes introduced, persistent, reactivated, newly accepted and no-longer-active findings/gaps. “No longer active” is intentionally not described as proof of remediation.
-
-To work through one item at a time from a complete JSON report:
-
-```bash
-pnpm ship-check -- focus after.json
-```
-
-Focused review keeps action semantics explicit: active findings are **FIX** work (highest severity first); only when there is no active finding does Ship Check surface an unanswered control as **VERIFY** work. An empty focused queue still points back to coverage and unassessed checks rather than claiming the project is safe. The desktop uses this same canonical selector to place one “Next action” card above the full report, with focused repair or verification instructions that can be copied to a developer or coding agent.
-
-### Estate review
-
-Alpha 0.9 adds bounded local discovery for a directory containing multiple projects. Each project is scanned independently; Ship Check does not merge evidence boundaries or create a portfolio safety score.
-
-```bash
-pnpm ship-check -- scan-dir ~/Code --format markdown
-pnpm ship-check -- scan-dir ~/Code --max-depth 4 --format json
-```
-
-Requested scanners that cannot run are surfaced explicitly in the estate output rather than being treated as completed assessment.
-
-Projects can declare triage context in tracked `.ship-check.json` without changing deterministic finding state:
-
-```json
-{
-  "schemaVersion": "0.1",
-  "project": {
-    "status": "live",
-    "ownership": "owned"
-  },
-  "suppressions": []
-}
-```
-
-Supported status values are `live`, `staging`, `development` and `deprecated`. Ownership values are `owned`, `fork` and `upstream`. Ship Check never infers these labels when they are absent.
-
-### Agent skill and npm staging
-
-The repository now includes a project-discoverable Agent Skill at `.claude/skills/ship-check/SKILL.md`. It orchestrates the canonical CLI and repair/rerun loop while keeping agent judgement separate from deterministic Ship Check evidence.
-
-For an arbitrary project, the npm distribution carries the same canonical skill and can install it locally without a global tool:
-
-```bash
-npx --yes @good-ship/ship-check skill install .
-```
-
-The installer writes `.claude/skills/ship-check/SKILL.md`, is idempotent when the canonical skill is already present, and refuses to replace different local content unless `--force` is supplied explicitly.
-
-The branch can also stage a self-contained npm artefact without exposing the internal workspace package graph:
-
-```bash
-pnpm build:npm
-node dist/npm/node_modules/@good-ship/ship-check/index.js --version
-```
-
-The staged main package is `@good-ship/ship-check`. Supported platforms also stage separate optional packages for pinned Gitleaks and OSV-Scanner binaries, using the same checksum-verified download path as desktop packaging. This means npm/npx installation can supply the local scanner binaries without making OSV execution automatic. Publication is still a separate release step.
-
-Every newly generated report also carries a `check-ruleset-v1` SHA-256 fingerprint over the selected check IDs, rule versions and packs. Engine version remains separate, so history/CI can distinguish “same rules under a newer Ship Check build” from an actual ruleset change without retaining source content.
-
-For history or future metadata-only sync, emit the source-free assurance envelope instead:
-
-```bash
-pnpm ship-check -- scan ./my-project --format metadata > ship-check-metadata.json
-```
-
-This retains opaque project/scan identities, commit/source/ruleset fingerprints, evidence-source provenance, aggregate counts and coverage, but omits raw project locators plus finding, gap, observation, evidence and remediation detail. See [project history metadata](./docs/HISTORY_METADATA.md).
-
-Multiple metadata events can be reduced into a source-free project timeline without a database:
-
-```bash
-pnpm ship-check -- timeline ./scan-1-metadata.json ./scan-2-metadata.json > ship-check-timeline.json
-```
-
-The reducer deduplicates and orders events, reports ruleset/engine/source/coverage continuity and surfaces the latest aggregate attention snapshot. It preserves explicit comparison deltas when an event has them, but never invents new/resolved findings from changes in aggregate counts.
-
-### Optional Cloud metadata sync
-
-The alpha CLI can explicitly send that **metadata-only** envelope to a Ship Check Cloud-compatible endpoint. It does not upload source, findings, evidence excerpts or repair guidance, and it does not persist the API token.
-
-```bash
-export SHIP_CHECK_CLOUD_URL="https://cloud.example"
-export SHIP_CHECK_CLOUD_TOKEN="shipcheck_..."
-
-pnpm ship-check -- cloud connect ./ship-check-metadata.json \
-  --display-name "My project" \
-  --retention 90-days
-```
-
-The connect result returns the hosted project UUID. Later metadata events can be synced explicitly:
-
-```bash
-pnpm ship-check -- cloud sync <project-id> ./next-metadata.json
-pnpm ship-check -- cloud projects
-pnpm ship-check -- cloud timeline <project-id>
-```
-
-Remote endpoints must use HTTPS; plain HTTP is accepted only for localhost development. The API token is sent only in the `Authorization` header. There is deliberately no default hosted URL yet: the user or deployment must opt into a concrete endpoint.
-
-## GitHub Actions
-
-Ship Check can run inside the repository owner's GitHub Actions runner using the same canonical engine:
-
-```yaml
-permissions:
-  contents: read
-
-steps:
-  - uses: actions/checkout@v4
-  - uses: tomcwxyz/Ship-check@<pinned-ref>
-    with:
-      fail-on: high
-```
-
-The Action records the checked-out source as `github · ci · ci-runner`, writes both the full JSON report and a separate source-free metadata sidecar into the caller workspace, and does not upload either to Ship Check infrastructure. During the alpha, pin an exact reviewed commit or release tag rather than following a mutable branch.
-
-On `pull_request` events it also compares the current source with the exact PR base SHA inside the same runner, using the same Ship Check revision and rule set. The step summary distinguishes new, persistent, reactivated, accepted and no-longer-active findings, unanswered controls and newly observed inventory surfaces without claiming that disappearance proves remediation.
-
-The OSV dependency network check remains opt-in. Report artifact upload is also a separate explicit choice because the full report can contain bounded evidence and repair guidance.
-
-See [`docs/CI.md`](./docs/CI.md) for inputs, outputs and the trust boundary.
-
-
-## Ecosystem use
-
-RACK-compatible gate output is deliberately smaller and has the same `pass | fail | uncertain | incomplete` outcome vocabulary as RACK verification:
-
-```bash
-pnpm ship-check -- scan ./my-project \
-  --format rack \
-  --gate ship-check-secure-build \
-  --step-id release-security \
-  --fail-on high
-```
-
-A metadata-only Organisational OS summary can be emitted without handing source code or evidence excerpts to the organisational layer:
-
-```bash
-pnpm ship-check -- scan ./my-project --format oos --gate ship-check
-```
-
-## Repository shape
-
-Ship Check follows the same broad separation used by RACK and TOPO:
-
-- `packages/schemas` — portable finding, evidence, project-source, database-metadata, report and assurance-gate contracts;
-- `packages/core` — source inventory, runtime/database evidence runners, check orchestration and report assembly;
-- `packages/checks` — Security and Production deterministic checks, bounded questions and application-surface inventory;
-- `packages/cost-checks` — Cost deterministic checks;
-- `packages/database-checks` — Postgres/Supabase/Neon source evidence and bounded live database checks;
-- `packages/database-inspector` — opt-in local Postgres metadata acquisition behind the read-only/fixed-query boundary;
-- `packages/runtime-checks` — bounded deployed HTTP checks;
-- `packages/cloud-runtime` — server-only Postgres/runtime composition for the optional Cloud control plane;
-- `packages/deep-checks` — privacy-bounded adapters for mature or deeper scanners;
-- `packages/adapters` — RACK, TOPO and organisational assurance bridges;
-- `packages/cli` — standalone CLI and project-source/database acquisition boundaries;
-- `apps/desktop` — Tauri desktop review surface over the same canonical engine;
-- `test-fixtures` — deliberately vulnerable/safe fixtures used as regression evidence;
-- `docs` — architecture, roadmap, interoperability, evidence boundaries and release/test gates.
-
-The core remains UI-agnostic. RACK consumes a bounded verification result rather than importing desktop code. TOPO context is purpose-bound and optional, and must stay visually and semantically separate from deterministic project evidence.
-
-## Development
+To work on Ship Check itself:
 
 ```bash
 pnpm install
 pnpm check
 pnpm test
-pnpm ship-check -- scan ./test-fixtures/risky-next --format pretty
 ```
-
-The current public corpus and validation workflows are regression/calibration gates rather than claims that the catalogue is complete. Database and runtime evidence are intentionally bounded and retain explicit limitations even when a check can verify one control.
-
-## Product boundary
-
-Ship Check is an assurance aid, not a certification or replacement for professional security testing. A completed automated check means the inspected evidence was assessed within that rule's boundary; it does not prove that a system is secure, compliant, cheap to run or production-ready.
 
 ## Licence
 
-Apache-2.0 for code. The Ship Check name and marks are retained by The Good Ship.
+Code is designated Apache-2.0. The Ship Check name and marks are retained by The Good Ship.
+
+Ship Check is an assurance aid, **not** a penetration test, compliance audit or security certification.

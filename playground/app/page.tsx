@@ -150,7 +150,7 @@ export default function Page() {
   return <main>
     <header className="masthead">
       <a className="wordmark" href="/" aria-label="Ship Check home"><span className="mark">✳</span><span>ship<span className="muted-mark">/</span>check</span></a>
-      <nav><a href="https://github.com/tomcwxyz/Ship-check" target="_blank" rel="noreferrer">Open source ↗</a><a href="https://github.com/tomcwxyz/Ship-check#project-evidence-sources" target="_blank" rel="noreferrer">Full version ↗</a></nav>
+      <nav><a href="/source" target="_blank" rel="noreferrer">Source code ↗</a><a href="/guide" target="_blank" rel="noreferrer">CLI guide ↗</a></nav>
     </header>
     <section className="hero">
       <div className="hero-content">
