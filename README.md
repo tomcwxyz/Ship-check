@@ -6,6 +6,29 @@ Ship Check is a local-first project assurance tool for software built quickly, i
 
 The standalone CLI/desktop review is the primary product surface. The same canonical engine can also be invoked by [RACK](https://github.com/tomcwxyz/rack), informed by purpose-bound [TOPO](https://github.com/tomcwxyz/TOPO) context, and contribute metadata-only assurance signals to wider Organisational OS work.
 
+## Quick start with npx
+
+**Node.js 22.12.0+** is required. From any project folder, run the published CLI without a global installation:
+
+~~~bash
+npx --yes @good-ship/ship-check@alpha scan .
+~~~
+
+The default scans security, production-readiness and cost-related evidence and prints findings to your terminal. **Reports are not saved automatically.** To save a Markdown review:
+
+~~~bash
+mkdir -p ~/ship-check-reports
+npx --yes @good-ship/ship-check@alpha scan . --format markdown > ~/ship-check-reports/review.md
+~~~
+
+For an entire directory of repositories:
+
+~~~bash
+npx --yes @good-ship/ship-check@alpha scan-dir ~/Code --max-depth 4
+~~~
+
+For further scanning options, deeper checks, JSON repair loops, runtime/database evidence, and a complete command reference, see **[the practical npm / npx CLI guide](docs/CLI_GUIDE.md)**.
+
 ## Evidence-led review
 
 Ship Check is deliberately narrower than a penetration test or general-purpose AI code reviewer. It is built around four evidence states:
