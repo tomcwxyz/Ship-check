@@ -60,7 +60,7 @@ describe("cost-aware checks", () => {
     const handler = path.join(root, "src/app/api/admin/benchmark-refresh/[source]/route.ts");
     await fs.mkdir(path.dirname(handler), { recursive: true });
     await fs.writeFile(path.join(root, "vercel.json"), JSON.stringify({ crons: [
-      { path: "/api/admin/benchmark-refresh/lmarena-text", schedule: "0 6 * * 1" }
+      { path: "/api/admin/benchmark-refresh/lmarena-text", schedule: "0 6 * * *" }
     ] }));
     await fs.writeFile(handler,
       'export async function GET(request) { await db.query("SELECT 1"); return Response.json({ ok: true }); }'
