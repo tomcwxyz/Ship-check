@@ -4,7 +4,7 @@ A deliberately separate, no-login Next.js app in the existing Ship-check reposit
 
 ## Behaviour
 
-- Public GitHub repository `owner/repo` or a public HTTPS website.
+- Public GitHub repository `owner/repo`. Website scanning is temporarily disabled pending further DNS/IPv6 egress controls.
 - Runs the **published, pinned canonical Ship Check CLI** in an ephemeral Vercel Sandbox, not a parallel implementation of the scanner.
 - Captures an original `ScanReport/0.1` JSON result for findings, unverified controls, and coverage.
 - Gives an illustrated example (explicitly marked **not a real scan**) without consuming credits.
@@ -18,7 +18,7 @@ A deliberately separate, no-login Next.js app in the existing Ship-check reposit
 - Public GitHub size is checked against the GitHub repository API before scan (20,000 KiB upper bound). GitHub's reported size is not a decompression limit, so runner CPU/memory/timeouts are also required.
 - Anonymous scans require a Vercel-injected real client IP and durable Upstash Redis rate limiting. Without either, scans are **disabled** rather than unmetered.
 - Three scans per visitor per 24-hour key TTL, server-enforced. IP identity is pseudonymised using a keyed HMAC-SHA-256 before use as a Redis key; it is not an anonymity guarantee. Deploy upstream protection against proxies / distributed abuse before scaling.
-- Target site validation rejects IP literals, local names, credentials, alternate ports and HTTP. Sandbox egress is restricted to registry.npmjs.org plus the exact scan target (and www/apex variant for websites), with explicit private/link-local CIDR denies. Redirects to unrelated hosts are blocked by egress policy rather than followed blindly. Keep reviewing DNS rebinding and runtime behaviour before broad public launch.
+- The sandbox egress allow-list is limited to `registry.npmjs.org` and `github.com`, with explicit IPv4 private/link-local CIDR denies. Vercel Sandbox rejects IPv6 CIDRs such as `::1/128` at creation; website scanning is disabled until we can robustly reject IPv6 private targets and DNS rebinding. GitHub checks only permit the fixed `github.com` domain.
 - Report returned only to the requesting browser with no-store cache headers. Avoid server logging raw report content. The originating repository may remain publicly available at GitHub.
 - Scans use the canonical engine's bounded, non-mutating checks; this is **not** a security certificate or penetration test.
 - Host limit: 180 seconds; sandbox limit: 150 seconds. Run-time GitHub API, npm or sandbox availability can cause a graceful error.
@@ -45,7 +45,7 @@ On Vercel Sandbox, Vercel OIDC authenticates automatically to the linked Vercel 
 
 Create a **separate Vercel project** pointing to `tomcwxyz/Ship-check`, with Root Directory = `playground`, Framework = Next.js, Install Command = `npm ci` once an npm lockfile has been generated and committed. Until then, use `npm install` in preview only. The app pins Next.js 15.5.28 and overrides its vulnerable PostCSS transitive dependency to 8.5.31; the combination passed the runtime npm audit, unit tests and Next.js build in an isolated test sandbox. Keep the existing `ship-check` Cloud R0 project untouched.
 
-Before sharing a public link: ensure no deployment password/SSO for the playground hostname, configure rate limiting, verify the pinned CLI on a real public fixture and a live website, verify 429 response on a fourth request, verify no cloud retention of reports, test malicious inputs and redirects, and review Sandbox billing/quotas.
+Before sharing a public link: ensure no deployment password/SSO for the playground hostname, configure rate limiting, verify the pinned CLI on a real public GitHub fixture, verify 429 response on a fourth request, verify no cloud retention of reports, test malicious inputs, and review Sandbox billing/quotas.
 
 ## Full desktop/CLI
 

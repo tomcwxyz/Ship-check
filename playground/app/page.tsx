@@ -163,11 +163,11 @@ export default function Page() {
     <section className="scan-section" aria-labelledby="scan-title">
       <div className="section-index">01 / START HERE</div>
       <div className="scan-grid">
-        <div className="scan-intro"><h2 id="scan-title">A second pair<br/>of eyes.</h2><p>No installation. No sign-up. Just an evidence-led review of your public project.</p><p className="micro">You get 3 scans per day. We don't keep your source code or scan history.</p></div>
+        <div className="scan-intro"><h2 id="scan-title">A second pair<br/>of eyes.</h2><p>No installation. No sign-up. Just an evidence-led review of a public GitHub project.</p><p className="micro">You get 3 scans per day. We don't keep your source code or scan history.</p></div>
         <form className="scan-card" onSubmit={scan}>
           <div className="mode-switch" role="group" aria-label="What to scan">
             <button type="button" aria-pressed={mode === "github"} className={mode === "github" ? "active" : ""} onClick={() => { setMode("github"); setUrl(""); setError(""); }}><Icon name="github"/> GitHub repo</button>
-            <button type="button" aria-pressed={mode === "site"} className={mode === "site" ? "active" : ""} onClick={() => { setMode("site"); setUrl(""); setError(""); }}><Icon name="globe"/> Live website</button>
+            <button type="button" disabled title="Coming soon — public GitHub scans are available now"><Icon name="globe"/> Website (soon)</button>
           </div>
           <label htmlFor="project-url">{mode === "github" ? "Public GitHub repository" : "Public website URL"}</label>
           <input id="project-url" type="text" autoComplete="off" spellCheck={false} maxLength={500} required value={url} onChange={e => setUrl(e.target.value)} placeholder={mode === "github" ? "https://github.com/owner/repository" : "https://your-app.example"} />
