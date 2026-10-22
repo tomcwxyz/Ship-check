@@ -13,6 +13,12 @@ const REQUEST_HANDLER = /export\s+(?:async\s+)?function\s+(?:GET|POST|PUT|PATCH|
 export const PAID_OPERATION_PATTERN = /(?:\b(?:generateText|generateObject|streamText|embed|embedMany)\s*\(\s*\{|\.generateText\s*\(\s*\{|\bchat\.completions\.create\s*\(|\bresponses\.create\s*\(|\bmessages\.create\s*\(|\baudio\.transcriptions\.create\s*\(|\bemails\.send\s*\(|\b(?:scrapeUrl|crawlUrl)\s*\(|https:\/\/(?:api\.openai\.com|api\.anthropic\.com|api\.resend\.com|api\.firecrawl\.dev|api\.perplexity\.ai)\b)/i;
 
 const ABUSE_CONTROL_PATTERN = /\b(?:rate.?limit|Ratelimit|turnstile|captcha|hcaptcha|recaptcha|requireAuth|requireUser|requireSession|getServerSession|currentUser|verifyToken|verifySession|auth\s*\(|getUser\s*\(|session\s*=|\.auth\.getContext\s*\(|constructEvent|verifyWebhook|verifySignature|webhooks\.verify|createHmac|timingSafeEqual|svix)\b/i;
+// Recognise a narrow, fail-closed bearer-token denial rather than treating a bare
+// CRON_SECRET or Authorization reference as evidence of authentication.
+// This covers common Vercel cron handlers, including Bearing's classifier-eval route.
+// The test requires an actual 401 return from the conditional branch.
+const REJECT_INVALID_BEARER = /if\\s*\\([\\s\\S]{0,220}\\bheaders\\.get\\(\\s*["']authorization["']\\s*\\)\\s*!==?\\s*`Bearer \\$\\{[^}]+\\}`\\s*\\)\\s*\\{?\\s*return\\s+(?:NextResponse|Response)\\.json\\([\\s\\S]{0,160}\\bstatus\\s*:\\s*401\\b/i;
+
 const MAX_IMPORT_DEPTH = 2;
 
 function isRuntimeApiHandler(file: string): boolean {
@@ -142,6 +148,7 @@ export const calibratedPaidEndpointCheck: CheckDefinition = {
       const paidSource = firstMatchingSource(sources, PAID_OPERATION_PATTERN);
       if (!paidSource) continue;
       if (firstMatchingSource(sources, ABUSE_CONTROL_PATTERN)) continue;
+      if (REJECT_INVALID_BEARER.test(withoutComments(entryText))) continue;
 
       findings.push(finding({
         file,
