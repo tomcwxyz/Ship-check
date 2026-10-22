@@ -1,4 +1,5 @@
-import type { AssessmentGap, ScanReport, Severity } from "@ship-check/schemas";
+import type { AssessmentGap, ProjectEvidenceSource, ScanReport, Severity } from "@ship-check/schemas";
+import type { ResolvedAssessmentGap } from "@ship-check/schemas/multiSource";
 
 const severityRank: Record<Severity, number> = {
   critical: 5,
@@ -19,13 +20,26 @@ function evidenceLocation(path?: string, line?: number): string {
 }
 
 export function renderReportMarkdown(report: ScanReport): string {
+  // Multi-source reports extend the canonical scan report without changing the single-source contract.
+  const multi = report as ScanReport & {
+    project: ScanReport["project"] & { evidenceSources?: ProjectEvidenceSource[] };
+    resolvedGaps?: ResolvedAssessmentGap[];
+  };
+  const sources = multi.project.evidenceSources ??
+    (report.project.snapshot?.source ? [report.project.snapshot.source] : []);
+  const resolvedGaps = multi.resolvedGaps ?? [];
+  const observations = [...report.observations].sort((a, b) =>
+    (a.kind === b.kind ? 0 : a.kind === "verified-control" ? -1 : 1) ||
+    a.area.localeCompare(b.area) ||
+    a.title.localeCompare(b.title)
+  );
   const checkErrors = report.checks.filter((check) => check.status === "error");
   const unavailable = report.gaps.filter(isUnavailableScannerGap);
   const unanswered = report.gaps.filter((gap) => !isUnavailableScannerGap(gap));
   const lines: string[] = [
     `# Ship Check review — ${report.project.path}`,
     "",
-    `**${report.summary.total}** confirmed findings · **${unanswered.length}** unanswered controls · **${unavailable.length}** unavailable scanner checks · **${checkErrors.length}** check errors.`,
+    `**${report.summary.total}** confirmed findings · **${unanswered.length}** unanswered controls · **${observations.length}** observations · **${unavailable.length}** unavailable scanner checks · **${checkErrors.length}** check errors.`,
     ""
   ];
 
@@ -35,6 +49,18 @@ export function renderReportMarkdown(report: ScanReport): string {
       report.project.context.ownership ? `ownership: ${report.project.context.ownership}` : ""
     ].filter(Boolean).join(" · ");
     lines.push(`Declared project context — ${declared}.`, "");
+  }
+
+  if (sources.length > 1) {
+    lines.push("## Evidence sources", "");
+    for (const source of sources) {
+      lines.push(`- **${source.type}** — ${source.label} (${source.provider}, ${source.acquisition}, acquired ${source.acquiredAt}).`);
+    }
+    lines.push(
+      "",
+      "Sources were collected separately. A local source snapshot may not correspond to the live deployment version.",
+      ""
+    );
   }
 
   if (unavailable.length > 0 || checkErrors.length > 0) {
@@ -92,6 +118,52 @@ export function renderReportMarkdown(report: ScanReport): string {
         ""
       );
     }
+  }
+
+  if (unanswered.some((gap) => gap.checkId === "production.next-security-headers") &&
+      !sources.some((source) => source.type === "deployment")) {
+    lines.push(
+      "## Suggested next evidence",
+      "",
+      "- **Deployed security headers:** Supply the application's public deployment URL to check the actual HTTP response rather than guessing from `next.config.*`:",
+      "  `ship-check scan <project-source> --deployment-url https://your-site.example --format markdown`",
+      "  This is a bounded, non-mutating probe. Ensure the source snapshot and deployment refer to the intended revision.",
+      ""
+    );
+  }
+
+  if (resolvedGaps.length > 0) {
+    lines.push(
+      "## Questions answered by additional evidence",
+      "",
+      "Additional evidence answered these earlier questions. An answered question is **not necessarily a passed control**; review confirmed findings for any problems it established.",
+      ""
+    );
+    for (const item of resolvedGaps) {
+      lines.push(`- **${item.gap.title}** — ${item.summary}`);
+    }
+    lines.push("");
+  }
+
+  if (observations.length > 0) {
+    lines.push(
+      "## Evidence observed",
+      "",
+      "These are repository or runtime observations, **not automatic proof of safety**. Verified controls establish only the specific bounded behaviour described.",
+      ""
+    );
+    const limit = 12;
+    for (const item of observations.slice(0, limit)) {
+      const evidence = item.evidence[0];
+      lines.push(
+        `- **${item.kind === "verified-control" ? "Verified control" : "Observed"} · ${item.title}** [${item.area}] — ${item.summary}`,
+        `  - Evidence: ${evidenceLocation(evidence?.path, evidence?.line)}`
+      );
+    }
+    if (observations.length > limit) {
+      lines.push(`- …and ${observations.length - limit} more observations. Use \`--format json\` for the complete evidence list.`);
+    }
+    lines.push("");
   }
 
   if (report.suppressedFindings.length > 0) {
