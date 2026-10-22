@@ -164,8 +164,8 @@ Ship Check is a bounded assurance aid, not a penetration test or compliance cert
 
 ## Further information
 
-- [Project README](../README.md) — architecture, evidence boundaries and development.
+- [Project README](../README.md) — the quick start, product scope and essential links.
 - [Database inspection](DATABASE_INSPECTION.md) — exact Postgres read-only boundary.
 - [Project-history metadata](HISTORY_METADATA.md) — metadata schema and local timeline.
 - [Alpha tester guide](ALPHA_TESTER_GUIDE.md) — structured feedback and test suggestions.
-- [Report an issue](https://github.com/tomcwxyz/Ship-check/issues) — tell us what was confusing; never attach secrets.
+- [Report an issue](https://check.good-ship.co.uk/issues) — tell us what was confusing; never attach secrets.

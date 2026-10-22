@@ -25,12 +25,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: tomcwxyz/Ship-check@<pinned-ref>
+      - uses: PROJECT_OWNER/Ship-check@<pinned-ref>
         with:
           fail-on: high
 ```
 
-During the alpha, pin the Action to an exact Ship Check commit or release tag you have reviewed rather than following a mutable branch.
+Replace `PROJECT_OWNER` with the current owner displayed in the [public source repository](https://check.good-ship.co.uk/source). The repository name is `Ship-check`. Pin the Action to an exact reviewed commit or release tag rather than following a mutable branch.
 
 The Action installs Ship Check with the repository's committed `pnpm-lock.yaml` and `--frozen-lockfile`, so an exact Action revision also fixes the dependency graph used to prepare the tool in the runner. A future prebuilt Action can reduce setup time further without weakening that provenance.
 
@@ -57,8 +57,10 @@ The source snapshot still receives the bounded `source-inventory-v1` fingerprint
 
 ## Inputs
 
+The example below also requires the same `PROJECT_OWNER` substitution shown above.
+
 ```yaml
-- uses: tomcwxyz/Ship-check@<pinned-ref>
+- uses: PROJECT_OWNER/Ship-check@<pinned-ref>
   with:
     path: .
     packs: secure-build,production-ready,cost-aware

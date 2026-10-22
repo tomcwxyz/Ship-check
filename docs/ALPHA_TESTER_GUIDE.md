@@ -31,7 +31,7 @@ Commit or back up any project changes before acting on repair guidance.
 
 Once the new build is published, download **Ship Check 0.0.0-alpha.10** from GitHub Releases (the prior Alpha 0.9 installer does not include the redesigned review):
 
-https://github.com/tomcwxyz/Ship-check/releases
+https://check.good-ship.co.uk/releases
 
 Choose the build for your machine:
 
@@ -124,7 +124,7 @@ Please do not spend time trying to make every warning disappear. Confusing, nois
 
 Open an issue at:
 
-https://github.com/tomcwxyz/Ship-check/issues
+https://check.good-ship.co.uk/issues
 
 A short report is enough. If possible, include:
 
