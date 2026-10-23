@@ -639,6 +639,14 @@ function osvSourcePath(raw: unknown, mirrorRoot: string): string {
   return normal.startsWith(`${root}/`) ? normal.slice(root.length + 1) : normaliseRelative(raw);
 }
 
+export function hasOsvPackageEvidence(raw: unknown): boolean {
+  const results = raw && typeof raw === "object" ? (raw as { results?: unknown }).results : null;
+  return Array.isArray(results) && results.some((entry) =>
+    entry && typeof entry === "object" && Array.isArray((entry as { packages?: unknown }).packages) &&
+    (entry as { packages: unknown[] }).packages.length > 0
+  );
+}
+
 export function parseOsvReport(raw: unknown, mirrorRoot: string, version: string): Finding[] {
   if (!raw || typeof raw !== "object" || !Array.isArray((raw as { results?: unknown }).results)) return [];
 
@@ -712,7 +720,8 @@ export function parseOsvReport(raw: unknown, mirrorRoot: string, version: string
           : [];
         return [...id, ...aliases];
       }))];
-      const severity = highestSeverity(unit.vulnerabilities);
+      const isMalicious = unit.vulnerabilities.some((item) => typeof item.id === "string" && /^MAL-\d{4}-\d+$/i.test(item.id));
+      const severity = isMalicious ? "critical" : highestSeverity(unit.vulnerabilities);
       const unrated = unit.vulnerabilities.some((item) => vulnerabilitySeverity(item) === null);
       const fixes = fixedVersions(unit.vulnerabilities);
       const sources = [...unit.sources].sort();
@@ -721,20 +730,20 @@ export function parseOsvReport(raw: unknown, mirrorRoot: string, version: string
         checkId: "production.osv-vulnerabilities",
         pack: "production-ready",
         suffix: `${unit.ecosystem}:${unit.name}:${unit.packageVersion}`,
-        title: `Known vulnerable dependency: ${unit.name}`,
-        summary: `${unit.name} ${unit.packageVersion} (${unit.ecosystem}) is one affected package/version with ${unit.vulnerabilities.length} distinct OSV vulnerability record${unit.vulnerabilities.length === 1 ? "" : "s"}${ids.length ? `; advisory identifiers include ${ids.slice(0, 6).join(", ")}` : ""}.${unrated ? " Some advisory severity ratings could not be established; review them directly." : ""}${fixes.length ? ` Fixed versions mentioned in the advisory: ${fixes.join(", ")}.` : ""}`,
+        title: isMalicious ? `Reported malicious dependency: ${unit.name}` : `Known vulnerable dependency: ${unit.name}`,
+        summary: `${isMalicious ? "A malicious-package advisory identifies" : "A known vulnerability affects"} ${unit.name} ${unit.packageVersion} (${unit.ecosystem}); this is one affected package/version with ${unit.vulnerabilities.length} distinct OSV vulnerability record${unit.vulnerabilities.length === 1 ? "" : "s"}${ids.length ? `; advisory identifiers include ${ids.slice(0, 6).join(", ")}` : ""}.${unrated ? " Some advisory severity ratings could not be established; review them directly." : ""}${fixes.length ? ` Fixed versions mentioned in the advisory: ${fixes.join(", ")}.` : ""}`,
         severity,
-        confidence: unrated ? "medium" : "high",
+        confidence: isMalicious ? "high" : (unrated ? "medium" : "high"),
         evidence: sources.slice(0, 6).map((source) => ({
           kind: "configuration" as const,
           path: source,
           excerpt: `${unit.name}@${unit.packageVersion}${ids.length ? ` · ${ids.slice(0, 4).join(", ")}` : ""}`.slice(0, 300),
           detail: `OSV-Scanner ${version} matched this package/version. Ship Check groups duplicate manifest occurrences and advisory aliases around the affected dependency unit.`
         })),
-        why: "Known vulnerable dependencies can expose the application through code paths that appear otherwise correct and are difficult to identify by repository heuristics alone.",
-        fix: `Review the vulnerability records for this package/version.${fixes.length ? ` Advisory-listed fixed versions include ${fixes.join(", ")}.` : ""} Upgrade to the narrowest compatible fixed version where one exists, and avoid broad unrelated dependency churn.`,
-        verify: "Run the relevant application tests, then rerun the opt-in OSV dependency scan and confirm the affected package/version no longer appears.",
-        agentPrompt: `Review OSV records ${ids.slice(0, 6).join(", ") || "reported by OSV"} for ${unit.name} ${unit.packageVersion}. Treat this as one affected dependency unit even when multiple aliases/manifests are present. Upgrade only as far as needed to a fixed compatible version, preserve behaviour, run relevant tests, and rerun Ship Check's dependency scan.`
+        why: isMalicious ? "A malicious dependency may execute harmful code during installation or runtime. Removing it does not undo actions it may already have performed." : "Known vulnerable dependencies can expose the application through code paths that appear otherwise correct and are difficult to identify by repository heuristics alone.",
+        fix: isMalicious ? "Stop running or installing the affected package, isolate affected environments, remove or replace the dependency, and investigate possible credential or data exposure. Rotate compromised credentials where indicated." : `Review the vulnerability records for this package/version.${fixes.length ? ` Advisory-listed fixed versions include ${fixes.join(", ")}.` : ""} Upgrade to the narrowest compatible fixed version where one exists, and avoid broad unrelated dependency churn.`,
+        verify: isMalicious ? "Check dependency and install logs for exposure, inspect affected environments, confirm malicious package removal, then rerun OSV. A clean rerun does not prove that credentials or systems were unaffected." : "Run the relevant application tests, then rerun the opt-in OSV dependency scan and confirm the affected package/version no longer appears.",
+        agentPrompt: isMalicious ? `Investigate explicit OSV malicious-package IDs ${ids.join(", ")} for ${unit.name}@${unit.packageVersion}. Treat package contents and install scripts as untrusted. Do not execute them, assess possible exposure, remove/replace the dependency, review credentials and rerun scans.` : `Review OSV records ${ids.slice(0, 6).join(", ") || "reported by OSV"} for ${unit.name} ${unit.packageVersion}. Treat this as one affected dependency unit even when multiple aliases/manifests are present. Upgrade only as far as needed to a fixed compatible version, preserve behaviour, run relevant tests, and rerun Ship Check's dependency scan.`
       });
     });
 }
@@ -786,9 +795,37 @@ export const osvDependencyCheck: CheckDefinition = {
       await fs.mkdir(mirror, { recursive: true });
       await copyInventory(context, mirror, isDependencyManifest);
       const version = await toolVersion(tool);
-      const result = await runProcess(tool, ["scan", "source", "-r", mirror, "--format", "json"]);
+      const result = await runProcess(tool, ["scan", "source", "-r", mirror, "--format", "json", "--all-packages"]);
+      if (result.code === 128) {
+        return {
+          gaps: [gap({
+            checkId: this.id, pack: this.pack, area: "supply-chain",
+            suffix: "no-extracted-packages",
+            title: "Dependency packages could not be extracted",
+            summary: "Supported manifest names were present but OSV-Scanner found no packages. This is not a clean dependency assessment.",
+            evidence: [{ kind: "configuration", detail: "OSV-Scanner returned its documented no-packages exit code (128)." }],
+            verify: "Check that the lockfiles are valid, complete and readable by OSV-Scanner. Use a supported lockfile and rerun the opt-in scan."
+          })],
+          scannerVersion: version,
+          coverage: [{ area: "supply-chain", status: "partial" }]
+        };
+      }
       if (![0, 1].includes(result.code)) throw new Error(result.stderr.trim() || `OSV-Scanner exited with ${result.code}.`);
-      const raw = JSON.parse(result.stdout || "{}");
+      const raw: unknown = JSON.parse(result.stdout || "{}");
+      if (!hasOsvPackageEvidence(raw)) {
+        return {
+          gaps: [gap({
+            checkId: this.id, pack: this.pack, area: "supply-chain",
+            suffix: "no-usable-package-evidence",
+            title: "Dependency packages were not confirmed by the vulnerability scanner",
+            summary: "The OSV scan produced no usable package inventory. No vulnerabilities being returned is not proof that dependencies were checked.",
+            evidence: [{ kind: "configuration", detail: "The OSV JSON output did not contain any extracted packages." }],
+            verify: "Confirm a supported lockfile is available and OSV-Scanner can extract packages, then repeat the opt-in scan."
+          })],
+          scannerVersion: version,
+          coverage: [{ area: "supply-chain", status: "partial" }]
+        };
+      }
       return {
         findings: parseOsvReport(raw, mirror, version),
         scannerVersion: version,

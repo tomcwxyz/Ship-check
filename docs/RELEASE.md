@@ -6,6 +6,8 @@ Ship Check follows the release discipline already used by RACK and TOPO rather t
 
 The first alpha is CLI/core only. Pull requests and `main` run Linux validation. Work should land as coherent review batches rather than a stream of tiny commits that repeatedly trigger CI.
 
+For the October 2026 release sequence, see [Alpha 12 release steps](releases/npm-alpha.12.md). The published npm package must be confirmed before raising the playground pin; the draft desktop build is dispatched separately from main after validation.
+
 ## Desktop alpha
 
 The current desktop alpha release is manually dispatched from `main`, requires explicit `ALPHA` confirmation and a source-matching version, reruns validation, then builds Windows x64, Linux x64 and macOS Apple Silicon packages as a draft pre-release.

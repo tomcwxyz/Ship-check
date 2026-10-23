@@ -1,6 +1,6 @@
-# Ship Check Alpha 0.10 tester guide
+# Ship Check Alpha 0.12 tester guide
 
-**Alpha version:** 0.0.0-alpha.10
+**Alpha version:** 0.0.0-alpha.12
 
 Thanks for trying Ship Check. This is a small external alpha: we are testing whether the product is understandable and useful on real projects, not asking you to prove that every check is correct.
 
@@ -29,17 +29,17 @@ Commit or back up any project changes before acting on repair guidance.
 
 ## Option 1 — desktop app
 
-Once the new build is published, download **Ship Check 0.0.0-alpha.10** from GitHub Releases (the prior Alpha 0.9 installer does not include the redesigned review):
+When the new draft release contains the three platform builds, download **Ship Check 0.0.0-alpha.12** from GitHub Releases (the prior Alpha 0.9 installer does not include the redesigned review):
 
 https://check.good-ship.co.uk/releases
 
 Choose the build for your machine:
 
-- **Windows x64** — `Ship.Check_0.0.0-alpha.10_x64-setup.exe`
-- **macOS Apple Silicon** — `Ship.Check_0.0.0-alpha.10_aarch64.app.zip`
-- **Linux x64** — `Ship.Check_0.0.0-alpha.10_amd64.deb`
+- **Windows x64** — `Ship.Check_0.0.0-alpha.12_x64-setup.exe`
+- **macOS Apple Silicon** — `Ship.Check_0.0.0-alpha.12_aarch64.app.zip`
+- **Linux x64** — `Ship.Check_0.0.0-alpha.12_amd64.deb`
 
-The Windows build is currently unsigned. Windows may show a SmartScreen warning.
+The Windows build is currently unsigned; the desktop binaries should be taken only from our verified GitHub Actions draft release. Do not bypass or disable anti-virus protection to install untrusted downloads. Windows may show a SmartScreen warning.
 
 The macOS build is ad-hoc signed but not Apple-notarised. Unzip it, move **Ship Check.app** to Applications and, if macOS blocks the first launch, approve it in **System Settings → Privacy & Security**.
 
@@ -100,7 +100,7 @@ For an explicit Git-history credential check:
 npx --yes @good-ship/ship-check@alpha scan . --git-history-secrets --format markdown
 ```
 
-The dependency-vulnerability lookup is deliberately opt-in because it may query the OSV service with package identifiers and versions:
+The dependency-vulnerability lookup is deliberately opt-in because it may query the OSV service with package identifiers and versions. This alpha also checks official Node.js release security updates and flags explicit OSV malicious-package IDs. It never establishes the actual deployed Node.js runtime from repository configuration alone:
 
 ```bash
 npx --yes @good-ship/ship-check@alpha scan . --networked-dependency-scan --format markdown
