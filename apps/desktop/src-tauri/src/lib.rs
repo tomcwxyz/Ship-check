@@ -1,4 +1,5 @@
 mod engine;
+mod cloud;
 mod repository;
 
 use engine::{EngineStatus, EstateScanRequest, ScanRequest};
@@ -142,6 +143,38 @@ async fn scan_github_repository(
     .map_err(|error| format!("GitHub repository scan task failed: {error}"))?
 }
 
+#[tauri::command]
+async fn cloud_connection_status() -> Result<cloud::CloudConnection, String> {
+    tauri::async_runtime::spawn_blocking(cloud::connection_status)
+        .await
+        .map_err(|_| "Could not check the system credential store.".to_owned())?
+}
+
+#[tauri::command]
+async fn cloud_connect_token(token: String) -> Result<cloud::CloudConnection, String> {
+    tauri::async_runtime::spawn_blocking(move || cloud::save_token(token))
+        .await
+        .map_err(|_| "Could not save the Cloud token.".to_owned())?
+}
+
+#[tauri::command]
+async fn cloud_forget_token() -> Result<cloud::CloudConnection, String> {
+    tauri::async_runtime::spawn_blocking(cloud::forget_token)
+        .await
+        .map_err(|_| "Could not remove the Cloud token.".to_owned())?
+}
+
+#[tauri::command]
+async fn cloud_publish_summary(
+    app: AppHandle,
+    report: Value,
+    display_name: String,
+) -> Result<cloud::CloudSyncResult, String> {
+    tauri::async_runtime::spawn_blocking(move || cloud::publish_report(&app, report, display_name))
+        .await
+        .map_err(|_| "Could not finish the Cloud summary sync task.".to_owned())?
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -153,7 +186,11 @@ pub fn run() {
             scan_project,
             focus_report,
             scan_estate,
-            scan_github_repository
+            scan_github_repository,
+            cloud_connection_status,
+            cloud_connect_token,
+            cloud_forget_token,
+            cloud_publish_summary
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ship Check desktop");

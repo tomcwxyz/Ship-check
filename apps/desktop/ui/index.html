@@ -361,6 +361,36 @@
           <div class="summary-grid estate-summary-grid" id="estate-summary" aria-label="Estate scan summary"></div>
           <div class="estate-projects" id="estate-projects"></div>
         </section>
+        <section class="scan-card cloud-card" id="cloud-connection" aria-labelledby="cloud-heading">
+          <div class="scan-heading">
+            <div>
+              <p class="section-kicker">Optional · Cloud history</p>
+              <h2 id="cloud-heading">Keep a record, if you choose.</h2>
+            </div>
+          </div>
+          <p class="cloud-explainer">Ship Check works without an account. If you connect to Cloud, you can send <strong>only a source-free summary</strong> of an individual completed scan. Nothing is uploaded automatically.</p>
+          <p class="source-help">1. <a href="https://cloud-check.good-ship.co.uk/dashboard" target="_blank" rel="noopener noreferrer">Sign in to Cloud</a> and create a <strong>CI metadata sync</strong> token. 2. Paste it below. 3. Run a scan and choose to send its summary.</p>
+          <div class="cloud-connect-row">
+            <label class="repo-field" for="cloud-token">
+              <span>Cloud sync token</span>
+              <input id="cloud-token" type="password" autocomplete="off" spellcheck="false" placeholder="shipcheck_…" aria-describedby="cloud-privacy" />
+            </label>
+            <button class="button button-secondary" id="cloud-connect" type="button" disabled>Save token securely</button>
+            <button class="button button-quiet" id="cloud-forget" type="button" hidden>Forget local token</button>
+          </div>
+          <p class="source-help" id="cloud-privacy">Stored in your operating system credential store, never in desktop web storage. Forgetting it here does not revoke it: you can revoke it in Cloud.</p>
+          <p class="cloud-connection-status" id="cloud-status" role="status">Checking the credential store…</p>
+          <div class="cloud-sync-row">
+            <label class="repo-field" for="cloud-project-name">
+              <span>Project name visible in your Cloud account</span>
+              <input id="cloud-project-name" type="text" maxlength="120" autocomplete="off" value="My project" />
+            </label>
+            <button class="button button-primary" id="cloud-send" type="button" disabled>Send summary to Cloud</button>
+          </div>
+          <p class="source-help" id="cloud-receipt" role="status">Run a project scan to enable summary sharing.</p>
+          <a id="cloud-history-link" class="cloud-history-link" href="https://cloud-check.good-ship.co.uk/dashboard" target="_blank" rel="noopener noreferrer" hidden>View this project's Cloud history ↗</a>
+          <p class="source-help">Your scan details remain on this device. Cloud retains summary counts, coverage and scan provenance. It does not monitor projects unless you also configure scheduled CI scans separately.</p>
+        </section>
       </main>
 
       <footer class="footer">

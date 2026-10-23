@@ -1,6 +1,13 @@
 name: Desktop alpha release
 
 on:
+  # Explicit, reviewable one-time build request, so maintainers can start a
+  # complete three-platform alpha without granting an agent workflow-dispatch
+  # credentials. Only a change to this dedicated marker on main triggers it.
+  push:
+    branches: [main]
+    paths:
+      - "release/desktop-alpha12-build-request.json"
   workflow_dispatch:
     inputs:
       version:
@@ -39,13 +46,23 @@ jobs:
       - name: Require main, explicit confirmation and matching versions
         shell: bash
         env:
-          EXPECTED_VERSION: ${{ inputs.version }}
-          RELEASE_CONFIRMATION: ${{ inputs.confirm }}
+          EXPECTED_VERSION: ${{ inputs.version || '0.0.0-alpha.12' }}
+          RELEASE_CONFIRMATION: ${{ inputs.confirm || 'ALPHA' }}
         run: |
           set -euo pipefail
           if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
             echo "::error::Desktop alpha releases must be dispatched from main."
             exit 1
+          fi
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            node - <<'NODE'
+          const fs = require('node:fs');
+          const request = JSON.parse(fs.readFileSync('release/desktop-alpha12-build-request.json','utf8'));
+          if (request.version !== '0.0.0-alpha.12' || request.confirm !== 'ALPHA') {
+            console.error('A main-branch automatic Alpha 12 desktop build needs an explicitly confirmed release request marker.');
+            process.exit(1);
+          }
+          NODE
           fi
           if [[ "$RELEASE_CONFIRMATION" != "ALPHA" ]]; then
             echo "::error::Type ALPHA in the confirmation input."
@@ -97,12 +114,12 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ inputs.version || '0.0.0-alpha.12' }}
         run: |
           set -euo pipefail
           tag="ship-check-desktop-v${VERSION}"
           title="Ship Check ${VERSION} · desktop alpha"
-          notes="Local-first Ship Check desktop alpha for Windows x64, Linux x64 and macOS Apple Silicon. The matching deterministic engine and pinned Gitleaks 8.30.0 binary are bundled with the app; repository source remains local during normal scans. OSV-Scanner 2.5.1 is also bundled but its dependency-vulnerability lookup is off by default and requires explicit user consent because package identifiers and versions may be queried against OSV. Alpha 12 adds Node.js security-release and support-schedule lookups, known-malicious OSV advisory handling, and explicit unverified states for empty dependency extraction. Windows installers are unsigned and the macOS build is ad-hoc signed rather than Apple-notarised, so operating-system warnings may appear. This build presents potential issues and unanswered questions in plain language, with expandable technical evidence and copyable repair instructions. Ship Check findings are evidence for human review, not a security or compliance certification."
+          notes="Local-first Ship Check desktop alpha for Windows x64, Linux x64 and macOS Apple Silicon. The matching deterministic engine and pinned Gitleaks 8.30.0 binary are bundled with the app; repository source remains local during normal scans. OSV-Scanner 2.5.1 is also bundled but its dependency-vulnerability lookup is off by default and requires explicit user consent because package identifiers and versions may be queried against OSV. Alpha 12 adds Node.js security-release and support-schedule lookups, known-malicious OSV advisory handling, explicit unverified states for empty dependency extraction, and optional explicit Cloud summary sync using an OS credential store (no automatic report uploads). Windows installers are unsigned and the macOS build is ad-hoc signed rather than Apple-notarised, so operating-system warnings may appear. This build presents potential issues and unanswered questions in plain language, with expandable technical evidence and copyable repair instructions. Ship Check findings are evidence for human review, not a security or compliance certification."
 
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             is_draft="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
@@ -185,6 +202,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libssl-dev \
+            libdbus-1-dev \
             libwebkit2gtk-4.1-dev \
             wget
 
@@ -262,7 +280,7 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         env:
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ inputs.version || '0.0.0-alpha.12' }}
         run: |
           set -euo pipefail
           app="apps/desktop/src-tauri/target/release/bundle/macos/Ship Check.app"
@@ -276,7 +294,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ inputs.version }}
+          VERSION: ${{ inputs.version || '0.0.0-alpha.12' }}
         run: |
           set -euo pipefail
           if [[ "$RUNNER_OS" == "Windows" ]]; then

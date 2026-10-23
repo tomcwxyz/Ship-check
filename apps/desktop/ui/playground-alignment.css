@@ -223,3 +223,22 @@ button:focus-visible, input:focus-visible, summary:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .button:hover:not(:disabled) { transition: none; transform: none; }
 }
+
+
+/* Optional Cloud synchronisation retains the public playground's visual
+ * language while always making the privacy boundary explicit. */
+.cloud-card { margin-top: 32px; padding: 30px 36px; }
+.cloud-card .scan-heading { margin-bottom: 10px; }
+.cloud-explainer { max-width: 790px; color: var(--grey); line-height: 1.65; font-size: 15px; }
+.cloud-card .source-help { line-height: 1.6; }
+.cloud-card .source-help a { color: #315c43; text-underline-offset: 3px; }
+.cloud-connect-row,.cloud-sync-row { display:flex; flex-wrap:wrap; align-items:flex-end; gap:13px; margin:22px 0 9px; }
+.cloud-connect-row .repo-field { flex:1 1 270px; min-width: 190px; }
+.cloud-sync-row .repo-field { flex:1 1 270px; min-width:190px; }
+.cloud-card input { max-width:100%; border:1px solid var(--line); border-radius:7px; padding:12px; background:var(--paper); color:var(--ink); font:14px var(--font-sans); }
+.cloud-connection-status { padding:12px 15px; background:#eff4e9; border-left:4px solid #438657; border-radius:7px; font-size:13px; line-height:1.5; }
+.cloud-connection-status[data-state="error"] { background:#faebe4; border-left-color:var(--red); }
+.cloud-sync-row button:disabled { opacity:.5; cursor:not-allowed; }
+.cloud-history-link { display:inline-block; color:#315c43; margin:10px 0; font-weight:700; text-underline-offset:4px; }
+.cloud-history-link[hidden] { display:none; }
+@media(max-width:760px){ .cloud-card{padding:20px;} .cloud-connect-row .button,.cloud-sync-row .button{min-height:44px;} }

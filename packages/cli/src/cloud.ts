@@ -141,7 +141,8 @@ export function createCloudHistoryClient(options: CloudHistoryClientOptions) {
           ...(init.body !== undefined ? { "content-type": "application/json" } : {}),
           ...init.headers
         },
-        redirect: "error"
+        redirect: "error",
+        signal: AbortSignal.timeout(20_000)
       });
     } catch (error) {
       throw new CloudHistoryClientError(
