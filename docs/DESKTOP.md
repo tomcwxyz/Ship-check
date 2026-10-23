@@ -59,11 +59,13 @@ Ship Check results are assurance evidence for human review, not a security or co
 
 Desktop remains fully functional without an account or network connection. The **Keep a record, if you choose** section is an entirely opt-in Cloud integration.
 
-1. Open [Ship Check Cloud](https://cloud-check.good-ship.co.uk/dashboard), sign in with email/password, and create a 90-day `history:sync` token ("CI metadata sync"). This permission is distinct from the read-only MCP token.
+1. In Desktop, click **Sign in to Cloud ↗** to open the Cloud dashboard in your operating system's default browser (not the embedded webview). Sign in with email/password, and create a 90-day `history:sync` token ("CI metadata sync"). This permission is distinct from the read-only MCP token.
 2. Paste the token once into Desktop and choose **Save token securely**. The secret is stored only via the operating system credential store (macOS Keychain, Windows Credential Manager, or Linux Secret Service) and is not persisted in localStorage, logs or the clipboard by Desktop.
 3. Run a normal project scan. Use **Send summary to Cloud** when you consent to uploading this particular result. Nothing syncs automatically.
 4. Desktop hands the completed report to the **bundled local engine**, which applies the same `toProjectHistoryMetadata` conversion as the CLI's metadata output before sending. Only source-free `assurance-metadata/0.1` goes over HTTPS. The complete report isn't written to a temporary file and never leaves the local machine.
 5. On success, view the project's Cloud history. Subsequent scans with the same project identity are deduplicated/compared by Cloud. You may forget the local token, but **must revoke it in Cloud** to invalidate it server-side.
+
+The **Sign in to Cloud** and **View this project's Cloud history** links both open the system default browser via Tauri's native opener. Only the known Cloud dashboard and an account project-history URL with a UUID are allowed. If browser opening fails, the desktop shows a copyable URL; scans and token storage remain unaffected.
 
 If the OS secret store is unavailable or locked (some minimal Linux environments), saving the token fails closed. There is no plaintext fallback. Existing local scanning does not require the secret store.
 
