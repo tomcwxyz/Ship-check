@@ -639,6 +639,14 @@ function osvSourcePath(raw: unknown, mirrorRoot: string): string {
   return normal.startsWith(`${root}/`) ? normal.slice(root.length + 1) : normaliseRelative(raw);
 }
 
+export function hasOsvPackageEvidence(raw: unknown): boolean {
+  const results = raw && typeof raw === "object" ? (raw as { results?: unknown }).results : null;
+  return Array.isArray(results) && results.some((entry) =>
+    entry && typeof entry === "object" && Array.isArray((entry as { packages?: unknown }).packages) &&
+    (entry as { packages: unknown[] }).packages.length > 0
+  );
+}
+
 export function parseOsvReport(raw: unknown, mirrorRoot: string, version: string): Finding[] {
   if (!raw || typeof raw !== "object" || !Array.isArray((raw as { results?: unknown }).results)) return [];
 
@@ -804,11 +812,7 @@ export const osvDependencyCheck: CheckDefinition = {
       }
       if (![0, 1].includes(result.code)) throw new Error(result.stderr.trim() || `OSV-Scanner exited with ${result.code}.`);
       const raw: unknown = JSON.parse(result.stdout || "{}");
-      const results = raw && typeof raw === "object" ? (raw as { results?: unknown }).results : null;
-      if (!Array.isArray(results) || !results.some((entry) =>
-        entry && typeof entry === "object" && Array.isArray((entry as { packages?: unknown }).packages) &&
-        (entry as { packages: unknown[] }).packages.length > 0
-      )) {
+      if (!hasOsvPackageEvidence(raw)) {
         return {
           gaps: [gap({
             checkId: this.id, pack: this.pack, area: "supply-chain",
