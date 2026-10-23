@@ -35,7 +35,7 @@ npm run dev
 
 Use a connected Vercel KV (Upstash-backed) database, which supplies `KV_REST_API_URL` and `KV_REST_API_TOKEN` to preview and production; the same code also supports `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` if provisioned directly with Upstash. Both sets are server-side only. A Vercel Sandbox project identity is required for real scans.
 
-The canonical scanner is pinned to `0.0.0-alpha.9` by default. Set `SHIP_CHECK_PLAYGROUND_SCANNER_VERSION` only for a published and verified alternative release.
+The canonical scanner is pinned to `0.0.0-alpha.11` by default. Set `SHIP_CHECK_PLAYGROUND_SCANNER_VERSION` only for a published and verified alternative release.
 
 The pinned `@good-ship/ship-check@0.0.0-alpha.9` release has been smoke-tested in a Vercel Sandbox against a real public GitHub repository (20 October 2026). The repository's newer alpha.10 has not yet been published. Managed scan provenance is corrected in the hosted wrapper until the next CLI release supports that execution boundary natively. Do not silently fall back to a different scanner or `latest`. If the package/version is not available, finish publication/testing before enabling scans.
 
