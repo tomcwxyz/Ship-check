@@ -1,17 +1,13 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash } from "node:crypto";
 import {
-  type CloudHistoryWebAuthenticator,
   type CloudR0RateLimitContext,
   type CloudR0RateLimitDecision
 } from "@ship-check/adapters";
-import { createCloudRuntime } from "@ship-check/cloud-runtime";
-
-type Window = {
-  startedAt: number;
-  count: number;
-};
-
-const windows = new Map<string, Window>();
+import {
+  createCloudRuntime,
+  createPgCloudHistoryDatabase
+} from "@ship-check/cloud-runtime";
+import { authenticateNeonSession } from "./neonAuth";
 
 function env(name: string): string {
   const value = process.env[name]?.trim();
@@ -19,102 +15,97 @@ function env(name: string): string {
   return value;
 }
 
-function allowedOrigins(): string[] {
-  return (process.env.SHIP_CHECK_ALLOWED_ORIGINS ?? "")
-    .split(",")
-    .map((value) => value.trim())
-    .filter(Boolean);
-}
-
 function hash(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function sameSecret(left: string, right: string): boolean {
-  const a = Buffer.from(hash(left), "hex");
-  const b = Buffer.from(hash(right), "hex");
-  return timingSafeEqual(a, b);
-}
-
-export const authenticatePilotSession: CloudHistoryWebAuthenticator = async (
-  request
-) => {
-  const expected = process.env.SHIP_CHECK_PILOT_SESSION_SECRET?.trim();
-  if (!expected) return null;
-
-  const supplied = request.headers.get("x-ship-check-pilot-session")?.trim();
-  if (!supplied || !sameSecret(supplied, expected)) return null;
-
-  return {
-    principal: {
-      schemaVersion: "0.1",
-      authSubjectHash: hash("ship-check-cloud-pilot")
-    },
-    mutationAuthorised: true
-  };
+type State = {
+  runtime: ReturnType<typeof createCloudRuntime>;
+  db: ReturnType<typeof createPgCloudHistoryDatabase>["database"];
 };
-
-function rateKey(context: CloudR0RateLimitContext): string {
-  const forwarded = context.request.headers
-    .get("x-forwarded-for")
-    ?.split(",")[0]
-    ?.trim();
-  const ip = forwarded || context.request.headers.get("x-real-ip") || "unknown";
-  return `${context.credential}:${context.routeFamily}:${hash(ip).slice(0, 16)}`;
-}
-
-export function pilotRateLimit(
-  context: CloudR0RateLimitContext
-): CloudR0RateLimitDecision {
-  const now = Date.now();
-  const durationMs = 60_000;
-  const limit = context.credential === "bearer" ? 120 : 60;
-  const key = rateKey(context);
-  const current = windows.get(key);
-
-  if (!current || now - current.startedAt >= durationMs) {
-    windows.set(key, { startedAt: now, count: 1 });
-    return { allowed: true };
-  }
-
-  current.count += 1;
-  if (current.count <= limit) return { allowed: true };
-
-  return {
-    allowed: false,
-    retryAfterSeconds: Math.max(
-      1,
-      Math.ceil((durationMs - (now - current.startedAt)) / 1000)
-    )
-  };
-}
 
 declare global {
   // eslint-disable-next-line no-var
-  var __shipCheckCloudRuntime:
-    | ReturnType<typeof createCloudRuntime>
-    | undefined;
+  var __shipCheckCloudState: State | undefined;
 }
 
-export function cloudRuntime() {
-  if (!globalThis.__shipCheckCloudRuntime) {
-    globalThis.__shipCheckCloudRuntime = createCloudRuntime({
-      postgres: {
-        connectionString: env("DATABASE_URL"),
-        maxConnections: 5,
-        connectionTimeoutMs: 5_000,
-        applicationName: "ship-check-cloud"
-      },
-      authenticateSession: authenticatePilotSession,
-      allowedOrigins: allowedOrigins(),
-      rateLimit: pilotRateLimit,
+function state(): State {
+  if (!globalThis.__shipCheckCloudState) {
+    const pg = createPgCloudHistoryDatabase({
+      connectionString: env("DATABASE_URL"),
+      maxConnections: 5,
+      connectionTimeoutMs: 5_000,
+      applicationName: "ship-check-cloud"
+    });
+    const db = pg.database;
+    const runtime = createCloudRuntime({
+      database: db,
+      authenticateSession: authenticateNeonSession,
+      allowedOrigins: (process.env.SHIP_CHECK_ALLOWED_ORIGINS ?? "")
+        .split(",").map(x => x.trim()).filter(Boolean),
+      rateLimit: (context) => persistentRateLimit(db, context),
       onInternalError: (error) => {
         console.error("Ship Check Cloud internal error", error);
       },
-      onAuthenticationError: (error) => {
-        console.warn("Ship Check Cloud authentication error", error);
+      onAuthenticationError: () => {
+        console.warn("Ship Check Cloud session verification failed");
       }
     });
+    globalThis.__shipCheckCloudState = { runtime, db };
   }
-  return globalThis.__shipCheckCloudRuntime;
+  return globalThis.__shipCheckCloudState;
+}
+
+async function persistentRateLimit(
+  db: State["db"],
+  context: CloudR0RateLimitContext
+): Promise<CloudR0RateLimitDecision> {
+  // Durable Postgres counter, shared between independent Vercel functions.
+  // Avoid trusting a client-provided user ID, bearer token as plain text, or
+  // raw addresses in the rate limiter database.
+  const forwarded = context.request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const ip = forwarded?.slice(0, 80) || "unknown";
+  const kind = context.credential;
+  const keyHash = hash(`ship-check-rate-v1:\0${kind}:\0${ip}`);
+  const bucket = Math.floor(Date.now() / 60000);
+  const limit = kind === "bearer" ? 120 : 60;
+  const result = await db.query<{request_count: number}>(
+    `INSERT INTO ship_check_rate_limits
+        (key_hash, window_bucket, request_count, updated_at)
+       VALUES ($1, $2, 1, now())
+       ON CONFLICT (key_hash) DO UPDATE
+       SET window_bucket = EXCLUDED.window_bucket,
+           request_count = CASE
+             WHEN ship_check_rate_limits.window_bucket = EXCLUDED.window_bucket
+             THEN ship_check_rate_limits.request_count + 1
+             ELSE 1
+           END,
+           updated_at = now()
+       RETURNING request_count`,
+    [keyHash, bucket]
+  );
+  const count = result.rows[0]?.request_count ?? limit + 1;
+  return count <= limit ? { allowed: true } : {
+    allowed: false,
+    retryAfterSeconds: 60 - Math.floor((Date.now() % 60000) / 1000)
+  };
+}
+
+export function cloudRuntime() {
+  return state().runtime;
+}
+
+export async function cloudDatabaseReady(): Promise<boolean> {
+  const result = await state().db.query<{
+    projects: string | null;
+    history: string | null;
+    tokens: string | null;
+    rate_limits: string | null;
+  }>(`SELECT
+    to_regclass('public.ship_check_projects')::text AS projects,
+    to_regclass('public.ship_check_history_events')::text AS history,
+    to_regclass('public.ship_check_api_tokens')::text AS tokens,
+    to_regclass('public.ship_check_rate_limits')::text AS rate_limits`);
+  const row = result.rows[0];
+  return Boolean(row?.projects && row.history && row.tokens && row.rate_limits);
 }
