@@ -6,7 +6,7 @@ The adapters remain part of Ship Check's evidence contract: third-party output i
 
 ## Gitleaks — local secret scanning
 
-Desktop alpha builds bundle **Gitleaks 8.30.1**.
+Desktop alpha builds bundle **Gitleaks 8.30.0**.
 
 Ship Check does **not** point Gitleaks directly at an arbitrary local working tree. That would allow untracked/local-only files to leak into a report that otherwise claims Git-tracked provenance.
 
@@ -34,7 +34,7 @@ Ship Check minimises that boundary by creating a separate temporary mirror conta
 
 Depending on the ecosystem and OSV behaviour, dependency package identifiers and versions may be sent across the network to retrieve known vulnerability data. The resulting Ship Check finding contains package/version/ecosystem, advisory identifiers and the local manifest path; it does not contain application source.
 
-If the user requests OSV but the scanner is unavailable, Ship Check records an unverified Supply Chain gap rather than passing the area.
+The opt-in scan requests OSV's extracted package inventory, too. If the scanner finds no packages, produces unusable output or is unavailable, Ship Check records an unverified Supply Chain gap rather than marking the area clean. Explicit OSV `MAL-YYYY-NNN` malicious-package records are displayed as urgent malware exposure findings with containment advice; this does not replace a full GitHub malware-advisory feed.
 
 Developer/CLI users may supply a trusted binary with `SHIP_CHECK_OSV_PATH`.
 
