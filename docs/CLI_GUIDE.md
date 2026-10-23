@@ -83,7 +83,7 @@ sc scan . --networked-dependency-scan
 sc scan . --local-semgrep-scan
 ~~~
 
-Git-history secrets require a Git repository and Secure Build. Networked dependencies require Production Ready and may send dependency identifiers and versions to OSV; that check is off by default. Local Semgrep requires Secure Build and a compatible local Semgrep installation; its pinned ruleset does not use Semgrep Registry/auto rules.
+Git-history secrets require a Git repository and Secure Build. Networked dependencies require Production Ready and may send dependency identifiers and versions to OSV; the same opt-in also requests Node.js security release data from nodejs.org and the official support schedule on raw.githubusercontent.com. It checks only **declared** Node.js versions; production runtime versions must be verified separately. This mode is off by default. Local Semgrep requires Secure Build and a compatible local Semgrep installation; its pinned ruleset does not use Semgrep Registry/auto rules.
 
 ### Read one next action, then compare
 
