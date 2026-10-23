@@ -21,6 +21,19 @@ function commonScanRequest(packs, options = {}, databaseConnectionString = "") {
 }
 
 export const desktopBridge = {
+  cloudConnectionStatus() {
+    return invokeCommand("cloud_connection_status");
+  },
+  cloudConnectToken(token) {
+    return invokeCommand("cloud_connect_token", { token });
+  },
+  cloudForgetToken() {
+    return invokeCommand("cloud_forget_token");
+  },
+  cloudPublishSummary(report, displayName) {
+    return invokeCommand("cloud_publish_summary", { report, displayName });
+  },
+
   chooseProject() {
     return invokeCommand("choose_project");
   },
