@@ -4,7 +4,10 @@
 - [x] Preserve explicit unknown states for broad Node version ranges, missing runtime evidence and feed failures; never claim a deployment is running the configured version.
 - [x] Improve OSV severity handling for CVSS 3.x vectors and unscored advisories, and show advisory-listed fixed versions.
 - [x] Bump playground default published scanner to Alpha 11 and add a per-scan network consent control with restricted advisory hosts.
-- [ ] Validate npm Alpha 12+ packaging and publish the new runtime intelligence before enabling it in production playground scans.
+- [x] Implement explicit OSV malicious-package record handling and refuse zero-package dependency results as a clean scan.
+- [x] Prepare aligned CLI/npm/desktop 0.0.0-alpha.12 source release and acceptance instructions.
+- [ ] Publish npm Alpha 12 after CI; only then pin and smoke-test the public playground on Alpha 12.
+- [ ] Build and verify a draft unsigned/ad-hoc-signed Alpha 12 desktop for Windows/macOS/Linux.
 - [ ] Extend advisory enrichment with audited malicious-package feeds and verified exploit prioritisation.
 - [ ] Consider scheduled portfolio-level re-checks with Lookout without uploading source or exposing secrets.
 
