@@ -2,12 +2,13 @@
 .scan-overview { display: grid; gap: 1.25rem; margin: 1.25rem 0 1.75rem; }
 .review-overview-heading h3 { font-size: clamp(1.8rem, 3vw, 2.7rem); line-height: 1.08; letter-spacing: -.04em; margin: .4rem 0; }
 .review-overview-intro { max-width: 66ch; line-height: 1.55; color: var(--muted); margin: .55rem 0 0; }
-.review-metrics { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: .75rem; }
+.review-metrics { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: .75rem; }
 .review-metric { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: .28rem; border: 1.5px solid var(--ink); border-top: 5px solid var(--ink); border-radius: 3px; padding: 1rem; background: var(--paper-strong); color: var(--ink); cursor: pointer; font: inherit; }
 .review-metric:hover, .review-metric:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .review-metric-attention { border-top-color: var(--accent-dark); }
 .review-metric-question { border-top-color: #a77d27; }
 .review-metric-missing { border-top-color: #596761; }
+.review-metric-verified { border-top-color: var(--green); }
 .review-metric-value { font-family: var(--mono); font-size: clamp(2rem,4vw,3.2rem); line-height: 1; }
 .review-metric-title { font-size: .94rem; font-weight: 850; }
 .review-metric-explanation { color: var(--muted); font-size: .77rem; line-height: 1.45; }
@@ -17,8 +18,11 @@
 .review-next .button { flex-shrink: 0; }
 .review-scope { padding: 1.15rem; border: 1px solid var(--soft-line); background: var(--paper-strong); }
 .review-scope-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }
-.review-scope-heading h4 { margin: 0; font-size: 1rem; }
-.review-scope-heading p { color: var(--muted); font-size: .82rem; margin: 0; }
+.review-scope-heading-title { font-size: 1rem; font-weight: 800; }
+.review-scope-heading-counts { color: var(--muted); font-size: .82rem; font-weight: 400; }
+.review-scope-heading { cursor: pointer; }
+.review-scope-heading:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.review-scope:not([open]) .review-scope-heading { margin: 0; }
 .review-scope-strip { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: .55rem; margin: 1rem 0; }
 .review-scope-tile { display: grid; gap: .15rem; border-top: 4px solid #afb5ae; background: #eeefeb; padding: .75rem; min-width: 0; }
 .review-scope-tile[data-status="assessed"] { border-top-color: var(--green); background: #e7f0e8; }
@@ -27,6 +31,12 @@
 .review-scope-symbol { font-size: 1.15rem; font-weight: 900; }
 .review-scope-name { font-weight: 800; font-size: .8rem; line-height: 1.2; overflow-wrap: anywhere; }
 .review-scope-status { font-size: .69rem; line-height: 1.25; color: #4f5954; }
+.review-positives { padding: 1rem 1.2rem; background: var(--paper-strong); border: 1px solid var(--soft-line); border-left: 4px solid var(--green); }
+.review-positives h4 { margin: .3rem 0 .35rem; font-size: 1.12rem; }
+.review-positive-intro { font-size: .88rem; color: var(--muted); line-height: 1.5; margin: 0 0 .7rem; }
+.review-positive-list { list-style: none; display: grid; gap: .5rem; padding: 0; margin: .75rem 0; }
+.review-positive-item { display: flex; align-items: start; gap: .55rem; line-height: 1.4; font-size: .9rem; }
+.review-positive-marker { font-weight: 900; color: var(--green); }
 .review-text-action { border: 0; padding: .3rem 0; background: none; color: var(--accent-dark); font-weight: 800; text-align: left; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 .review-drawer { border-top: 1px solid var(--line); margin-top: 1rem; padding: 0; }
 .review-drawer > summary { cursor: pointer; font-weight: 850; font-size: 1.02rem; padding: 1.05rem 0; }
@@ -36,7 +46,7 @@
 .review-detail-meta { color: var(--muted); line-height: 1.6; overflow-wrap: anywhere; font-size: .77rem; }
 @media (max-width: 760px) {
   .review-metrics { grid-template-columns: 1fr 1fr; }
-  .review-metric:last-child { grid-column: 1 / -1; }
+  .review-metric:last-child { grid-column: auto; }
   .review-scope-strip { grid-template-columns: repeat(2,minmax(0,1fr)); }
   .review-next { align-items: flex-start; flex-direction: column; }
 }

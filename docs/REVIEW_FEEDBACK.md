@@ -12,6 +12,12 @@ A folder-of-projects scan is presented as an **action-oriented estate dashboard*
 
 Each project still shows its own coverage strip and details. The **View full report** action opens the existing single-project report from the scanned estate data, with all findings, gap evidence, observations, accepted exceptions and review controls. **Back to all projects** returns without running another scan. **Rescan all projects** explicitly reruns the whole estate. The overview also counts projects with partly assessed or unassessed areas across **all** groups, including those that already have findings. No numeric estate safety score is created, and missing coverage is never interpreted as passed.
 
+## Desktop results — what's working
+
+The desktop's first results screen now keeps **four distinct answers** visible: needs attention, needs verifying, areas not checked, and evidence-backed controls verified by this scan.
+
+Only `verified-control` observations with explicit evidence are shown under **What we found working**. A mere `passed` status or a general inventory observation is not promoted into a verified protection. The summary offers up to three verified examples with a link to the actual evidence under scan details. The full area-by-area coverage grid is now behind an optional disclosure; the next action and actual findings remain prominent. These positives do **not** cancel findings, gaps or missing coverage, and they do not constitute an overall safety score.
+
 ## Reviewer decisions
 
 Every single-project and estate-project finding offers a local assessment:

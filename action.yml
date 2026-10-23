@@ -39,6 +39,18 @@ inputs:
     description: On pull_request events, compare source evidence with the exact base commit inside the same runner.
     required: false
     default: "true"
+  cloud-url:
+    description: "Opt in to source-free Cloud history sync for push/schedule/manual events. Leave blank to keep everything local."
+    required: false
+    default: ""
+  cloud-token:
+    description: "Short-lived scoped Ship Check Cloud token with history:sync permission; supply via GitHub secret, not inline."
+    required: false
+    default: ""
+  cloud-retention:
+    description: "Metadata history retention for first connection and later idempotent reconnects."
+    required: false
+    default: "90-days"
 
 outputs:
   report-path:
@@ -120,6 +132,16 @@ runs:
         INPUT_NETWORKED_DEPENDENCY_SCAN: ${{ inputs.networked-dependency-scan }}
         INPUT_PR_COMPARISON: ${{ inputs.pr-comparison }}
       run: node "$GITHUB_ACTION_PATH/scripts/github-action.mjs"
+
+    - name: Sync source-free Cloud history (explicit opt-in)
+      if: ${{ inputs.cloud-url != '' && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+      shell: bash
+      env:
+        SHIP_CHECK_METADATA_PATH: ${{ steps.scan.outputs.metadata-path }}
+        SHIP_CHECK_CLOUD_URL: ${{ inputs.cloud-url }}
+        SHIP_CHECK_CLOUD_TOKEN: ${{ inputs.cloud-token }}
+        SHIP_CHECK_CLOUD_RETENTION: ${{ inputs.cloud-retention }}
+      run: node "$GITHUB_ACTION_PATH/scripts/github-action-cloud-sync.mjs"
 
     - name: Apply Ship Check gate
       shell: bash
