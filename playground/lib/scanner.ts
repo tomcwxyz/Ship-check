@@ -41,7 +41,7 @@ function checkScanReport(value: unknown): asserts value is ScanReport {
     throw new Error("The scanner returned an incompatible report.");
 }
 
-export async function scanInSandbox(source: ParsedSource): Promise<ScanReport> {
+export async function scanInSandbox(source: ParsedSource, vulnerabilityIntelligence = false): Promise<ScanReport> {
   if (source.kind === "github") {
     try { await checkPublicGithubSource(source.target); }
     catch (cause) {
@@ -58,7 +58,7 @@ export async function scanInSandbox(source: ParsedSource): Promise<ScanReport> {
       persistent: false,
       resources: { vcpus: 1 },
       timeout: 150_000,
-      networkPolicy: scanEgressPolicy(source)
+      networkPolicy: scanEgressPolicy(source, vulnerabilityIntelligence)
     });
   } catch (cause) {
     throw new ScanStageError("sandbox-startup", cause);
@@ -70,7 +70,8 @@ export async function scanInSandbox(source: ParsedSource): Promise<ScanReport> {
       run = await sandbox.runCommand({
         cmd: "npm",
         args: ["exec", "--yes", `--package=${spec}`, "--", "ship-check", "scan",
-          source.target, "--format", "json", "--fail-on", "never"]
+          source.target, "--format", "json", "--fail-on", "never",
+          ...(vulnerabilityIntelligence ? ["--networked-dependency-scan"] : [])]
       });
     } catch (cause) {
       throw new ScanStageError("scanner-run", cause);
