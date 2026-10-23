@@ -9,6 +9,9 @@
 - [ ] Publish npm Alpha 12 after CI; only then pin and smoke-test the public playground on Alpha 12.
 - [ ] Build and verify a draft unsigned/ad-hoc-signed Alpha 12 desktop for Windows/macOS/Linux.
 - [ ] Extend advisory enrichment with audited malicious-package feeds and verified exploit prioritisation.
+- [x] Add opt-in CI GitHub Action metadata-only Cloud history sync for push/schedule/manual events, with scoped bearer token supplied as a GitHub secret. No schedule is switched on by default.
+- [ ] Configure and verify a real Cloud database/auth deployment before enabling CI history sync on owned repositories.
+- [ ] Add authenticated portfolio/history UI, operational shared rate limiting, and consented advisory-change monitoring with deduplicated alerts.
 - [ ] Consider scheduled portfolio-level re-checks with Lookout without uploading source or exposing secrets.
 
 # Roadmap
@@ -24,6 +27,7 @@
 - [x] Provide full evidence drill-down from every scanned estate project without a duplicate scan, and clear back-to-estate navigation.
 - [x] Calibrate quiet vs limited coverage classifications so bounded, finding-free assessments remain discoverable while missing coverage remains explicit.
 - [x] Prepare Alpha 0.10 versions and updated tester instructions; installer release follows merge to main.
+- [x] Present a limited list of evidence-backed verified controls as positives on the first review screen and collapse the area-by-area technical coverage by default.
 - [ ] Validate the new experience visually on Windows and macOS native desktop builds and against real estate scans.
 - [ ] Add runtime/provider usage evidence (Neon usage, Firecrawl request counts, retries, cron invocations) for proven duplication or wasted spend; source-code heuristics alone cannot establish this.
 
@@ -340,7 +344,8 @@ Goal: create useful Cloud Ship Check without requiring source code to enter Ship
 - [x] Bearer API-token authentication with explicit deny-by-default route scope mapping for history read, history sync and project management; scopes do not imply one another and API tokens can never delete the Cloud account.
 - [x] Browser/session API-token management HTTP + Web boundaries for create/list/revoke, with authentication and mutation authorisation before request-body reads; bearer tokens remain unable to self-manage credentials.
 - [x] Explicit CLI assurance-metadata connect/sync/list/timeline client over the scoped bearer API, with HTTPS-by-default endpoints, bounded responses and no token persistence.
-- [ ] Optional post-scan sync from CLI/desktop with user-selectable data boundary beyond the explicit metadata command: metadata only first, then structured findings or bounded evidence only if separately authorised.
+- [x] Opt-in GitHub Action post-scan metadata-only sync for trusted push/schedule/manual events; source and report stay in the runner.
+- [ ] Optional post-scan sync from direct CLI/desktop with user-selectable data boundary beyond the explicit metadata command: metadata only first, then structured findings or bounded evidence only if separately authorised.
 - [x] Bounded account-scoped Cloud project directory + non-download timeline read API foundation, using opaque keyset pagination and the existing portable timeline reducer without inventing a portfolio score.
 - [ ] Hosted/persistent project timeline UI showing explicit newly introduced, persistent, reactivated, accepted and no-longer-active findings/gaps across stored comparable scans; the directory/timeline API foundation is now landed.
 - [ ] GitHub App for repository/project association, webhook triggers and PR/release status surfaces.
