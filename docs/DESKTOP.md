@@ -51,9 +51,32 @@ A local-folder scan reads the selected project in place and does not upload sour
 
 A GitHub scan downloads a shallow checkout into the operating system's temporary directory, runs the same local engine against it, then removes that checkout when the scan returns or errors. Ship Check itself does not send repository content to a hosted Ship Check service.
 
-The initial app does not retain source content or persist scan history. Evidence excerpts are only rendered in the current review session.
+The app never stores source contents in Cloud. Local diagnostic receipts retain only bounded summary/count information and opaque identities in webview local storage; full finding evidence remains in the current scan review. Upload is never automatic.
 
 Ship Check results are assurance evidence for human review, not a security or compliance certification.
+
+## Optional Cloud history (Alpha 12)
+
+Desktop remains fully functional without an account or network connection. The **Keep a record, if you choose** section is an entirely opt-in Cloud integration.
+
+1. Open [Ship Check Cloud](https://cloud-check.good-ship.co.uk/dashboard), sign in with email/password, and create a 90-day `history:sync` token ("CI metadata sync"). This permission is distinct from the read-only MCP token.
+2. Paste the token once into Desktop and choose **Save token securely**. The secret is stored only via the operating system credential store (macOS Keychain, Windows Credential Manager, or Linux Secret Service) and is not persisted in localStorage, logs or the clipboard by Desktop.
+3. Run a normal project scan. Use **Send summary to Cloud** when you consent to uploading this particular result. Nothing syncs automatically.
+4. Desktop hands the completed report to the **bundled local engine**, which applies the same `toProjectHistoryMetadata` conversion as the CLI's metadata output before sending. Only source-free `assurance-metadata/0.1` goes over HTTPS. The complete report isn't written to a temporary file and never leaves the local machine.
+5. On success, view the project's Cloud history. Subsequent scans with the same project identity are deduplicated/compared by Cloud. You may forget the local token, but **must revoke it in Cloud** to invalidate it server-side.
+
+If the OS secret store is unavailable or locked (some minimal Linux environments), saving the token fails closed. There is no plaintext fallback. Existing local scanning does not require the secret store.
+
+Cloud is restricted to `https://cloud-check.good-ship.co.uk`; the native command does not accept arbitrary Cloud targets. Token values travel only via the bundled engine's private process environment, never command-line arguments. The desktop does not implement its own MCP server: connected agents use Cloud's read-only MCP endpoint with a **separate** `history:read` token. GitHub Actions can additionally provide scheduled monitoring; Desktop itself never schedules scans in the background.
+
+### Manual Cloud acceptance check
+
+- Verify a normal scan while not connected remains local and **Send** is disabled.
+- Connect a dedicated expiring `history:sync` token and scan a non-sensitive fixture.
+- Choose **Send summary to Cloud** and inspect the response and new Cloud timeline. Check that only expected counts, coverage and hashed provenance are stored.
+- Repeat the same scan and verify Cloud deduplicates it. Change the scan and verify continuity accurately distinguishes changes in source and check coverage.
+- Forget local token, verify the action is unavailable, and revoke the token in Cloud.
+- On macOS and Windows, verify native secret-store accessibility and confirm that closed/reopened Desktop can still access the stored token. On Linux, test unlocked Secret Service and unavailable-backend behaviour.
 
 ## Local development
 
