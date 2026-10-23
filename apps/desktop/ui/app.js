@@ -1,4 +1,5 @@
 import { desktopBridge } from "./bridge.js";
+import { initCloudConnection } from "./cloud-connection.js";
 import { renderReviewOverview } from "./overview.js";
 import { projectKey, updateReviewsFromScan } from "./finding-reviews.js";
 import { renderProjectReviewHistory } from "./review-controls.js";
@@ -23,6 +24,7 @@ import {
   compareWithPreviousDiagnostics,
   createFailureDiagnostic,
   createSuccessDiagnostic,
+  safeSourceLabel,
   formatComparison,
   formatDiagnostics,
   formatReceipt,
@@ -118,6 +120,8 @@ const elements = {
   copyDiagnostics: null,
   clearDiagnostics: null,
 };
+
+const cloud = initCloudConnection(desktopBridge, document);
 
 function selectedPacks() {
   return [...elements.packGrid.querySelectorAll('input[type="checkbox"]:checked')].map(
@@ -726,6 +730,7 @@ async function runScan() {
   const startedAt = performance.now();
   clearError();
   setScanning(true);
+  cloud.resetScan();
   try {
     let rawReport;
     if (state.sourceMode === "estate") {
@@ -797,6 +802,7 @@ async function runScan() {
     renderReport(report, options);
     await renderFocus(report);
     await recordSuccess(report, packs, options, startedAt);
+    cloud.onScanCompleted(report, safeSourceLabel(state.sourceMode, currentSourceValue()));
     elements.results.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
     recordFailure(error, packs, options, startedAt);
@@ -812,6 +818,7 @@ elements.sourceSwitch.addEventListener("click", (event) => {
   const button = event.target.closest("[data-source]");
   if (!button || state.scanning) return;
   setSourceMode(button.dataset.source);
+  cloud.resetScan();
 });
 
 elements.githubRepository.addEventListener("input", (event) => {
