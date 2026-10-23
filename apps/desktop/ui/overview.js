@@ -32,6 +32,14 @@ export function summariseReview(report) {
   const gaps = report.gaps ?? [];
   const coverage = report.coverage ?? [];
   const errors = checks.filter((check) => check.status === "error");
+  // Only observations backed by a check's positive verification may be called
+  // "verified". A passing heuristic or general inventory observation is not proof.
+  const observations = report.observations ?? [];
+  const verified = observations.filter((observation) =>
+    observation.kind === "verified-control" && Array.isArray(observation.evidence) &&
+    observation.evidence.length > 0
+  );
+  const noted = observations.filter((observation) => !verified.includes(observation));
   const notChecked = coverage.filter((area) => area.status === "not-assessed");
   const partiallyChecked = coverage.filter((area) => area.status === "partial");
   const completed = coverage.filter((area) => area.status === "assessed");
@@ -64,7 +72,7 @@ export function summariseReview(report) {
         ? "Nothing confirmed, but questions remain"
         : "No findings in the areas checked";
 
-  return { findings, gaps, errors, coverage, notChecked, partiallyChecked, completed, headline, next };
+  return { findings, gaps, errors, coverage, verified, noted, notChecked, partiallyChecked, completed, headline, next };
 }
 
 function metric(value, title, explanation, tone, target, onOpen) {
@@ -89,7 +97,7 @@ export function renderReviewOverview(container, report, onOpen = () => {}) {
     el("p", "section-kicker", "Your review · At a glance"),
     el("h3", "", view.headline),
     el("p", "review-overview-intro",
-      "Three separate answers: what needs attention, what needs verifying and what this scan could not check. No safety score."),
+      "What needs attention, what remains uncertain and any controls we could verify. This is not a safety score."),
   );
 
   const metrics = el("div", "review-metrics");
@@ -98,6 +106,7 @@ export function renderReviewOverview(container, report, onOpen = () => {}) {
     metric(view.gaps.length + view.errors.length, "Needs verifying",
       view.errors.length ? view.gaps.length + " questions · " + view.errors.length + " failed checks" : "Unanswered questions", "question", view.errors.length ? "review-checks" : "review-questions", onOpen),
     metric(view.notChecked.length, "Not checked", "Areas without assessment", "missing", "review-coverage", onOpen),
+    metric(view.verified.length, "Verified here", "Controls backed by specific evidence", "verified", "review-checks", onOpen),
   );
 
   const next = el("div", "review-next");
@@ -112,11 +121,35 @@ export function renderReviewOverview(container, report, onOpen = () => {}) {
   nextButton.addEventListener("click", () => onOpen(view.next.target));
   next.append(nextCopy, nextButton);
 
-  const scope = el("section", "review-scope");
-  const heading = el("div", "review-scope-heading");
+  const positives = el("section", "review-positives");
+  positives.append(
+    el("p", "section-kicker", "What we found working"),
+    el("h4", "", view.verified.length ? "Some controls had supporting evidence" : "No controls independently verified"),
+    el("p", "review-positive-intro", view.verified.length
+      ? "These are specific checks supported by this scan, not a claim that the whole app is secure."
+      : "The scan may have found useful project details, but none established a specific working security control. This is not another finding."),
+  );
+  if (view.verified.length) {
+    const list = el("ul", "review-positive-list");
+    for (const item of view.verified.slice(0, 3)) {
+      const line = el("li", "review-positive-item");
+      line.append(el("span", "review-positive-marker", "✓"), el("span", "", item.title));
+      list.append(line);
+    }
+    positives.append(list);
+  }
+  const observationButton = el("button", "review-text-action",
+    view.verified.length ? "Explore the evidence behind these checks →"
+      : view.noted.length ? "See what else Ship Check noticed →" : "View the detailed checks →");
+  observationButton.type = "button";
+  observationButton.addEventListener("click", () => onOpen("review-checks"));
+  positives.append(observationButton);
+
+  const scope = el("details", "review-scope");
+  const heading = el("summary", "review-scope-heading");
   heading.append(
-    el("h4", "", "What was covered"),
-    el("p", "", view.completed.length + " completed · " + view.partiallyChecked.length +
+    el("span", "review-scope-heading-title", "What was checked · explore coverage"),
+    el("span", "review-scope-heading-counts", view.completed.length + " completed · " + view.partiallyChecked.length +
       " partly checked · " + view.notChecked.length + " not checked"),
   );
   scope.append(heading);
@@ -139,5 +172,5 @@ export function renderReviewOverview(container, report, onOpen = () => {}) {
   scopeButton.addEventListener("click", () => onOpen("review-coverage"));
   scope.append(scopeButton);
 
-  container.append(head, metrics, next, scope);
+  container.append(head, metrics, next, positives, scope);
 }
