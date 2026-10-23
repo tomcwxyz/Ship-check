@@ -1,4 +1,5 @@
 import { isPublicSupabaseMatch } from "./publicCredentials.js";
+import { nodeRuntimeSecurityCheck } from "./nodeRuntime.js";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { promises as fs } from "node:fs";
@@ -742,6 +743,9 @@ export function deepChecksForPacks(
   const checks: CheckDefinition[] = [];
   if (packs.includes("secure-build")) checks.push(gitleaksSecretCheck);
   if (packs.includes("secure-build") && options.gitHistorySecrets) checks.push(gitleaksHistoryCheck);
-  if (packs.includes("production-ready") && options.networkedDependencyScan) checks.push(osvDependencyCheck);
+  if (packs.includes("production-ready") && options.networkedDependencyScan) {
+    checks.push(osvDependencyCheck);
+    checks.push(nodeRuntimeSecurityCheck);
+  }
   return checks;
 }
