@@ -126,6 +126,7 @@ function Results({ report, example, onReset }: { report: ScanReport; example: bo
 export default function Page() {
   const [mode, setMode] = useState<Mode>("github");
   const [url, setUrl] = useState("");
+  const [vulnerabilityIntelligence, setVulnerabilityIntelligence] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [report, setReport] = useState<ScanReport | null>(null);
@@ -135,7 +136,7 @@ export default function Page() {
     setError(""); setBusy(true); setReport(null);
     try {
       const response = await fetch("/api/scan", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: mode, url }), cache: "no-store" });
+        body: JSON.stringify({ kind: mode, url, vulnerabilityIntelligence }), cache: "no-store" });
       const data: unknown = await response.json();
       if (!data || typeof data !== "object") throw new Error("An unexpected response was received.");
       const payload = data as { report?: ScanReport; error?: string };
@@ -172,6 +173,7 @@ export default function Page() {
           <label htmlFor="project-url">{mode === "github" ? "Public GitHub repository" : "Public website URL"}</label>
           <input id="project-url" type="text" autoComplete="off" spellCheck={false} maxLength={500} required value={url} onChange={e => setUrl(e.target.value)} placeholder={mode === "github" ? "https://github.com/owner/repository" : "https://your-app.example"} />
           <p className="hint">{mode === "github" ? "Selected source and configuration checks. Private repositories aren't supported yet." : "Checks visible HTTPS, headers and other bounded runtime evidence. Not a code scan."}</p>
+          <label className="hint" style={{display:"flex",gap:"0.65rem",alignItems:"flex-start",cursor:"pointer"}}><input type="checkbox" checked={vulnerabilityIntelligence} onChange={e=>setVulnerabilityIntelligence(e.target.checked)} style={{width:"auto",marginTop:"0.2rem"}} /><span><b>Check known dependency vulnerabilities (optional)</b><br/>This may send package names and versions to OSV and request official Node.js release information. It does not send application source files. Networked checking may take longer.</span></label>
           {error && <div className="form-error" role="alert">{error}</div>}
           <button type="submit" className="primary" disabled={busy || !url.trim()}><Icon name="scan"/>{busy ? "Running bounded checks…" : "Check my project"}<Icon name="arrow"/></button>
           {busy && <p className="hint" role="status">An isolated, temporary scan is running. This may take a little time; keep this tab open.</p>}
