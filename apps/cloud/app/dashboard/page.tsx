@@ -28,8 +28,9 @@ export default async function Dashboard() {
       <h1>Your projects.</h1>
       <p>Welcome{identity.name ? ", " + identity.name : ""}. See what Ship Check has inspected, when it last ran and what it could not verify.</p>
     </section>
-    <section className="dashboard-panel">
-      <p className="section-index">01 / PROJECT HISTORY</p>
+    {list.projects.length === 0 && <Tokens firstProject />}
+    <section className="dashboard-panel" id="cloud-projects">
+      <p className="section-index">{list.projects.length === 0 ? "02" : "01"} / PROJECT HISTORY</p>
       <h2>Connected projects <span className="count-chip">{list.projects.length}</span></h2>
       {list.projects.length ? <div className="project-grid">
         {list.projects.map(project => <a className="project-card" key={project.id} href={`/dashboard/projects/${project.id}`}>
@@ -40,14 +41,14 @@ export default async function Dashboard() {
           <span className="project-link">View scan timeline →</span>
         </a>)}
       </div> : <div className="dashboard-empty">
-        <h3>No projects connected yet</h3>
-        <p>Run Ship Check in your repository or CI, then explicitly sync the metadata using a <b>CI metadata sync</b> token below. Cloud does not scan your private repositories by itself.</p>
-        <code>npx --yes @good-ship/ship-check@0.0.0-alpha.12 scan .</code>
-        <p>Read the <a href="https://github.com/tomcwxyz/Ship-check/blob/main/docs/CLOUD_MONITORING.md">Cloud monitoring guide</a> for a scheduled GitHub Action workflow.</p>
+        <h3>Your first project will appear here after you send a scan summary.</h3>
+        <p>First create a <b>Desktop or CI sync token</b> in the connections section above. Then run Ship Check Desktop on your computer and choose <b>Send summary to Cloud</b> after reviewing the results. Only source-free metadata is uploaded, and nothing is sent automatically.</p>
+        <p><b>Using the command line instead?</b> <code>npx --yes @good-ship/ship-check@0.0.0-alpha.12 scan .</code> runs a <em>local scan only</em>; it does not connect your account or upload a result. Follow the <a href="https://github.com/tomcwxyz/Ship-check/blob/main/docs/CLOUD_MONITORING.md">Cloud monitoring guide</a> for explicit CLI or scheduled CI syncing.</p>
+        <p><a href="#cloud-connections">Go to Cloud connection tokens ↑</a></p>
       </div>}
       {list.nextCursor && <p>Showing the first 100 projects. API pagination is available.</p>}
     </section>
-    <Tokens />
+    {list.projects.length > 0 && <Tokens />}
     <footer className="cloud-footer">
       Ship Check Alpha 12 · No safety scores · <a href="https://github.com/tomcwxyz/Ship-check">Open source</a>
     </footer>
