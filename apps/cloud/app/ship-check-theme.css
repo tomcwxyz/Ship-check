@@ -1,0 +1,18 @@
+/* Ship Check shared visual tokens. Keep mirrored copies in all three app entrypoints.
+ * No remote font loading here: the desktop must work without network access.
+ * The playground may separately load DM families, with local fallbacks everywhere.
+ */
+:root {
+  --cream: #f6f3e9;
+  --paper: #fffefa;
+  --ink: #19372e;
+  --grey: #61756b;
+  --lime: #e0ee8b;
+  --line: #d9dfd4;
+  --red: #a04437;
+  --orange: #95631a;
+  --shadow: 0 18px 50px rgba(24, 50, 40, 0.08);
+  --font-sans: "DM Sans", "Segoe UI", Arial, sans-serif;
+  --font-serif: "DM Serif Display", Georgia, "Times New Roman", serif;
+  --font-mono: "DM Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
