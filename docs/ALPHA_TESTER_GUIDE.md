@@ -47,8 +47,8 @@ Then:
 
 1. Choose **Folder** and select one real project.
 2. Run the default review.
-3. Read the three result summaries and coverage strip before opening technical evidence.
-4. Open the suggested **Next action**.
+3. Read the four result summaries (attention, verification, unassessed scope, verified controls) and the single suggested next action. Open detailed coverage only if useful.
+4. Review **What we found working**. Check whether each claimed verified control has meaningful evidence; ordinary observations must not be presented as proof. Then open the suggested **Next action**.
 5. Decide whether the FIX or VERIFY instruction makes sense to you.
 6. If appropriate, make one small change or carry out one verification.
 7. Run Ship Check again and see whether the before/after story is understandable.
