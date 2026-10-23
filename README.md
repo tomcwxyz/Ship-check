@@ -89,3 +89,6 @@ pnpm test
 Code is designated Apache-2.0. The Ship Check name and marks are retained by The Good Ship.
 
 Ship Check is an assurance aid, **not** a penetration test, compliance audit or security certification.
+
+
+For scheduled metadata-only CI history and its prerequisites, see [Cloud monitoring pilot](docs/CLOUD_MONITORING.md).
