@@ -136,7 +136,7 @@ pub fn publish_report(app: &AppHandle, report: Value, display_name: String) -> R
         .filter(|x| uuid_shape(x))
         .ok_or_else(|| "Cloud returned an invalid project receipt.".to_owned())?;
     let status = payload.get("scanStatus").and_then(Value::as_str)
-        .filter(|x| matches!(x, "stored" | "duplicate" | "enriched"))
+        .filter(|x| matches!(*x, "stored" | "duplicate" | "enriched"))
         .ok_or_else(|| "Cloud did not confirm the stored scan.".to_owned())?;
     let ingested_at = payload.get("ingestedAt").and_then(Value::as_str)
         .ok_or_else(|| "Cloud returned no scan timestamp.".to_owned())?;
