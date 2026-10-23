@@ -37,10 +37,13 @@ export async function POST(request: NextRequest) {
   if (Number(request.headers.get("content-length") || 0) > 1024)
     return error(413, "Request too large.");
   let source: ParsedSource;
+  let vulnerabilityIntelligence = false;
   try {
     const body = await readBoundedJson(request);
     if (!body || typeof body !== "object") throw new Error("Enter a project to scan.");
-    const { url, kind } = body as { url?: unknown; kind?: unknown };
+    const { url, kind, vulnerabilityIntelligence: selected } = body as { url?: unknown; kind?: unknown; vulnerabilityIntelligence?: unknown };
+    if (selected !== undefined && typeof selected !== "boolean") throw new Error("Invalid security intelligence option.");
+    vulnerabilityIntelligence = selected === true;
     source = parseSource(url, kind) as ParsedSource;
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Invalid scan request.";
@@ -49,7 +52,7 @@ export async function POST(request: NextRequest) {
   if (source.kind !== "github") return error(422, "Live website scanning is not yet available. Choose a public GitHub repository.");
   try {
     await claimAnonymousScan(request);
-    const report = await scanInSandbox(source);
+    const report = await scanInSandbox(source, vulnerabilityIntelligence);
     return NextResponse.json({ report }, { headers });
   } catch (cause) {
     if (cause instanceof RateLimited) return error(429, cause.message);
