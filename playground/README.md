@@ -6,6 +6,7 @@ A deliberately separate, no-login Next.js app in the existing Ship-check reposit
 
 - Public GitHub repository `owner/repo`. Website scanning is temporarily disabled pending further DNS/IPv6 egress controls.
 - Runs the **published, pinned canonical Ship Check CLI** in an ephemeral Vercel Sandbox, not a parallel implementation of the scanner.
+- Uses the Alpha 11 scanner by default; the optional vulnerability-intelligence checkbox gives per-scan consent before dependency identifiers or versions are queried externally via OSV. The Node.js runtime advisory feature will be available in the playground after it is published in a subsequent CLI alpha.
 - Captures an original `ScanReport/0.1` JSON result for findings, unverified controls, and coverage.
 - Gives an illustrated example (explicitly marked **not a real scan**) without consuming credits.
 - Retains no source, reports, or scan history; sandbox destroyed in `finally`.
@@ -18,7 +19,7 @@ A deliberately separate, no-login Next.js app in the existing Ship-check reposit
 - Public GitHub size is checked against the GitHub repository API before scan (20,000 KiB upper bound). GitHub's reported size is not a decompression limit, so runner CPU/memory/timeouts are also required.
 - Anonymous scans require a Vercel-injected real client IP and durable Upstash Redis rate limiting. Without either, scans are **disabled** rather than unmetered.
 - Three scans per visitor per 24-hour key TTL, server-enforced. IP identity is pseudonymised using a keyed HMAC-SHA-256 before use as a Redis key; it is not an anonymity guarantee. Deploy upstream protection against proxies / distributed abuse before scaling.
-- The sandbox egress allow-list is limited to `registry.npmjs.org` and `github.com`, with explicit IPv4 private/link-local CIDR denies. Vercel Sandbox rejects IPv6 CIDRs such as `::1/128` at creation; website scanning is disabled until we can robustly reject IPv6 private targets and DNS rebinding. GitHub checks only permit the fixed `github.com` domain.
+- Standard sandbox egress is limited to `registry.npmjs.org` and `github.com`. For explicitly opted-in vulnerability intelligence, the additional allowed hosts are `api.osv.dev`, `nodejs.org`, and `raw.githubusercontent.com`. IPv4 private/link-local CIDR denies remain enforced. Vercel Sandbox rejects IPv6 CIDRs such as `::1/128` at creation; website scanning is disabled until we can robustly reject IPv6 private targets and DNS rebinding. GitHub checks only permit the fixed `github.com` domain.
 - Report returned only to the requesting browser with no-store cache headers. Avoid server logging raw report content. The originating repository may remain publicly available at GitHub.
 - Scans use the canonical engine's bounded, non-mutating checks; this is **not** a security certificate or penetration test.
 - Host limit: 180 seconds; sandbox limit: 150 seconds. Run-time GitHub API, npm or sandbox availability can cause a graceful error.
@@ -35,7 +36,7 @@ npm run dev
 
 Use a connected Vercel KV (Upstash-backed) database, which supplies `KV_REST_API_URL` and `KV_REST_API_TOKEN` to preview and production; the same code also supports `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` if provisioned directly with Upstash. Both sets are server-side only. A Vercel Sandbox project identity is required for real scans.
 
-The canonical scanner is pinned to `0.0.0-alpha.9` by default. Set `SHIP_CHECK_PLAYGROUND_SCANNER_VERSION` only for a published and verified alternative release.
+The canonical scanner is pinned to `0.0.0-alpha.11` by default. Set `SHIP_CHECK_PLAYGROUND_SCANNER_VERSION` only for a published and verified alternative release; any deployment override takes precedence over this source default.
 
 The pinned `@good-ship/ship-check@0.0.0-alpha.9` release has been smoke-tested in a Vercel Sandbox against a real public GitHub repository (20 October 2026). The repository's newer alpha.10 has not yet been published. Managed scan provenance is corrected in the hosted wrapper until the next CLI release supports that execution boundary natively. Do not silently fall back to a different scanner or `latest`. If the package/version is not available, finish publication/testing before enabling scans.
 

@@ -12,3 +12,12 @@ test("GitHub scans reach only npm registry and GitHub", () => {
 test("Site scans cannot enable arbitrary egress until DNS and IPv6 policies are ready", () => {
   assert.throws(() => scanEgressPolicy({ kind: "site", target: "https://example.org/" }), /Unknown playground source/);
 });
+
+test("Opted-in GitHub security intelligence uses only fixed advisory hosts", () => {
+  const policy = scanEgressPolicy({ kind: "github", target: "https://github.com/octocat/Hello-World" }, true);
+  assert.deepEqual(policy.allow, [
+    "registry.npmjs.org", "github.com", "api.osv.dev", "nodejs.org", "raw.githubusercontent.com"
+  ]);
+  assert.ok(!policy.allow.includes("*"));
+  assert.ok(policy.subnets.deny.includes("127.0.0.0/8"));
+});

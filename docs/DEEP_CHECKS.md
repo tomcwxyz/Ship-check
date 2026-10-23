@@ -38,6 +38,16 @@ If the user requests OSV but the scanner is unavailable, Ship Check records an u
 
 Developer/CLI users may supply a trusted binary with `SHIP_CHECK_OSV_PATH`.
 
+## Node.js runtime security intelligence — opt-in official sources
+
+Alongside OSV, `--networked-dependency-scan` checks **exact Node.js version declarations** against the official [Node.js release index](https://nodejs.org/dist/index.json), including its security-release markers, and the [Node.js release support schedule](https://github.com/nodejs/Release/blob/main/schedule.json).
+
+Supported source declarations include `engines.node`, `.nvmrc`, `.node-version`, `.tool-versions`, exact `node:` Docker image tags and fixed GitHub Actions `node-version` declarations. Broad ranges and unsupported declaration shapes remain **unverified**; an exact version older than an official security update or past the release line's end of support is an actionable **repository-configuration finding**.
+
+This does **not** confirm what Node.js version a deployed application, serverless provider or CI runner actually executes, nor does it prove any specific CVE is exploitable. A security-release flag establishes a new patch exists; inspect linked release notes and security advisories for the affected CVEs. OSV checks npm packages separately from these runtime checks.
+
+The check is networked, on-demand and explicitly opt-in. It sends no source code to either official endpoint; requests disclose that Ship Check is checking security release information. If the external sources fail or data is malformed, the check reports an unverified coverage gap and never claims a clean result.
+
 ## Semgrep CE — opt-in pinned local rules
 
 Alpha.6 adds an explicitly opt-in local Semgrep adapter for a deliberately small Ship Check-owned ruleset.

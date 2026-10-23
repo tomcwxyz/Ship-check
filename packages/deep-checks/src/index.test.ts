@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseGitleaksHistoryReport, parseGitleaksReport, parseOsvReport } from "./index.js";
+import { cvssV3Score, parseGitleaksHistoryReport, parseGitleaksReport, parseOsvReport } from "./index.js";
 
 describe("Gitleaks adapter", () => {
   it("converts findings without carrying the matched secret into Ship Check evidence", () => {
@@ -116,7 +116,7 @@ describe("OSV adapter", () => {
     expect(findings[0]?.summary).toContain("1 distinct OSV vulnerability record");
   });
 
-  it("uses a conservative medium severity when upstream JSON has no explicit severity label", () => {
+  it("leaves unknown upstream severity unrated instead of manufacturing a medium risk", () => {
     const findings = parseOsvReport({
       results: [{
         source: { path: "package-lock.json" },
@@ -127,6 +127,27 @@ describe("OSV adapter", () => {
       }]
     }, "/tmp/manifests", "2.5.1");
 
-    expect(findings[0]?.severity).toBe("medium");
+    expect(findings[0]?.severity).toBe("info");
+    expect(findings[0]?.summary).toContain("could not be established");
   });
+  it("derives a high CVSS 3.1 rating from the advisory vector", () => {
+    expect(cvssV3Score("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H")).toBe(9.8);
+    const findings = parseOsvReport({
+      results: [{
+        source: { path: "pnpm-lock.yaml" },
+        packages: [{
+          package: { name: "risky-dependency", version: "2.0.0", ecosystem: "npm" },
+          vulnerabilities: [{
+            id: "GHSA-example-3",
+            severity: [{ type: "CVSS_V3", score: "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H" }],
+            affected: [{ ranges: [{ events: [{ introduced: "0" }, { fixed: "2.0.1" }] }] }]
+          }]
+        }]
+      }]
+    }, "/tmp/manifests", "2.5.1");
+    expect(findings[0]?.severity).toBe("critical");
+    expect(findings[0]?.summary).toContain("2.0.1");
+    expect(findings[0]?.remediation.fix).toContain("2.0.1");
+  });
+
 });

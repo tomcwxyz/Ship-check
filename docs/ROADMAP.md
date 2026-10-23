@@ -1,3 +1,13 @@
+## Live vulnerability intelligence (October 2026)
+
+- [x] Add official Node.js security release and support-schedule comparison for declared runtime pins via opt-in network access.
+- [x] Preserve explicit unknown states for broad Node version ranges, missing runtime evidence and feed failures; never claim a deployment is running the configured version.
+- [x] Improve OSV severity handling for CVSS 3.x vectors and unscored advisories, and show advisory-listed fixed versions.
+- [x] Bump playground default published scanner to Alpha 11 and add a per-scan network consent control with restricted advisory hosts.
+- [ ] Validate npm Alpha 12+ packaging and publish the new runtime intelligence before enabling it in production playground scans.
+- [ ] Extend advisory enrichment with audited malicious-package feeds and verified exploit prioritisation.
+- [ ] Consider scheduled portfolio-level re-checks with Lookout without uploading source or exposing secrets.
+
 # Roadmap
 
 ## Review-first reporting and recurring cost discipline (October 2026)

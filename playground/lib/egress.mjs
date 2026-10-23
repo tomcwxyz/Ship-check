@@ -7,12 +7,13 @@ const PRIVATE_CIDRS = [
   "169.254.0.0/16", "172.16.0.0/12", "192.168.0.0/16",
   "192.0.0.0/24", "198.18.0.0/15", "224.0.0.0/4", "240.0.0.0/4"
 ];
-export function scanEgressPolicy(source) {
+export function scanEgressPolicy(source, vulnerabilityIntelligence = false) {
   const allowed = ["registry.npmjs.org"];
   if (source.kind === "github") {
     allowed.push("github.com");
   } else {
     throw new Error("Unknown playground source.");
   }
+  if (vulnerabilityIntelligence) allowed.push("api.osv.dev", "nodejs.org", "raw.githubusercontent.com");
   return { allow: [...new Set(allowed)], subnets: { deny: PRIVATE_CIDRS } };
 }
