@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cvssV3Score, parseGitleaksHistoryReport, parseGitleaksReport, parseOsvReport } from "./index.js";
+import { cvssV3Score, hasOsvPackageEvidence, parseGitleaksHistoryReport, parseGitleaksReport, parseOsvReport } from "./index.js";
 
 describe("Gitleaks adapter", () => {
   it("converts findings without carrying the matched secret into Ship Check evidence", () => {
@@ -55,6 +55,13 @@ describe("Gitleaks adapter", () => {
 });
 
 describe("OSV adapter", () => {
+  it("rejects absent or empty extraction evidence, not interpreting it as no vulnerabilities", () => {
+    expect(hasOsvPackageEvidence({})).toBe(false);
+    expect(hasOsvPackageEvidence({ results: null })).toBe(false);
+    expect(hasOsvPackageEvidence({ results: [{ packages: [] }] })).toBe(false);
+    expect(hasOsvPackageEvidence({ results: [{ packages: [{ package: { name: "safe", version: "1.0.0" } }] }] })).toBe(true);
+  });
+
   it("prioritises explicit MAL advisory IDs as malicious-package findings", () => {
     const findings = parseOsvReport({ results: [{
       source: { path: "package-lock.json" },
