@@ -11,11 +11,11 @@ type StoredToken = {
   revokedAt: string | null;
 };
 
-export default function Tokens() {
+export default function Tokens({ firstProject = false }: { firstProject?: boolean }) {
   const [tokens, setTokens] = useState<StoredToken[]>([]);
   const [latest, setLatest] = useState("");
-  const [label, setLabel] = useState("My coding agent");
-  const [scope, setScope] = useState<"history:read" | "history:sync">("history:read");
+  const [label, setLabel] = useState(firstProject ? "Windows Desktop" : "My coding agent");
+  const [scope, setScope] = useState<"history:read" | "history:sync">(firstProject ? "history:sync" : "history:read");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -66,15 +66,15 @@ export default function Tokens() {
     } finally { setBusy(false); }
   }
 
-  return <section className="dashboard-panel">
-    <p className="section-index">02 / CONNECTIONS</p>
-    <h2>Connect your tools</h2>
-    <p>Read-only tokens work with the MCP endpoint. Separate sync tokens let your own CI send metadata. Tokens expire after 90 days and can be revoked here.</p>
+  return <section className="dashboard-panel" id="cloud-connections">
+    <p className="section-index">{firstProject ? "01" : "02"} / CONNECTIONS</p>
+    <h2>{firstProject ? "Connect your desktop." : "Connect your tools."}</h2>
+    <p>{firstProject ? "Create a Desktop or CI sync token below. Copy it into Ship Check Desktop, run a local scan, then choose Send summary to Cloud. Nothing is uploaded automatically." : "Choose an upload token for Desktop or CI, or a separate read-only token for an MCP/AI agent. Tokens expire after 90 days and can be revoked here."}</p>
     <div className="token-controls">
       <label>Label <input maxLength={80} value={label} onChange={e=>setLabel(e.target.value)} /></label>
       <label>Permission <select value={scope} onChange={e=>setScope(e.target.value as typeof scope)}>
-        <option value="history:read">Read-only MCP / agent</option>
-        <option value="history:sync">CI metadata sync</option>
+        <option value="history:sync">Upload scan summaries — Desktop or CI</option>
+        <option value="history:read">Read project history — MCP / agent</option>
       </select></label>
       <button type="button" onClick={create} disabled={busy || !label.trim()}>Create token</button>
     </div>
@@ -82,7 +82,7 @@ export default function Tokens() {
       <b>Save this token now — it will not be shown again.</b>
       <code>{latest}</code>
       <button type="button" onClick={() => void navigator.clipboard.writeText(latest)}>Copy token</button>
-      <p>For MCP: <code>https://cloud-check.good-ship.co.uk/mcp</code> with an Authorization Bearer token. Your client must support manually configured bearer credentials.</p>
+      {scope === "history:sync" ? <p><b>Next:</b> Open Ship Check Desktop, find <b>Keep a record, if you choose</b>, paste this token in <b>Cloud sync token</b>, then run a scan and choose <b>Send summary to Cloud</b>. You can also use it as a CI secret for scheduled metadata syncs. This token does not grant read-only MCP access.</p> : <p><b>Read-only MCP:</b> Configure <code>https://cloud-check.good-ship.co.uk/mcp</code> with this bearer token in your agent. This token cannot upload scans.</p>}
     </div>}
     {error && <p role="alert" className="auth-error">{error}</p>}
     {tokens.length > 0 && <ul className="token-list">{tokens.map(t=><li key={t.id}>
