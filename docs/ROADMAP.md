@@ -16,6 +16,17 @@
 
 # Roadmap
 
+## Consistent Ship Check experience and agent connectivity (October 2026)
+
+- [x] Adopt the playground's forest-green/lime/cream design tokens across desktop, playground and the Cloud pilot UI, with a shared token-contract test.
+- [x] Keep richer desktop review controls and local/offline font fallbacks while aligning first-screen typography, masthead and controls.
+- [x] Write the initial remote read-only MCP and Lookout integration contract with account-scoped permission and provenance requirements. See [MCP and Lookout integration design](./CLOUD_MCP_AND_LOOKOUT.md).
+- [ ] Validate desktop and Cloud visual parity on actual native Windows/macOS builds and Vercel preview, especially keyboard, small screens and offline typography.
+- [ ] Implement authenticated MCP Streamable HTTP/OAuth endpoint and read-only tools after the Cloud account/session and history services are deployed and verified.
+- [ ] Add explicit consented Lookout project mapping and bounded read-only aggregation.
+- [ ] Add real per-advisory/finding MCP tools only after structured finding storage and change-aware security monitoring exist.
+
+
 ## Review-first reporting and recurring cost discipline (October 2026)
 
 - [x] Add a three-answer results overview: needs attention, needs verification, and unassessed areas, with explicit bounded coverage rather than a safety score.

@@ -92,3 +92,6 @@ Ship Check is an assurance aid, **not** a penetration test, compliance audit or 
 
 
 For scheduled metadata-only CI history and its prerequisites, see [Cloud monitoring pilot](docs/CLOUD_MONITORING.md).
+
+
+Desktop, public playground and Cloud pilot share the [Ship Check visual design tokens](design/ship-check-theme.css). The planned [read-only MCP and Lookout connector](docs/CLOUD_MCP_AND_LOOKOUT.md) is **not live** and will require Cloud authentication and account-scoped consent.

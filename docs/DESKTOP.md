@@ -1,5 +1,8 @@
 # Desktop alpha
 
+The desktop shares the public playground's **ship/check** green/lime/cream visual tokens, softer card styles and plain-language first screen. The desktop retains its local-first evidence acquisition and deeper review panels; visual consistency does **not** imply identical capabilities. Design source: `design/ship-check-theme.css` and the mirrored local `apps/desktop/ui/ship-check-theme.css`. Desktop uses offline-safe fallback fonts rather than fetching Google Fonts.
+
+
 The desktop app is a repository review surface over the same Ship Check engine used by the CLI and ecosystem adapters. It deliberately does not contain a second implementation of checks.
 
 ## User flow
