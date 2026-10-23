@@ -1,0 +1,40 @@
+name: Playground validate
+
+on:
+  pull_request:
+    paths:
+      - "playground/**"
+      - ".github/workflows/playground-validate.yml"
+  push:
+    branches: [main]
+    paths:
+      - "playground/**"
+      - ".github/workflows/playground-validate.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ship-check-playground-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  playground:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: playground
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Install the standalone playground dependencies
+        run: npm install --no-package-lock --no-audit --no-fund
+      - name: Unit and source checks
+        run: |
+          npm test
+          npm run check
+      - name: Verify production build
+        run: npm run build
