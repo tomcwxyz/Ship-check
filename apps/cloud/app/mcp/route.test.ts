@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-const handler=vi.fn();
+const { handler } = vi.hoisted(() => ({ handler: vi.fn() }));
 vi.mock("../../lib/cloudRuntime",()=>({cloudRuntime:()=>({handler})}));
 import { POST } from "./route";
 
