@@ -1,0 +1,225 @@
+@import url("./ship-check-theme.css");
+
+/* Desktop adopts the playground's visual language while retaining local-first
+ * source controls, richer reviews and native keyboard/operating-system support.
+ * No network font fetch occurs in this desktop stylesheet. */
+:root {
+  --muted: var(--grey);
+  --paper-strong: var(--paper);
+  --soft-line: var(--line);
+  --accent: var(--lime);
+  --accent-dark: #315c43;
+  --green: #438657;
+  --green-soft: #e5f0e9;
+  --yellow-soft: #f9e7c9;
+  --red-soft: #f6ddd5;
+  --plate: #eff2ea;
+  --mono: var(--font-mono);
+}
+html { font-family: var(--font-sans); }
+body {
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+body::before { display: none; }
+.app-shell { width: min(1160px, calc(100% - 48px)); }
+.topbar {
+  min-height: 84px;
+  border-bottom: 1px solid var(--line);
+}
+.brand-lockup { gap: 11px; }
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  overflow: visible;
+  border: 0;
+  border-radius: 11px;
+  box-shadow: none;
+  color: var(--ink);
+  background: var(--lime);
+  font: 700 28px/1 Georgia, serif;
+}
+.brand-mark::before,
+.brand-mark::after { display: none; }
+.brand-name {
+  font: 700 23px/1 var(--font-sans);
+  letter-spacing: -.05em;
+}
+.muted-mark { opacity: .45; }
+.brand-kicker { font-size: 10px; letter-spacing: .09em; }
+.engine-pill {
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--paper);
+  color: var(--grey);
+  font-size: 11px;
+}
+.hero { max-width: 920px; padding: 54px 0 36px; }
+.hero h1 {
+  max-width: 900px;
+  font: 400 clamp(48px, 6vw, 72px)/1.02 var(--font-serif);
+  letter-spacing: -.055em;
+}
+.hero h1 em { font-style: italic; color: #658b64; }
+.hero-copy { color: var(--grey); font-size: 17px; max-width: 750px; }
+.eyebrow, .section-kicker {
+  color: #5b7a60;
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.inspection-strip { border-color: var(--line); }
+.inspection-strip span { color: var(--grey); font-size: 10px; }
+.inspection-strip b { color: #5b7a60; }
+.privacy-note,
+.default-scan-note {
+  background: #eff4e9;
+  border-color: var(--line);
+  border-left: 4px solid #438657;
+  color: var(--ink);
+  border-radius: 7px;
+}
+.privacy-note span { background: #438657; }
+.scan-card,
+.results {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+}
+.scan-card::before,
+.results::before { display: none; }
+.scan-heading h2,
+.results-heading h2 {
+  font: 400 clamp(29px, 4vw, 40px)/1.12 var(--font-serif);
+  letter-spacing: -.045em;
+}
+.button { border-radius: 7px; font-size: 13px; }
+.button-primary {
+  background: var(--lime);
+  color: var(--ink);
+  border: 1px solid #d1e17f;
+  box-shadow: none;
+}
+.button-primary:hover:not(:disabled) {
+  transform: none;
+  background: #d4e46e;
+  box-shadow: none;
+}
+.button-secondary,.button-quiet {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+}
+.source-switch {
+  background: #eff2e9;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  gap: 4px;
+  padding: 4px;
+}
+.source-option {
+  border-radius: 7px;
+  font-size: 12px;
+}
+.source-option + .source-option { border-left: none; }
+.source-option.is-active {
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: 0 2px 9px #203e2617;
+}
+.project-path,.github-source { background: #f3f5ef; }
+.project-path,.github-source,.repo-field input {
+  border-color: var(--line);
+  border-radius: 7px;
+}
+.default-scan-note,
+.pack-card,
+.network-check-card,
+.advanced-checks { border-color: var(--line); }
+.pack-card { background: var(--paper); border-radius: 10px; }
+.pack-card:has(input:checked) {
+  background: #eff4e9;
+  border-color: #9bb79d;
+  box-shadow: inset 0 3px 0 #438657;
+}
+.scan-actions,
+.results-toolbar { border-top: 1px solid var(--line); }
+.review-overview-heading h3 {
+  font: 400 clamp(30px, 4vw, 46px)/1.09 var(--font-serif);
+  letter-spacing: -.045em;
+}
+.review-overview-intro { color: var(--grey); }
+.review-metric {
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--line);
+  border-radius: 9px;
+  background: #eff2ea;
+}
+.review-metric-attention { border-top-color: #a04437; }
+.review-metric-question { border-top-color: #95631a; }
+.review-metric-missing { border-top-color: #889d90; }
+.review-metric-verified { border-top-color: #438657; }
+.review-metric-value {
+  font: 400 clamp(27px, 4vw, 42px)/1 var(--font-serif);
+}
+.review-next {
+  border: 1px solid var(--line);
+  border-left: 4px solid #7baf65;
+  border-radius: 10px;
+  background: #f2f5e9;
+}
+.review-positives {
+  border: 1px solid var(--line);
+  border-left: 4px solid #438657;
+  border-radius: 10px;
+  background: #eff5ec;
+}
+.review-scope {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+}
+.review-scope-tile { border-radius: 7px; }
+.review-scope-tile[data-status="assessed"] { background: #e5f0e9; }
+.review-text-action { color: #315c43; }
+.finding-card,
+.gap-card,
+.observation-card,
+.suppression-card {
+  border-radius: 9px;
+  border-color: var(--line);
+  background: var(--paper);
+}
+.finding-card[data-severity="high"] { border-left-color: #a04437; }
+.finding-card[data-severity="medium"] { border-left-color: #95631a; }
+.finding-card[data-severity="low"] { border-left-color: #438657; }
+.filter-chip {
+  border-color: var(--line);
+  border-radius: 7px;
+  font-size: 11px;
+}
+.filter-chip.is-active { border-color: var(--ink); }
+.coverage-panel,.observations-panel,.suppressions-panel,.unverified-panel {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #eff2ea;
+}
+.observations-panel { border-left: 4px solid #438657; background: #eff5ec; }
+.unverified-panel { border-left: 4px solid #95631a; background: #faf6e8; }
+.footer { border-top: 1px solid var(--line); color: var(--grey); }
+button:focus-visible, input:focus-visible, summary:focus-visible {
+  outline: 3px solid #438657;
+  outline-offset: 3px;
+}
+@media (max-width: 760px) {
+  .scan-card,.results { box-shadow: var(--shadow); }
+  .hero { padding-top: 42px; }
+  .hero h1 { font-size: clamp(44px, 9vw, 60px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .button:hover:not(:disabled) { transition: none; transform: none; }
+}
