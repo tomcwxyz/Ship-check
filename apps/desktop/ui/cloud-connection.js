@@ -14,6 +14,7 @@ export function initCloudConnection(bridge, doc) {
   const projectName = root.querySelector("#cloud-project-name");
   const receipt = root.querySelector("#cloud-receipt");
   const historyLink = root.querySelector("#cloud-history-link");
+  const dashboardLink = root.querySelector("#cloud-dashboard-link");
   const busyState = { value: false };
   let connected = false;
   let report = null;
@@ -42,6 +43,20 @@ export function initCloudConnection(bridge, doc) {
       setStatus("Your system credential store is unavailable. Local scans still work.", true);
     }
     render();
+  }
+
+  // target="_blank" does not reliably launch external URLs in Tauri's
+  // restricted webview. Route clicks through an allowlisted native opener.
+  for (const link of [dashboardLink, historyLink]) {
+    link.addEventListener("click", async (event) => {
+      event.preventDefault();
+      const url = link === dashboardLink ? CLOUD_DASHBOARD : link.href;
+      try {
+        await bridge.openCloudUrl(url);
+      } catch {
+        setStatus("Could not open your default browser. Copy and open " + CLOUD_DASHBOARD + " manually.", true);
+      }
+    });
   }
 
   input.addEventListener("input", render);
