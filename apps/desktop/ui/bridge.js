@@ -21,6 +21,9 @@ function commonScanRequest(packs, options = {}, databaseConnectionString = "") {
 }
 
 export const desktopBridge = {
+  openCloudUrl(url) {
+    return invokeCommand("open_cloud_browser", { url });
+  },
   cloudConnectionStatus() {
     return invokeCommand("cloud_connection_status");
   },
