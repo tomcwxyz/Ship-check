@@ -39,7 +39,7 @@ Choose the build for your machine:
 - **macOS Apple Silicon** — `Ship.Check_0.0.0-alpha.12_aarch64.app.zip`
 - **Linux x64** — `Ship.Check_0.0.0-alpha.12_amd64.deb`
 
-The Windows build is currently unsigned. Windows may show a SmartScreen warning.
+The Windows build is currently unsigned; the desktop binaries should be taken only from our verified GitHub Actions draft release. Do not bypass or disable anti-virus protection to install untrusted downloads. Windows may show a SmartScreen warning.
 
 The macOS build is ad-hoc signed but not Apple-notarised. Unzip it, move **Ship Check.app** to Applications and, if macOS blocks the first launch, approve it in **System Settings → Privacy & Security**.
 
