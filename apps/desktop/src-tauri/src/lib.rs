@@ -1,5 +1,6 @@
 mod engine;
 mod cloud;
+mod external_links;
 mod repository;
 
 use engine::{EngineStatus, EstateScanRequest, ScanRequest};
@@ -175,9 +176,18 @@ async fn cloud_publish_summary(
         .map_err(|_| "Could not finish the Cloud summary sync task.".to_owned())?
 }
 
+#[tauri::command]
+async fn open_cloud_browser(app: AppHandle, url: String) -> Result<(), String> {
+    // Launch only user-initiated, allowlisted Ship Check Cloud browser links.
+    tauri::async_runtime::spawn_blocking(move || external_links::open_cloud_url(&app, url))
+        .await
+        .map_err(|_| "Could not open the default browser.".to_owned())?
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             choose_project,
             choose_estate,
@@ -190,7 +200,8 @@ pub fn run() {
             cloud_connection_status,
             cloud_connect_token,
             cloud_forget_token,
-            cloud_publish_summary
+            cloud_publish_summary,
+            open_cloud_browser
         ])
         .run(tauri::generate_context!())
         .expect("error while running Ship Check desktop");

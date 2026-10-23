@@ -1,6 +1,6 @@
 {
   "version": "0.0.0-alpha.12",
   "confirm": "ALPHA",
-  "reason": "Build first Cloud-connected native desktop Alpha 12 after CI, with draft Windows/Linux/macOS installers.",
+  "reason": "Rebuild draft Windows/Linux/macOS Alpha 12 installers with default-browser fixes for Cloud sign-in and project history links (PR #85).",
   "requestedBy": "The Good Ship"
 }

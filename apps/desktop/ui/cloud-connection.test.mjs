@@ -7,7 +7,7 @@ function element(value = "") {
   return {
     value, textContent:"", dataset:{}, disabled:false, hidden:false, href:"",
     addEventListener(name,handler){handlers.set(name,handler)},
-    async fire(name){const callback=handlers.get(name);assert.ok(callback,name);return callback()},
+    async fire(name,event={preventDefault(){}}){const callback=handlers.get(name);assert.ok(callback,name);return callback(event)},
   };
 }
 function setup() {
@@ -15,12 +15,13 @@ function setup() {
     "#cloud-status":element(), "#cloud-token":element(),
     "#cloud-connect":element(), "#cloud-forget":element(),
     "#cloud-send":element(), "#cloud-project-name":element("My project"),
-    "#cloud-receipt":element(), "#cloud-history-link":element()
+    "#cloud-receipt":element(), "#cloud-history-link":element(), "#cloud-dashboard-link":element()
   };
   const root={querySelector:s=>selectors[s]??null};
   const calls=[];
   const bridge={
     async cloudConnectionStatus(){return {saved:false,message:"Not connected"}},
+    async openCloudUrl(url){calls.push(["browser",url]);},
     async cloudConnectToken(token){calls.push(["connect",token]);return {saved:true,message:"Token saved"}},
     async cloudForgetToken(){calls.push(["forget"]);return {saved:false,message:"Forgotten"}},
     async cloudPublishSummary(report,name){calls.push(["publish",report,name]);return {
@@ -81,4 +82,30 @@ test("forgetting local token disables upload and reminds people about Cloud revo
   assert.equal(selectors["#cloud-send"].disabled,true);
   assert.equal(selectors["#cloud-forget"].hidden,true);
   assert.equal(calls.filter(x=>x[0]==="forget").length,1);
+});
+
+test("sign-in link opens the system browser through the native command, not a Tauri webview tab", async () => {
+  const { selectors, calls } = setup();
+  await tick();
+  let prevented = false;
+  const link = selectors["#cloud-dashboard-link"];
+  const callback = link.fire;
+  // The test DOM helper passes a synthetic click event to the listener.
+  await callback.call(link,"click",{ preventDefault(){ prevented=true; } });
+  assert.equal(prevented,true);
+  assert.deepEqual(calls.at(-1),["browser","https://cloud-check.good-ship.co.uk/dashboard"]);
+});
+
+test("a successful sync's project history link also opens externally", async () => {
+  const {selectors,calls,controller}=setup();
+  await tick();
+  selectors["#cloud-token"].value="shipcheck_"+"A".repeat(43);
+  await selectors["#cloud-connect"].fire("click");
+  controller.onScanCompleted({tool:{name:"ship-check"}},"example");
+  await selectors["#cloud-send"].fire("click");
+  let prevented = false;
+  await selectors["#cloud-history-link"].fire("click", {preventDefault(){prevented=true;}});
+  assert.ok(prevented);
+  assert.deepEqual(calls.at(-1),["browser",
+    "https://cloud-check.good-ship.co.uk/dashboard/projects/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"]);
 });
