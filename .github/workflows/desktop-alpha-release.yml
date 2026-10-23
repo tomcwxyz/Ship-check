@@ -315,3 +315,26 @@ jobs:
               --repo "$GITHUB_REPOSITORY" \
               --clobber
           done
+
+  publish-release:
+    name: Publish verified three-platform desktop alpha
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Verify platform installers and publish prerelease
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version || '0.0.0-alpha.12' }}
+        run: |
+          set -euo pipefail
+          tag="ship-check-desktop-v${VERSION}"
+          assets="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')"
+          echo "$assets"
+          echo "$assets" | grep -Eq '^Ship.Check_.*_x64-setup[.]exe$'
+          echo "$assets" | grep -Eq '^Ship.Check_.*_amd64[.]deb$'
+          echo "$assets" | grep -Eq '^Ship.Check_.*_aarch64[.]app[.]zip$'
+          gh release edit "$tag" --repo "$GITHUB_REPOSITORY" --draft=false --prerelease
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft,isPrerelease,url
