@@ -115,7 +115,7 @@ fn engine_candidates(app: &AppHandle) -> Vec<PathBuf> {
     candidates
 }
 
-fn locate_engine(app: &AppHandle) -> Result<PathBuf, String> {
+pub(crate) fn locate_engine(app: &AppHandle) -> Result<PathBuf, String> {
     let candidates = engine_candidates(app);
     for candidate in &candidates {
         if candidate.is_file() {
