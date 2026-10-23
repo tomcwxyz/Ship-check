@@ -55,6 +55,28 @@ describe("Gitleaks adapter", () => {
 });
 
 describe("OSV adapter", () => {
+  it("prioritises explicit MAL advisory IDs as malicious-package findings", () => {
+    const findings = parseOsvReport({ results: [{
+      source: { path: "package-lock.json" },
+      packages: [{ package: { name: "untrusted-example", version: "1.0.0", ecosystem: "npm" },
+        vulnerabilities: [{ id: "MAL-2026-12345" }] }]
+    }] }, "/tmp/manifests", "2.5.1");
+    expect(findings).toHaveLength(1);
+    expect(findings[0]?.title).toContain("malicious");
+    expect(findings[0]?.severity).toBe("critical");
+    expect(findings[0]?.remediation.fix).toContain("isolate");
+    expect(findings[0]?.remediation.verify).toContain("does not prove");
+  });
+  it("does not call an unknown advisory malicious without an explicit MAL identifier", () => {
+    const findings = parseOsvReport({ results: [{
+      source: { path: "pnpm-lock.yaml" },
+      packages: [{ package: { name: "unknown-example", version: "1.0.0", ecosystem: "npm" },
+        vulnerabilities: [{ id: "GHSA-example-2026" }] }]
+    }] }, "/tmp/manifests", "2.5.1");
+    expect(findings[0]?.title).toContain("vulnerable");
+    expect(findings[0]?.severity).toBe("info");
+  });
+
   it("groups known vulnerabilities by affected dependency without source content", () => {
     const findings = parseOsvReport({
       results: [{
