@@ -8,6 +8,8 @@ on:
       - "scripts/github-action.mjs"
       - "scripts/github-action-comparison.mjs"
       - "scripts/github-action-comparison.test.mjs"
+      - "scripts/github-action-cloud-sync.mjs"
+      - "scripts/github-action-cloud-sync.test.mjs"
       - "packages/adapters/**"
       - "packages/cli/**"
       - "packages/core/**"
@@ -21,6 +23,8 @@ on:
       - "scripts/github-action.mjs"
       - "scripts/github-action-comparison.mjs"
       - "scripts/github-action-comparison.test.mjs"
+      - "scripts/github-action-cloud-sync.mjs"
+      - "scripts/github-action-cloud-sync.test.mjs"
       - "packages/adapters/**"
       - "packages/cli/**"
       - "packages/core/**"
@@ -39,6 +43,9 @@ jobs:
 
       - name: Test PR comparison semantics
         run: node --test scripts/github-action-comparison.test.mjs
+
+      - name: Test opt-in Cloud sync boundaries
+        run: node --test scripts/github-action-cloud-sync.test.mjs
 
       - name: Run local Ship Check action
         id: ship-check
