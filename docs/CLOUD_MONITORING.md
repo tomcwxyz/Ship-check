@@ -63,3 +63,8 @@ The inspected Vercel project named `ship-check` has **no configured environment 
 ## Still to build
 
 Real account sign-in, operational shared rate limiting, end-to-end DB/host verification, a project history UI and estate dashboard, optional desktop/CLI post-scan sync, GitHub webhooks and change-aware scheduled scanning. **Newly disclosed advisory alerts** also require consented package/advisory inventory metadata and freshness/deduplication rules. Source-free aggregate counts by themselves cannot identify a newly vulnerable dependency or establish deployed exploitability.
+
+
+## Interface and agent access
+
+The Cloud pilot landing screen now uses the same visual identity as the playground and desktop; this does not enable monitoring automatically. An authenticated read-only remote MCP server and optional Lookout integration are planned after the project history service is live. See [MCP and Lookout integration design](CLOUD_MCP_AND_LOOKOUT.md).
