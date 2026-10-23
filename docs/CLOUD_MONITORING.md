@@ -1,30 +1,26 @@
-# Cloud monitoring — opt-in CI history pilot
+# Ship Check Cloud Alpha 12
 
-This is the first usable recurring-monitoring integration, **not** a hosted always-on vulnerability alert service. The canonical GitHub Action scans in the repository's own CI runner. It already generates the source-free `assurance-metadata/0.1` sidecar and can now, with separate consent, sync **only that file** to Cloud.
+**Cloud domain:** https://cloud-check.good-ship.co.uk
+**Status:** Alpha. Cloud stores and compares source-free assurance metadata, not source code or full report evidence. Each project is isolated to a Neon-verified account and is only monitored when its owner explicitly configures CI. A quiet scan does **not** establish that an application is safe.
 
-## What is implemented
+## Getting started
 
-- `cloud-url`, `cloud-token` and `cloud-retention` are optional GitHub Action inputs. A blank Cloud URL means **no Cloud request**.
-- Sync invokes the existing canonical `ship-check cloud connect` command with an expiring scoped `history:sync` token, after the scan and metadata sidecar are generated.
-- The Cloud connect operation is idempotent per opaque project and scan identity. Later scheduled executions add new events; repeats do not duplicate them.
-- Sync is only permitted for `push`, `schedule` and `workflow_dispatch` events, never pull requests. The secret is passed only to the sync step as an environment variable, not the command line.
-- A requested but unsuccessful sync causes an explicit CI failure. Source files, full report, evidence details and matched secrets are never part of the Cloud payload.
-- There is no automatic scanning schedule in Ship-check's repository. A caller must enable a workflow explicitly.
+1. Sign in or sign up with **email and password** at `/auth`. Google and other sign-in methods are not available in this alpha.
+2. Open `/dashboard`, and create a **CI metadata sync** token. The raw token appears **once**, and expires in 90 days; save it in the repository's GitHub Actions secret `SHIP_CHECK_CLOUD_HISTORY_SYNC_TOKEN`.
+3. Set a repository variable `SHIP_CHECK_CLOUD_URL` to `https://cloud-check.good-ship.co.uk`. This domain's DNS and Vercel ownership have been verified.
+4. Opt in to a scheduled job in the repository you wish to check. A simple example is below; for production replace any `@main` action reference with a reviewed immutable commit SHA.
+5. Run the workflow manually once, then inspect the Cloud project history. Tokens can be revoked from the dashboard at any time.
 
-## Example weekly monitoring workflow
-
-Save this in a project repository as `.github/workflows/ship-check-monitor.yml`. Pin the action to a **reviewed immutable commit SHA** for production rather than tracking main. Weekly scanning is a low-cost starting point; don't blindly re-run paid network checks on every PR.
+## Opt-in weekly workflow
 
 ~~~yaml
-name: Ship Check monitoring
+name: Ship Check weekly evidence review
 on:
   workflow_dispatch:
   schedule:
     - cron: "45 6 * * 1"
-
 permissions:
   contents: read
-
 jobs:
   review:
     runs-on: ubuntu-latest
@@ -33,8 +29,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Review
-        uses: tomcwxyz/Ship-check@main # pilot only — replace with a reviewed SHA
+      - name: Scan and sync source-free assurance metadata
+        uses: tomcwxyz/Ship-check@main # Replace with a reviewed SHA
         with:
           fail-on: never
           networked-dependency-scan: "true"
@@ -43,28 +39,31 @@ jobs:
           cloud-retention: 90-days
 ~~~
 
-Configure `SHIP_CHECK_CLOUD_URL` as a GitHub Actions repository variable and `SHIP_CHECK_CLOUD_HISTORY_SYNC_TOKEN` as a **secret**. Never put the token value in source, logs, a workflow file or pull-request inputs. The URL must be a plain HTTPS origin.
+A blank `cloud-url` triggers no upload. Sync is never performed from pull-request events and the token must be secret-scoped. Repeated identical scan events are deduplicated. The Cloud API retains only the `assurance-metadata/0.1` summary with ruleset, coverage and aggregate counts, never raw source or credentials. Users choose a retention period.
 
-## Prerequisites to enable Cloud
+## Agent and MCP connection
 
-Before configuring those inputs, provision a separate `apps/cloud` deployment with server-only Postgres connection, both `migrations/cloud` applied, authenticated account setup, token issuance and tested history queries. The current Cloud app uses a pilot-only session header and in-memory rate limits. Replace both before broader access.
+An authenticated JSON-RPC **Streamable HTTP** endpoint is available at `https://cloud-check.good-ship.co.uk/mcp`. For Alpha 12 use a client that lets you manually configure a `history:read` bearer token (create the **Read-only MCP / agent** token on the dashboard). The server offers five tools:
 
-The inspected Vercel project named `ship-check` has **no configured environment variables**. That does not demonstrate an operational Cloud database or hosted monitoring service. The `ship-check-playground` deployment is an ephemeral scanner, not persistent Cloud history.
+- `ship_check_list_projects`: account-scoped connected project directory
+- `ship_check_get_project_status`: latest counts and freshness
+- `ship_check_get_project_history`: bounded last 20 scans and continuity
+- `ship_check_get_coverage`: assessed, partial and unassessed coverage
+- `ship_check_get_attention_changes`: bounded aggregate deltas with caveats
 
-## Acceptance tests
+**Not implemented in Alpha 12:** OAuth-based connection discovery for ChatGPT/other MCP clients, scheduled Cloud-side scans, automatic CVE alert subscriptions, full finding-level evidence storage and automatic Lookout synchronisation. A manual bearer token connects compatible MCP clients today; OAuth and consented Lookout project mapping remain release gates for future integration.
 
-1. With no Cloud URL, the Action scans without any Cloud request.
-2. PR execution with inputs set must skip sync.
-3. On an authenticated test deployment, the first manual scan stores a metadata event. A repeated identical event is deduplicated.
-4. Read back the project timeline with an independently scoped `history:read` token. Verify it contains only aggregate metadata, not source/evidence text.
-5. Revoke or expire the sync token: the Action must fail closed without printing credentials.
-6. Configure the explicit weekly schedule only after resource cost, retention and privacy controls have been reviewed.
+## API security and limits
 
-## Still to build
+- Sign-in and signup are delegated to the existing Neon Auth service through a same-origin email/password proxy. Every browser API request verifies the session upstream.
+- Token creation and revocation require a signed-in browser session and an authorised Origin. No pilot-secret identity may create or read accounts.
+- CI tokens have the minimum `history:sync` permission, and MCP tokens `history:read` only. Tokens expire automatically and raw token values are not persisted.
+- Postgres rate limiting is shared between Vercel instances; the health endpoint checks actual database schema availability.
+- `/api/v1/projects`, `/api/v1/tokens` and their scoped subpaths use the existing Cloud API contracts; **directly posting source code or full scan reports is unsupported**.
+- Only a user-authorised owner can retrieve their project history. Never interpret a scan with no findings as proof of safety.
 
-Real account sign-in, operational shared rate limiting, end-to-end DB/host verification, a project history UI and estate dashboard, optional desktop/CLI post-scan sync, GitHub webhooks and change-aware scheduled scanning. **Newly disclosed advisory alerts** also require consented package/advisory inventory metadata and freshness/deduplication rules. Source-free aggregate counts by themselves cannot identify a newly vulnerable dependency or establish deployed exploitability.
+## Release testing and operations
 
+Before expanding beyond the alpha pilot, validate production login, logout, account isolation, token issuance/revocation, retention deletion, first CI sync and the independent MCP client against the real domain. Test error paths as well as the happy path. The endpoint `/api/health` returns 200 **only** when the required environment variables and database schema are available. It does not prove sign-in and MCP workflows pass.
 
-## Interface and agent access
-
-The Cloud pilot landing screen now uses the same visual identity as the playground and desktop; this does not enable monitoring automatically. An authenticated read-only remote MCP server and optional Lookout integration are planned after the project history service is live. See [MCP and Lookout integration design](CLOUD_MCP_AND_LOOKOUT.md).
+The existing [MCP / Lookout design](./CLOUD_MCP_AND_LOOKOUT.md) describes the broader OAuth, history and agent architecture.

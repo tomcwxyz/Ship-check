@@ -1,27 +1,33 @@
+import { cloudDatabaseReady } from "../../../lib/cloudRuntime";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Liveness is not database readiness. This endpoint deliberately does not
-// connect to Postgres or reveal environment-variable names or values.
 export async function GET(): Promise<Response> {
   const configured = Boolean(
     process.env.DATABASE_URL?.trim() &&
-    process.env.SHIP_CHECK_PILOT_SESSION_SECRET?.trim()
+    process.env.NEON_AUTH_BASE_URL?.trim() &&
+    process.env.SHIP_CHECK_ALLOWED_ORIGINS?.trim()
   );
-  return Response.json(
-    {
-      status: configured ? "configuration-present" : "configuration-incomplete",
-      service: "ship-check-cloud",
-      schemaVersion: "0.1",
-      database: "not-tested",
-      monitoring: "not-scheduled"
-    },
-    {
-      status: configured ? 200 : 503,
-      headers: {
-        "cache-control": "no-store",
-        "x-content-type-options": "nosniff"
-      }
+  let databaseReady = false;
+  if (configured) {
+    try {
+      databaseReady = await cloudDatabaseReady();
+    } catch {
+      // A health check must not expose Postgres connection details.
     }
-  );
+  }
+  const ready = configured && databaseReady;
+  return Response.json({
+    status: ready ? "ready" : configured ? "dependency-unavailable" : "configuration-incomplete",
+    service: "ship-check-cloud",
+    schemaVersion: "0.1",
+    database: databaseReady ? "ready" : "unavailable",
+    authentication: configured ? "neon-auth-configured" : "configuration-incomplete",
+    monitoring: "opt-in-ci-only",
+    mcp: "bearer-scoped-read-only"
+  }, {
+    status: ready ? 200 : 503,
+    headers: { "cache-control": "no-store", "x-content-type-options": "nosniff" }
+  });
 }
