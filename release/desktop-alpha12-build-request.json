@@ -1,6 +1,7 @@
 {
   "version": "0.0.0-alpha.12",
   "confirm": "ALPHA",
-  "reason": "Rebuild draft Windows/Linux/macOS Alpha 12 installers with default-browser fixes for Cloud sign-in and project history links (PR #85).",
-  "requestedBy": "The Good Ship"
+  "reason": "Publish the validated Alpha 12 Windows, Linux and macOS installers as a visible GitHub pre-release, including the README download links.",
+  "requestedBy": "The Good Ship",
+  "publicReleaseRequested": true
 }
