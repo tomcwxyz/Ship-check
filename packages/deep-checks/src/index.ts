@@ -541,29 +541,95 @@ function severityFromText(value: unknown): Severity | null {
   return null;
 }
 
-function vulnerabilitySeverity(vulnerability: OsvVulnerability): Severity {
+function severityFromNumeric(score: number): Severity | null {
+  if (!Number.isFinite(score) || score < 0 || score > 10) return null;
+  if (score >= 9) return "critical";
+  if (score >= 7) return "high";
+  if (score >= 4) return "medium";
+  if (score > 0) return "low";
+  return "info";
+}
+
+// OSV severity.score may be a CVSS 3.x vector, not a rating label.
+// Calculate the base score rather than treating every unrecognised vector as "medium".
+export function cvssV3Score(vector: string): number | null {
+  if (!/^CVSS:3\.[01]\//.test(vector)) return null;
+  const entries = Object.fromEntries(vector.split("/").slice(1).map((entry) => entry.split(":")));
+  const lookup = (field: string, values: Record<string, number>) => values[entries[field]] ?? null;
+  const scopeChanged = entries.S === "C";
+  const av = lookup("AV", { N: 0.85, A: 0.62, L: 0.55, P: 0.2 });
+  const ac = lookup("AC", { L: 0.77, H: 0.44 });
+  const pr = lookup("PR", scopeChanged ? { N: 0.85, L: 0.68, H: 0.5 } : { N: 0.85, L: 0.62, H: 0.27 });
+  const ui = lookup("UI", { N: 0.85, R: 0.62 });
+  const ci = lookup("C", { H: 0.56, L: 0.22, N: 0 });
+  const ii = lookup("I", { H: 0.56, L: 0.22, N: 0 });
+  const ai = lookup("A", { H: 0.56, L: 0.22, N: 0 });
+  if ([av, ac, pr, ui, ci, ii, ai].some((value) => value === null) || !["C", "U"].includes(entries.S)) return null;
+  const isc = 1 - (1 - ci!) * (1 - ii!) * (1 - ai!);
+  const impact = scopeChanged ? 7.52 * (isc - 0.029) - 3.25 * Math.pow(isc - 0.02, 15) : 6.42 * isc;
+  if (impact <= 0) return 0;
+  const exploit = 8.22 * av! * ac! * pr! * ui!;
+  const total = Math.min((impact + exploit) * (scopeChanged ? 1.08 : 1), 10);
+  return Math.ceil((total - 1e-10) * 10) / 10;
+}
+
+function vulnerabilitySeverity(vulnerability: OsvVulnerability): Severity | null {
   if (vulnerability.database_specific && typeof vulnerability.database_specific === "object") {
     const explicit = severityFromText((vulnerability.database_specific as { severity?: unknown }).severity);
     if (explicit) return explicit;
   }
   if (Array.isArray(vulnerability.severity)) {
+    const ranks: Severity[] = [];
     for (const entry of vulnerability.severity) {
-      if (entry && typeof entry === "object") {
-        const explicit = severityFromText((entry as { score?: unknown }).score);
-        if (explicit) return explicit;
+      if (!entry || typeof entry !== "object") continue;
+      const value = (entry as { score?: unknown }).score;
+      const explicit = severityFromText(value);
+      if (explicit) { ranks.push(explicit); continue; }
+      if (typeof value !== "string" && typeof value !== "number") continue;
+      const cvss = typeof value === "string" ? cvssV3Score(value) : null;
+      const numeric = cvss ?? (/^(?:\d+)(?:\.\d+)?$/.test(String(value)) ? Number(value) : null);
+      if (numeric !== null) {
+        const rating = severityFromNumeric(numeric);
+        if (rating) ranks.push(rating);
       }
     }
+    if (ranks.length) return ranks.sort((a, b) => severityRank[b] - severityRank[a])[0];
   }
-  return "medium";
+  return null;
 }
 
 const severityRank: Record<Severity, number> = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 
 function highestSeverity(vulnerabilities: OsvVulnerability[]): Severity {
+  // Unknown advisory severity is not silently assumed to be "medium".
+  // It remains visible as informational with an explicit rating-unknown warning.
   return vulnerabilities.reduce<Severity>((current, vulnerability) => {
     const candidate = vulnerabilitySeverity(vulnerability);
-    return severityRank[candidate] > severityRank[current] ? candidate : current;
-  }, "low");
+    return candidate && severityRank[candidate] > severityRank[current] ? candidate : current;
+  }, "info");
+}
+function fixedVersions(vulnerabilities: OsvVulnerability[]): string[] {
+  const fixed = new Set<string>();
+  for (const vulnerability of vulnerabilities) {
+    const affected = (vulnerability as { affected?: unknown }).affected;
+    if (!Array.isArray(affected)) continue;
+    for (const record of affected) {
+      if (!record || typeof record !== "object") continue;
+      const ranges = (record as { ranges?: unknown }).ranges;
+      if (!Array.isArray(ranges)) continue;
+      for (const range of ranges) {
+        if (!range || typeof range !== "object") continue;
+        const events = (range as { events?: unknown }).events;
+        if (!Array.isArray(events)) continue;
+        for (const event of events) {
+          if (event && typeof event === "object" && typeof (event as { fixed?: unknown }).fixed === "string") {
+            fixed.add((event as { fixed: string }).fixed);
+          }
+        }
+      }
+    }
+  }
+  return [...fixed].filter((item) => /^[A-Za-z0-9._+-]{1,80}$/.test(item)).sort().slice(0, 6);
 }
 
 function osvSourcePath(raw: unknown, mirrorRoot: string): string {
@@ -647,6 +713,8 @@ export function parseOsvReport(raw: unknown, mirrorRoot: string, version: string
         return [...id, ...aliases];
       }))];
       const severity = highestSeverity(unit.vulnerabilities);
+      const unrated = unit.vulnerabilities.some((item) => vulnerabilitySeverity(item) === null);
+      const fixes = fixedVersions(unit.vulnerabilities);
       const sources = [...unit.sources].sort();
 
       return finding({
@@ -654,8 +722,9 @@ export function parseOsvReport(raw: unknown, mirrorRoot: string, version: string
         pack: "production-ready",
         suffix: `${unit.ecosystem}:${unit.name}:${unit.packageVersion}`,
         title: `Known vulnerable dependency: ${unit.name}`,
-        summary: `${unit.name} ${unit.packageVersion} (${unit.ecosystem}) is one affected package/version with ${unit.vulnerabilities.length} distinct OSV vulnerability record${unit.vulnerabilities.length === 1 ? "" : "s"}${ids.length ? `; advisory identifiers include ${ids.slice(0, 6).join(", ")}` : ""}.`,
+        summary: `${unit.name} ${unit.packageVersion} (${unit.ecosystem}) is one affected package/version with ${unit.vulnerabilities.length} distinct OSV vulnerability record${unit.vulnerabilities.length === 1 ? "" : "s"}${ids.length ? `; advisory identifiers include ${ids.slice(0, 6).join(", ")}` : ""}.${unrated ? " Some advisory severity ratings could not be established; review them directly." : ""}${fixes.length ? ` Fixed versions mentioned in the advisory: ${fixes.join(", ")}.` : ""}`,
         severity,
+        confidence: unrated ? "medium" : "high",
         evidence: sources.slice(0, 6).map((source) => ({
           kind: "configuration" as const,
           path: source,
@@ -663,7 +732,7 @@ export function parseOsvReport(raw: unknown, mirrorRoot: string, version: string
           detail: `OSV-Scanner ${version} matched this package/version. Ship Check groups duplicate manifest occurrences and advisory aliases around the affected dependency unit.`
         })),
         why: "Known vulnerable dependencies can expose the application through code paths that appear otherwise correct and are difficult to identify by repository heuristics alone.",
-        fix: "Review the vulnerability records for this package/version, upgrade to the narrowest fixed compatible version where one exists, and avoid broad unrelated dependency churn.",
+        fix: `Review the vulnerability records for this package/version.${fixes.length ? ` Advisory-listed fixed versions include ${fixes.join(", ")}.` : ""} Upgrade to the narrowest compatible fixed version where one exists, and avoid broad unrelated dependency churn.`,
         verify: "Run the relevant application tests, then rerun the opt-in OSV dependency scan and confirm the affected package/version no longer appears.",
         agentPrompt: `Review OSV records ${ids.slice(0, 6).join(", ") || "reported by OSV"} for ${unit.name} ${unit.packageVersion}. Treat this as one affected dependency unit even when multiple aliases/manifests are present. Upgrade only as far as needed to a fixed compatible version, preserve behaviour, run relevant tests, and rerun Ship Check's dependency scan.`
       });
