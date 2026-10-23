@@ -4,7 +4,17 @@
 
 Ship Check is an open-source, local-first tool for reviewing software projects, including those built with AI coding tools. It checks the evidence you give it, highlights concrete concerns, makes unanswered questions visible and suggests what to fix or verify next.
 
-**[Try the free playground](https://check.good-ship.co.uk)** · **[CLI guide](docs/CLI_GUIDE.md)** · **[Source code](https://check.good-ship.co.uk/source)**
+**[Download desktop Alpha 12](https://github.com/tomcwxyz/Ship-check/releases/tag/ship-check-desktop-v0.0.0-alpha.12)** · **[Try the free playground](https://check.good-ship.co.uk)** · **[CLI guide](docs/CLI_GUIDE.md)** · **[Source code](https://check.good-ship.co.uk/source)**
+
+## Download Ship Check desktop — Alpha 12
+
+The desktop alpha scans local projects on your computer. Choose the installer for your system from the **[Alpha 12 release and downloads](https://github.com/tomcwxyz/Ship-check/releases/tag/ship-check-desktop-v0.0.0-alpha.12)**:
+
+- **Windows (x64):** `Ship.Check_0.0.0-alpha.12_x64-setup.exe`
+- **macOS (Apple Silicon):** `Ship.Check_0.0.0-alpha.12_aarch64.app.zip`
+- **Linux (Debian/Ubuntu x64):** `Ship.Check_0.0.0-alpha.12_amd64.deb`
+
+These are experimental desktop builds. The Windows installer is unsigned and the macOS app is not Apple-notarised, so your operating system may show a security warning. **Intel Macs and other Linux package formats are not included.** See the [desktop testing guide](docs/ALPHA_TESTER_GUIDE.md) for installation and testing.
 
 ## Try it in your browser
 
