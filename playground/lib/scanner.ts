@@ -49,7 +49,7 @@ export async function scanInSandbox(source: ParsedSource): Promise<ScanReport> {
       throw new ScanStageError("github-preflight", cause);
     }
   }
-  const version = process.env.SHIP_CHECK_PLAYGROUND_SCANNER_VERSION || "0.0.0-alpha.9";
+  const version = process.env.SHIP_CHECK_PLAYGROUND_SCANNER_VERSION || "0.0.0-alpha.11";
   if (!/^\d+\.\d+\.\d+-alpha\.\d+$/.test(version))
     throw new Error("A pinned Ship-check alpha version must be configured.");
   let sandbox: Awaited<ReturnType<typeof Sandbox.create>>;
