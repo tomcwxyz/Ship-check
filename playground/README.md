@@ -6,7 +6,7 @@ A deliberately separate, no-login Next.js app in the existing Ship-check reposit
 
 - Public GitHub repository `owner/repo`. Website scanning is temporarily disabled pending further DNS/IPv6 egress controls.
 - Runs the **published, pinned canonical Ship Check CLI** in an ephemeral Vercel Sandbox, not a parallel implementation of the scanner.
-- Uses the Alpha 11 scanner by default; the optional vulnerability-intelligence checkbox gives per-scan consent before dependency identifiers or versions are queried externally via OSV. The Node.js runtime advisory feature will be available in the playground after it is published in a subsequent CLI alpha.
+- Uses the Alpha 12 scanner by default; the optional vulnerability-intelligence checkbox gives per-scan consent before dependency identifiers or versions are queried externally via OSV. The opt-in check also requests Node.js security release and support-schedule data from fixed upstream hosts. The Node.js runtime advisory feature will be available in the playground after it is published in a subsequent CLI alpha.
 - Captures an original `ScanReport/0.1` JSON result for findings, unverified controls, and coverage.
 - Gives an illustrated example (explicitly marked **not a real scan**) without consuming credits.
 - Retains no source, reports, or scan history; sandbox destroyed in `finally`.
@@ -36,7 +36,7 @@ npm run dev
 
 Use a connected Vercel KV (Upstash-backed) database, which supplies `KV_REST_API_URL` and `KV_REST_API_TOKEN` to preview and production; the same code also supports `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` if provisioned directly with Upstash. Both sets are server-side only. A Vercel Sandbox project identity is required for real scans.
 
-The canonical scanner is pinned to `0.0.0-alpha.11` by default. Set `SHIP_CHECK_PLAYGROUND_SCANNER_VERSION` only for a published and verified alternative release; any deployment override takes precedence over this source default.
+The canonical scanner is pinned to `0.0.0-alpha.12` by default. Set `SHIP_CHECK_PLAYGROUND_SCANNER_VERSION` only for a published and verified alternative release; any deployment override takes precedence over this source default.
 
 The pinned `@good-ship/ship-check@0.0.0-alpha.9` release has been smoke-tested in a Vercel Sandbox against a real public GitHub repository (20 October 2026). The repository's newer alpha.10 has not yet been published. Managed scan provenance is corrected in the hosted wrapper until the next CLI release supports that execution boundary natively. Do not silently fall back to a different scanner or `latest`. If the package/version is not available, finish publication/testing before enabling scans.
 
