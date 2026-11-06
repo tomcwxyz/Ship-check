@@ -71,6 +71,8 @@ jobs:
         run: node --test scripts/alpha9-estate-acceptance.test.mjs
       - run: pnpm check
       - run: pnpm test
+      - name: Test isolated local MCP boundaries (no dependency install)
+        run: node --test tools/local-mcp/runner.test.mjs
       - run: pnpm build
       - name: Dogfood Ship Check against its own repository
         run: pnpm dogfood

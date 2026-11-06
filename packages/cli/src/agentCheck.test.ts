@@ -12,6 +12,11 @@ afterEach(async () => {
 
 function fakeReport(): ScanReport {
   return {
+    schemaVersion: "0.1",
+    tool: { name: "ship-check", version: "test" },
+    project: { path: ".", gitRepository: false, inventorySource: "filesystem", fileCount: 1 },
+    packs: ["production-ready"],
+    suppressedFindings: [],
     generatedAt: "2026-11-06T07:00:00.000Z",
     findings: [{
       id: "production.osv-vulnerabilities:npm:example:1",

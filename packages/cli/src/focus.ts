@@ -58,7 +58,9 @@ function nextFinding(report: ScanReport): Finding | undefined {
     .sort((left, right) => {
       const severityDifference =
         severityRank[right.finding.severity] - severityRank[left.finding.severity];
-      return severityDifference || left.index - right.index;
+      const exploitationDifference = Number(right.finding.summary.includes("CISA KEV: known exploited")) -
+        Number(left.finding.summary.includes("CISA KEV: known exploited"));
+      return severityDifference || exploitationDifference || left.index - right.index;
     })[0]?.finding;
 }
 
