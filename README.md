@@ -24,6 +24,20 @@ The playground offers three scans per visitor per day, a clear view of findings 
 
 For broader or private project checks, use the local CLI.
 
+## Daily agent security checks and local MCP (experimental)
+
+A new `agent-check` command provides a bounded local security assessment, caching a short attention summary for 24 hours (or until dependency/runtime manifests change):
+
+```bash
+ship-check agent-check .
+ship-check agent-check . --networked-dependency-scan
+ship-check agent-check . --networked-dependency-scan --force
+```
+
+Offline is the default. The networked option explicitly authorises OSV dependency scanning, with CISA KEV and FIRST EPSS enrichment by CVE identifier. Missing intelligence is reported as incomplete, not as safety. These commands require a build containing this feature; published Alpha 12 does not yet include them.
+
+Once the updated CLI is installed, `ship-check agent-hook install .` explicitly adds a local Claude Code session-start hook; include `--networked-dependency-scan` with that installer only if you authorise automatic advisory lookups. Review the generated local settings in Claude Code `/hooks`. The separate [local MCP adaptor](tools/local-mcp/README.md) is for coding agents and is distinct from the proposed Cloud MCP service.
+
 ## Run Ship Check locally
 
 You'll need **Node.js 22.12.0 or newer**. In the folder containing your project, run:

@@ -106,6 +106,21 @@ describe("focused review", () => {
     });
   });
 
+  it("prioritises a CISA KEV dependency within the same severity band", () => {
+    const base = {
+      id: "ordinary", checkId: "secure.example", pack: "secure-build" as const,
+      title: "Regular high severity issue", summary: "High severity.", severity: "high" as const,
+      confidence: "high" as const, evidence: [],
+      remediation: { why: "why", fix: "fix", verify: "verify", agentPrompt: "agent" }
+    };
+    const result = selectFocusedReview(report({ findings: [base, {
+      ...base, id: "exploited", title: "Exploited dependency",
+      summary: "CISA KEV: known exploited in the wild (CVE-2024-12345)."
+    }] }));
+    expect(result.type).toBe("finding");
+    if (result.type === "finding") expect(result.id).toBe("exploited");
+  });
+
   it("surfaces an unanswered control as verify when no active finding exists", () => {
     const result = selectFocusedReview(
       report({

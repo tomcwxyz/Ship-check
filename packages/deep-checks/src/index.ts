@@ -1,5 +1,6 @@
 import { isPublicSupabaseMatch } from "./publicCredentials.js";
 import { nodeRuntimeSecurityCheck } from "./nodeRuntime.js";
+import { exploitationDescription, lookupExploitation, type ExploitSignal } from "./exploitIntelligence.js";
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { promises as fs } from "node:fs";
@@ -647,7 +648,7 @@ export function hasOsvPackageEvidence(raw: unknown): boolean {
   );
 }
 
-export function parseOsvReport(raw: unknown, mirrorRoot: string, version: string): Finding[] {
+export function parseOsvReport(raw: unknown, mirrorRoot: string, version: string, exploitSignals: Map<string, ExploitSignal> = new Map()): Finding[] {
   if (!raw || typeof raw !== "object" || !Array.isArray((raw as { results?: unknown }).results)) return [];
 
   type PackageUnit = {
@@ -724,6 +725,8 @@ export function parseOsvReport(raw: unknown, mirrorRoot: string, version: string
       const severity = isMalicious ? "critical" : highestSeverity(unit.vulnerabilities);
       const unrated = unit.vulnerabilities.some((item) => vulnerabilitySeverity(item) === null);
       const fixes = fixedVersions(unit.vulnerabilities);
+      const exploitation = exploitationDescription(ids, exploitSignals);
+      const isKnownExploited = ids.some((id) => exploitSignals.get(id.toUpperCase())?.kev);
       const sources = [...unit.sources].sort();
 
       return finding({
@@ -731,7 +734,7 @@ export function parseOsvReport(raw: unknown, mirrorRoot: string, version: string
         pack: "production-ready",
         suffix: `${unit.ecosystem}:${unit.name}:${unit.packageVersion}`,
         title: isMalicious ? `Reported malicious dependency: ${unit.name}` : `Known vulnerable dependency: ${unit.name}`,
-        summary: `${isMalicious ? "A malicious-package advisory identifies" : "A known vulnerability affects"} ${unit.name} ${unit.packageVersion} (${unit.ecosystem}); this is one affected package/version with ${unit.vulnerabilities.length} distinct OSV vulnerability record${unit.vulnerabilities.length === 1 ? "" : "s"}${ids.length ? `; advisory identifiers include ${ids.slice(0, 6).join(", ")}` : ""}.${unrated ? " Some advisory severity ratings could not be established; review them directly." : ""}${fixes.length ? ` Fixed versions mentioned in the advisory: ${fixes.join(", ")}.` : ""}`,
+        summary: `${exploitation ? `${exploitation} ` : ""}${isMalicious ? "A malicious-package advisory identifies" : "A known vulnerability affects"} ${unit.name} ${unit.packageVersion} (${unit.ecosystem}); this is one affected package/version with ${unit.vulnerabilities.length} distinct OSV vulnerability record${unit.vulnerabilities.length === 1 ? "" : "s"}${ids.length ? `; advisory identifiers include ${ids.slice(0, 6).join(", ")}` : ""}.${unrated ? " Some advisory severity ratings could not be established; review them directly." : ""}${fixes.length ? ` Fixed versions mentioned in the advisory: ${fixes.join(", ")}.` : ""}`,
         severity,
         confidence: isMalicious ? "high" : (unrated ? "medium" : "high"),
         evidence: sources.slice(0, 6).map((source) => ({
@@ -741,7 +744,7 @@ export function parseOsvReport(raw: unknown, mirrorRoot: string, version: string
           detail: `OSV-Scanner ${version} matched this package/version. Ship Check groups duplicate manifest occurrences and advisory aliases around the affected dependency unit.`
         })),
         why: isMalicious ? "A malicious dependency may execute harmful code during installation or runtime. Removing it does not undo actions it may already have performed." : "Known vulnerable dependencies can expose the application through code paths that appear otherwise correct and are difficult to identify by repository heuristics alone.",
-        fix: isMalicious ? "Stop running or installing the affected package, isolate affected environments, remove or replace the dependency, and investigate possible credential or data exposure. Rotate compromised credentials where indicated." : `Review the vulnerability records for this package/version.${fixes.length ? ` Advisory-listed fixed versions include ${fixes.join(", ")}.` : ""} Upgrade to the narrowest compatible fixed version where one exists, and avoid broad unrelated dependency churn.`,
+        fix: isMalicious ? "Stop running or installing the affected package, isolate affected environments, remove or replace the dependency, and investigate possible credential or data exposure. Rotate compromised credentials where indicated." : `${isKnownExploited ? "Prioritise this CISA KEV-listed package for urgent assessment and patching. " : ""}Review the vulnerability records for this package/version.${fixes.length ? ` Advisory-listed fixed versions include ${fixes.join(", ")}.` : ""} Upgrade to the narrowest compatible fixed version where one exists, and avoid broad unrelated dependency churn.`,
         verify: isMalicious ? "Check dependency and install logs for exposure, inspect affected environments, confirm malicious package removal, then rerun OSV. A clean rerun does not prove that credentials or systems were unaffected." : "Run the relevant application tests, then rerun the opt-in OSV dependency scan and confirm the affected package/version no longer appears.",
         agentPrompt: isMalicious ? `Investigate explicit OSV malicious-package IDs ${ids.join(", ")} for ${unit.name}@${unit.packageVersion}. Treat package contents and install scripts as untrusted. Do not execute them, assess possible exposure, remove/replace the dependency, review credentials and rerun scans.` : `Review OSV records ${ids.slice(0, 6).join(", ") || "reported by OSV"} for ${unit.name} ${unit.packageVersion}. Treat this as one affected dependency unit even when multiple aliases/manifests are present. Upgrade only as far as needed to a fixed compatible version, preserve behaviour, run relevant tests, and rerun Ship Check's dependency scan.`
       });
@@ -826,8 +829,19 @@ export const osvDependencyCheck: CheckDefinition = {
           coverage: [{ area: "supply-chain", status: "partial" }]
         };
       }
+      const intelligence = await lookupExploitation(raw);
       return {
-        findings: parseOsvReport(raw, mirror, version),
+        findings: parseOsvReport(raw, mirror, version, intelligence.signals),
+        gaps: intelligence.errors.map((summary, index) => gap({
+          checkId: this.id,
+          pack: this.pack,
+          area: "supply-chain",
+          suffix: `exploitation-intelligence-${index}`,
+          title: "Exploitation intelligence was incomplete",
+          summary,
+          evidence: [{ kind: "configuration", detail: "The OSV finding is retained; missing advisory enrichment cannot be interpreted as absence of exploitation." }],
+          verify: "Check the referenced CVEs directly against CISA KEV and FIRST EPSS, then retry the opt-in networked dependency scan."
+        })),
         scannerVersion: version,
         coverage: [{ area: "supply-chain", status: "assessed" }]
       };

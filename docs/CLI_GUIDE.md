@@ -24,6 +24,20 @@ sc --help
 
 This function lasts until you close the shell. If you do not use Bash, replace `sc` with `npx --yes @good-ship/ship-check@alpha` in the examples.
 
+## Daily agent checks (new feature branch)
+
+`ship-check agent-check .` runs local security and production checks and caches only a short attention summary in the user's private cache for up to 24 hours. Recognised dependency/runtime manifest changes invalidate the cache. `--force` bypasses it. The cache contains counts and up to three finding titles, never raw source, secret values or full evidence.
+
+```bash
+ship-check agent-check .                             # Offline only
+ship-check agent-check . --networked-dependency-scan   # Explicitly opt in to OSV, CISA KEV, FIRST EPSS
+ship-check agent-check . --force                       # Ignore the cached summary
+```
+
+OSV receives dependency identifiers/versions; CISA and FIRST receive CVE identifiers only. If intelligence is unavailable, the report preserves the unanswered question. A cached summary is not an ongoing monitor, or proof of safety.
+
+For automatic checks in Claude Code, explicitly run `ship-check agent-hook install .` to add a project-local startup/resume hook. Add `--networked-dependency-scan` to this installer only with permission for advisory lookups on future sessions. The CLI must be on PATH; review the resulting `.claude/settings.local.json` and approve it through Claude Code `/hooks`. Existing settings are preserved. Other agents can use the [local MCP adaptor](../tools/local-mcp/README.md).
+
 ## Where do reports go?
 
 **By default, Ship Check writes its report to your terminal (standard output). It does not create a report file automatically.** Choose the output format, then redirect it to a file yourself:

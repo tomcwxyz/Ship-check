@@ -1,3 +1,12 @@
+## Agent security intelligence (November 2026, feature branch)
+
+- [x] Add opt-in CVE-only CISA KEV and FIRST EPSS enrichment to existing OSV findings, with incomplete-feed gaps.
+- [x] Add a cached daily agent-check command invalidated by dependency/runtime manifest changes.
+- [x] Add an explicit project-local Claude session hook installer, with network checks off by default.
+- [x] Add an isolated local stdio MCP adaptor, using TypeScript SDK v2 and bounded read-only tools.
+- [ ] Validate in CI and complete Windows/macOS agent-and-MCP pilot checks before release.
+- [ ] Evaluate a sourced platform-incident feed separately, with freshness and false-positive controls.
+
 ## Live vulnerability intelligence (October 2026)
 
 - [x] Add official Node.js security release and support-schedule comparison for declared runtime pins via opt-in network access.
