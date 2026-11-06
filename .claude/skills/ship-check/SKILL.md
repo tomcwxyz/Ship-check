@@ -23,6 +23,10 @@ Never reveal, repeat, or paste secret values found by a scanner.
 
 Do not silently suppress a finding because it looks like a test fixture, fork, example, deprecated project or false positive. Explain your assessment separately and verify it where possible.
 
+## At the start of a coding session
+
+When a user has opted into regular project checks, run `ship-check agent-check .` for a bounded daily security summary (cached locally for up to 24 hours). This is not a full release review. Do not enable `--networked-dependency-scan` without the user's permission: it shares dependency versions with OSV and CVE identifiers with CISA/FIRST. A project can opt into a local Claude session hook with `ship-check agent-hook install .` after installing the updated CLI.
+
 ## Choose the scan
 
 For one local project, prefer the canonical JSON report and keep it if repairs may follow:
