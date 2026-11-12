@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 type ComponentKind = "ai-model" | "wordpress-core" | "wordpress-plugin" | "wordpress-theme" | "drupal-package";
 type Component = { kind: ComponentKind; id: string; version?: string; evidence: "source-declared" };
@@ -56,7 +56,7 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
     return () => { live = false; };
   }, [endpoint]);
 
-  function addComponent(event: React.FormEvent<HTMLFormElement>) {
+  function addComponent(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
     const cleanId = id.trim();
