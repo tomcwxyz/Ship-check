@@ -33,7 +33,7 @@ describe("Cloud intelligence matching", () => {
       replacement: "gpt-5.6-sol"
     });
     expect(matchIntelligenceNotices(input)[0]?.identity).toEqual(matches[0]?.identity);
-    expect(matchIntelligenceNotices({ ...input, now: "2026-12-01T10:00:00Z" })[0]?.status).toBe("past-due");
+    expect(matchIntelligenceNotices({ ...input, now: "2026-12-12T10:00:00Z" })[0]?.status).toBe("past-due");
   });
 
   it("distinguishes vulnerable exact CMS versions from unknown and unaffected versions", () => {
