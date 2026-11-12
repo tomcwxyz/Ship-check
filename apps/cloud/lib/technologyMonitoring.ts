@@ -126,27 +126,27 @@ export async function saveTechnologyInventory(
     );
     if (owned.rows.length !== 1) throw new Error("Project unavailable.");
     await tx.query(
-      \`INSERT INTO ship_check_technology_monitoring (project_id,account_id) VALUES ($1,$2)
+      `INSERT INTO ship_check_technology_monitoring (project_id,account_id) VALUES ($1,$2)
        ON CONFLICT (project_id) DO UPDATE SET updated_at=now()
-       WHERE ship_check_technology_monitoring.account_id=$2\`,
+       WHERE ship_check_technology_monitoring.account_id=$2`,
       [projectId, accountId]
     );
     await tx.query("DELETE FROM ship_check_technology_components WHERE project_id=$1", [projectId]);
     for (const component of components) {
       await tx.query(
-        \`INSERT INTO ship_check_technology_components (project_id,kind,component_id,version,evidence)
-         VALUES ($1,$2,$3,$4,'source-declared')\`,
+        `INSERT INTO ship_check_technology_components (project_id,kind,component_id,version,evidence)
+         VALUES ($1,$2,$3,$4,'source-declared')`,
         [projectId, component.kind, component.id, component.version ?? null]
       );
     }
     // Do not show alerts for removed components or different versions.
     await tx.query(
-      \`DELETE FROM ship_check_technology_alerts AS a
+      `DELETE FROM ship_check_technology_alerts AS a
        WHERE a.project_id=$1 AND NOT EXISTS (
          SELECT 1 FROM ship_check_technology_components AS c WHERE c.project_id=a.project_id
            AND c.kind=a.component_kind AND c.component_id=a.component_id
            AND COALESCE(c.version,'')=COALESCE(a.component_version,'')
-       )\`,
+       )`,
       [projectId]
     );
   });
