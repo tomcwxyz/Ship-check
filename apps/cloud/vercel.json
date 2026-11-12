@@ -1,5 +1,11 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm --dir ../.. exec turbo run build --filter=@ship-check/cloud"
+  "buildCommand": "pnpm --dir ../.. exec turbo run build --filter=@ship-check/cloud",
+  "crons": [
+    {
+      "path": "/api/cron/technology",
+      "schedule": "15 6 * * *"
+    }
+  ]
 }

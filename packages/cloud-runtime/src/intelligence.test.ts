@@ -3,23 +3,23 @@ import { matchIntelligenceNotices, type IntelligenceNotice } from "./intelligenc
 
 const now = "2026-11-12T10:00:00.000Z";
 const modelNotice: IntelligenceNotice = {
-  id: "anthropic-sonnet-45-2026-09-30",
+  id: "openai-gpt-5-2026-06-11",
   kind: "retirement",
   componentKind: "ai-model",
-  componentId: "claude-sonnet-4-5-20250929",
-  effectiveDate: "2026-11-30",
+  componentId: "gpt-5",
+  effectiveDate: "2026-12-11",
   publishedAt: "2026-09-30T12:00:00.000Z",
   fetchedAt: now,
-  sourceUrl: "https://platform.claude.com/docs/en/about-claude/model-deprecations",
-  summary: "Anthropic has scheduled retirement of Sonnet 4.5.",
-  replacement: "claude-sonnet-5-5"
+  sourceUrl: "https://developers.openai.com/api/docs/deprecations",
+  summary: "OpenAI has scheduled GPT-5 retirement.",
+  replacement: "gpt-5.6-sol"
 };
 
 describe("Cloud intelligence matching", () => {
   it("creates a deduplicated upcoming model notice without claiming runtime use", () => {
     const input = {
       projectIdentity: "opaque-project-1",
-      components: [{ kind: "ai-model" as const, id: "claude-sonnet-4-5-20250929", evidence: "source-declared" as const }],
+      components: [{ kind: "ai-model" as const, id: "gpt-5", evidence: "source-declared" as const }],
       notices: [modelNotice, modelNotice],
       now
     };
@@ -28,12 +28,12 @@ describe("Cloud intelligence matching", () => {
     expect(matches[0]).toMatchObject({
       status: "urgent",
       scope: "source-only",
-      daysRemaining: 18,
+      daysRemaining: 29,
       freshness: "current",
-      replacement: "claude-sonnet-5-5"
+      replacement: "gpt-5.6-sol"
     });
     expect(matchIntelligenceNotices(input)[0]?.identity).toEqual(matches[0]?.identity);
-    expect(matchIntelligenceNotices({ ...input, now: "2026-12-01T10:00:00Z" })[0]?.status).toBe("past-due");
+    expect(matchIntelligenceNotices({ ...input, now: "2026-12-12T10:00:00Z" })[0]?.status).toBe("past-due");
   });
 
   it("distinguishes vulnerable exact CMS versions from unknown and unaffected versions", () => {
@@ -63,7 +63,7 @@ describe("Cloud intelligence matching", () => {
   it("keeps stale feeds explicitly stale and ignores future notices and unrelated components", () => {
     const matches = matchIntelligenceNotices({
       projectIdentity: "p",
-      components: [{ kind: "ai-model", id: "claude-sonnet-4-5-20250929", evidence: "source-declared" }],
+      components: [{ kind: "ai-model", id: "gpt-5", evidence: "source-declared" }],
       notices: [
         { ...modelNotice, fetchedAt: "2026-10-01T00:00:00Z" },
         { ...modelNotice, id: "future", publishedAt: "2026-12-01T00:00:00Z" },

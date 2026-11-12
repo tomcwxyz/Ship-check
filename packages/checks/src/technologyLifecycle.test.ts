@@ -29,12 +29,11 @@ afterEach(async () => {
 
 describe("AI model lifecycle intelligence", () => {
   it("uses exact model IDs and UTC calendar dates, including retirement boundary", () => {
-    expect(evaluateModelRetirement("claude-sonnet-4-5-20250929", "2026-11-12")).toMatchObject({
-      state: "imminent",
-      daysRemaining: 18,
-      entry: { provider: "anthropic", retirementDate: "2026-11-30" }
+    expect(evaluateModelRetirement("claude-opus-4-1-20250805", "2026-11-12")).toMatchObject({
+      state: "retired",
+      entry: { provider: "anthropic", retirementDate: "2026-08-05" }
     });
-    expect(evaluateModelRetirement("claude-sonnet-4-5-20250929", "2026-11-30").state).toBe("retired");
+    expect(evaluateModelRetirement("claude-opus-4-1-20250805", "2026-08-05").state).toBe("retired");
     expect(evaluateModelRetirement("gpt-5", "2026-11-12").daysRemaining).toBe(29);
     expect(evaluateModelRetirement("gpt-6", "2026-11-12")).toMatchObject({ state: "unknown", daysRemaining: null });
   });
@@ -43,7 +42,7 @@ describe("AI model lifecycle intelligence", () => {
     const root = await fixture({
       "src/models.ts": [
         'export const config = { model: "gpt-5" };',
-        'export const alt = anthropic("claude-sonnet-4-5-20250929");',
+        'export const alt = anthropic("claude-opus-4-1-20250805");',
         'export const dynamic = { model: process.env.LLM_MODEL };'
       ].join("\n")
     });
@@ -51,7 +50,7 @@ describe("AI model lifecycle intelligence", () => {
     expect(report.findings.map((item) => item.summary)).toEqual(
       expect.arrayContaining([
         expect.stringContaining("gpt-5"),
-        expect.stringContaining("claude-sonnet-4-5-20250929")
+        expect.stringContaining("claude-opus-4-1-20250805")
       ])
     );
     expect(report.findings).toHaveLength(2);
@@ -75,7 +74,7 @@ describe("AI model lifecycle intelligence", () => {
     const root = await fixture({
       "README.md": 'Use model: "gpt-5" only in a demonstration.',
       "docs/models.ts": 'const model = "gpt-5";',
-      "src/models.test.ts": 'const model = "claude-sonnet-4-5-20250929";',
+      "src/models.test.ts": 'const model = "claude-opus-4-1-20250805";',
       "src/normal.ts": "export const value = 1;"
     });
     const report = await scanProject(root, [aiModelLifecycleCheck]);

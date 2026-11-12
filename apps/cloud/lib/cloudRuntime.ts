@@ -95,6 +95,16 @@ export function cloudRuntime() {
   return state().runtime;
 }
 
+/** Shared Cloud SQL boundary; callers must supply verified project ownership. */
+export function cloudDatabase() {
+  return state().db;
+}
+
+/** Reuse the existing durable, IP-bucketed Cloud guard for new session routes. */
+export function cloudTechnologyRateLimit(request: Request) {
+  return persistentRateLimit(state().db, { request, credential: "session", routeFamily: "history" });
+}
+
 export async function cloudDatabaseReady(): Promise<boolean> {
   const result = await state().db.query<{
     projects: string | null;

@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import TechnologyMonitoring from "./TechnologyMonitoring";
 import { notFound, redirect } from "next/navigation";
 import { cloudRuntime } from "../../../../lib/cloudRuntime";
 import { verifiedIdentity, subjectHash } from "../../../../lib/neonAuth";
@@ -48,6 +49,7 @@ export default async function ProjectHistory({ params }: { params: Promise<{ id:
       </article>)}</div>
       {timeline.eventCount > events.length && <p>Showing the latest {events.length} of {timeline.eventCount} scans.</p>}
     </section>
+    {process.env.SHIP_CHECK_TECH_MONITORING_ENABLED === "1" && <TechnologyMonitoring projectId={id} />}
     <footer className="cloud-footer">Ship Check Cloud · <a href="/dashboard">Return to your projects</a></footer>
   </main>;
 }
