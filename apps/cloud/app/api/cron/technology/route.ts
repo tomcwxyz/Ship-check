@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
-import { cloudDatabase } from "../../../lib/cloudRuntime";
-import { refreshTechnologyMonitoring } from "../../../lib/technologyRefresh";
+import { cloudDatabase } from "../../../../lib/cloudRuntime";
+import { refreshTechnologyMonitoring } from "../../../../lib/technologyRefresh";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
