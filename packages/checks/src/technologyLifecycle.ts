@@ -24,7 +24,6 @@ export const MODEL_RETIREMENTS: readonly ModelRetirement[] = [
   ...["o3", "o3-2025-04-16", "o3-pro", "o3-pro-2025-06-10"].map((model) => ({ provider: "openai" as const, model, retirementDate: "2026-12-11", replacement: "gpt-5.6-sol", sourceUrl: OPENAI_SOURCE })),
   ...["gpt-5.1", "gpt-5.1-2025-11-13"].map((model) => ({ provider: "openai" as const, model, retirementDate: "2027-04-01", replacement: "gpt-6-sol", sourceUrl: OPENAI_SOURCE })),
   ...["gpt-4o-2024-08-06", "gpt-4o-2024-11-20", "gpt-4.1-2025-04-14", "gpt-4.1-mini-2025-04-14"].map((model) => ({ provider: "openai" as const, model, retirementDate: "2027-01-14", replacement: "gpt-6-luna", sourceUrl: OPENAI_SOURCE })),
-  { provider: "anthropic", model: "claude-sonnet-4-5-20250929", retirementDate: "2026-11-30", replacement: "claude-sonnet-5-5", sourceUrl: ANTHROPIC_SOURCE },
   { provider: "anthropic", model: "claude-opus-4-1-20250805", retirementDate: "2026-08-05", replacement: "claude-opus-4-8", sourceUrl: ANTHROPIC_SOURCE }
 ];
 
