@@ -29,12 +29,12 @@ function errorCode(error: unknown): string {
 
 async function recordFeed(db: CloudHistoryDatabase, provider: string, now: string, count: number | null, error: string | null): Promise<void> {
   await db.query(
-    \`INSERT INTO ship_check_technology_feed_status (provider, checked_at, success_at, last_error_code, notice_count)
+    `INSERT INTO ship_check_technology_feed_status (provider, checked_at, success_at, last_error_code, notice_count)
      VALUES ($1,$2,$3,$4,$5)
      ON CONFLICT (provider) DO UPDATE SET checked_at=EXCLUDED.checked_at,
        success_at=CASE WHEN EXCLUDED.last_error_code IS NULL THEN EXCLUDED.success_at ELSE ship_check_technology_feed_status.success_at END,
        last_error_code=EXCLUDED.last_error_code,
-       notice_count=CASE WHEN EXCLUDED.last_error_code IS NULL THEN EXCLUDED.notice_count ELSE ship_check_technology_feed_status.notice_count END\`,
+       notice_count=CASE WHEN EXCLUDED.last_error_code IS NULL THEN EXCLUDED.notice_count ELSE ship_check_technology_feed_status.notice_count END`,
     [provider, now, error ? null : now, error, count ?? 0]
   );
 }
@@ -74,10 +74,10 @@ export async function refreshTechnologyMonitoring(
   // Bound the job to a predictable amount of work. An oversized estate fails
   // visibly, without claiming to have checked every opted-in project.
   const rowset = await db.query<ComponentRow>(
-    \`SELECT c.project_id,c.kind,c.component_id,c.version,c.evidence
+    `SELECT c.project_id,c.kind,c.component_id,c.version,c.evidence
      FROM ship_check_technology_components c
      INNER JOIN ship_check_technology_monitoring m ON m.project_id=c.project_id
-     ORDER BY c.project_id,c.kind,c.component_id LIMIT 2001\`
+     ORDER BY c.project_id,c.kind,c.component_id LIMIT 2001`
   );
   if (rowset.rows.length > 2000) throw new Error("monitoring-capacity-exceeded");
 
@@ -105,18 +105,18 @@ export async function refreshTechnologyMonitoring(
       // Do not retain a now-superseded notice for the same component/provider
       // if an explicit replacement date was observed from a successful feed.
       await db.query(
-        \`UPDATE ship_check_technology_alerts SET active=false
-         WHERE project_id=$1 AND provider=$2 AND component_kind=$3 AND component_id=$4 AND match_identity<>$5\`,
+        `UPDATE ship_check_technology_alerts SET active=false
+         WHERE project_id=$1 AND provider=$2 AND component_kind=$3 AND component_id=$4 AND match_identity<>$5`,
         [projectId, provider, match.component.kind, match.component.id, match.identity]
       );
       await db.query(
-        \`INSERT INTO ship_check_technology_alerts
+        `INSERT INTO ship_check_technology_alerts
          (project_id,match_identity,notice_id,provider,component_kind,component_id,component_version,status,scope,source_url,summary,effective_date)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
          ON CONFLICT (project_id,match_identity) DO UPDATE
          SET status=EXCLUDED.status,scope=EXCLUDED.scope,source_url=EXCLUDED.source_url,
            summary=EXCLUDED.summary,effective_date=EXCLUDED.effective_date,
-           last_seen_at=now(),active=true\`,
+           last_seen_at=now(),active=true`,
         [
           projectId, match.identity, match.noticeId, provider,
           match.component.kind, match.component.id, match.component.version ?? null,
