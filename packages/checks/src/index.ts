@@ -1,4 +1,5 @@
 import { browserDataCheck } from "./browserData.js";
+import { aiModelLifecycleCheck, cmsComponentInventoryCheck } from "./technologyLifecycle.js";
 import path from "node:path";
 import type { CheckDefinition, ProjectContext } from "@ship-check/core";
 import type { AssessmentGap, Confidence, Finding, Severity } from "@ship-check/schemas";
@@ -532,6 +533,8 @@ const nextHeadersCheck: CheckDefinition = {
 
 export const builtInChecks: CheckDefinition[] = [
   browserDataCheck,
+  aiModelLifecycleCheck,
+  cmsComponentInventoryCheck,
   trackedEnvCheck,
   secretPatternCheck,
   paidEndpointCheck,

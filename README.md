@@ -68,6 +68,10 @@ npx --yes @good-ship/ship-check@alpha scan-dir ~/Code --max-depth 4
 
 The local tool also supports exported ZIP projects, optional Git-history and dependency checks, and explicitly authorised read-only Postgres metadata inspection. See the [CLI guide](docs/CLI_GUIDE.md) for exact commands, evidence boundaries and additional options.
 
+## Technology lifecycle intelligence (in development)
+
+Production-ready scans on the technology-intelligence feature branch can recognise source-declared AI models and identify WordPress/Drupal components. Exact model IDs are checked against a **dated** provider retirement snapshot; CMS extension versions are recorded as source evidence, not proof of a live site's installed versions or vulnerability state. See [technology intelligence and Cloud rollout gates](docs/TECHNOLOGY_INTELLIGENCE.md). **Continuous Cloud advisory feeds and alerts are not yet live.**
+
 ## What the report tells you
 
 Ship Check distinguishes four kinds of evidence:
