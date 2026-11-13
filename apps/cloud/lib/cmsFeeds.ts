@@ -30,7 +30,7 @@ function content(item: string, tag: string): string {
   return decoded(new RegExp("<" + tag + "(?:\\s[^>]*)?>([\\s\\S]*?)<\\/" + tag + ">", "i").exec(item)?.[1] ?? "");
 }
 function flatText(value: string): string {
-  return decoded(value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ")).replace(/\s+/g, " ").trim();
+  return decoded(value).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 }
 function officialUrl(input: string): string | null {
   try {
