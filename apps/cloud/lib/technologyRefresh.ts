@@ -1,6 +1,8 @@
 import type { CloudHistoryDatabase } from "@ship-check/adapters";
 import { matchIntelligenceNotices, type IntelligenceNotice, type MonitoredComponent } from "@ship-check/cloud-runtime";
 import { fetchAnthropicFeed, fetchOpenAIFeed, type FeedResult } from "./technologyFeeds";
+import { fetchDrupalFeeds, type DrupalFeedResult } from "./cmsFeeds";
+import { loadWordfenceAdvisories, wordfenceNoticeForComponent } from "./cmsWordfence";
 
 type ComponentRow = {
   project_id: string;
@@ -22,7 +24,8 @@ function errorCode(error: unknown): string {
   const known = new Set([
     "openai-not-configured", "openai-invalid-json", "invalid-openai-model-list",
     "oversized-openai-model-list", "anthropic-layout-unverified",
-    "feed-http-error", "feed-too-large"
+    "feed-http-error", "feed-too-large",
+    "drupal-unrecognised-feed", "drupal-feed-incomplete", "drupal-feed-too-large", "drupal-feed-http-error", "drupal-no-verified-projects"
   ]);
   return known.has(message) ? message : "feed-unavailable";
 }
@@ -46,14 +49,15 @@ async function recordFeed(db: CloudHistoryDatabase, provider: string, now: strin
  */
 export async function refreshTechnologyMonitoring(
   db: CloudHistoryDatabase,
-  options: { now?: string; openAIKey?: string; loadOpenAI?: () => Promise<FeedResult>; loadAnthropic?: () => Promise<FeedResult> } = {}
+  options: { now?: string; openAIKey?: string; loadOpenAI?: () => Promise<FeedResult>; loadAnthropic?: () => Promise<FeedResult>; loadDrupal?: () => Promise<DrupalFeedResult> } = {}
 ): Promise<RefreshSummary> {
   const now = options.now ?? new Date().toISOString();
   const summary: RefreshSummary = { checkedAt: now, providers: [], projects: 0, matchingAlerts: 0 };
 
   const checks = [
     ["openai", options.loadOpenAI ?? (() => fetchOpenAIFeed(options.openAIKey ?? "", now))],
-    ["anthropic", options.loadAnthropic ?? (() => fetchAnthropicFeed(now))]
+    ["anthropic", options.loadAnthropic ?? (() => fetchAnthropicFeed(now))],
+    ["drupal", options.loadDrupal ?? (() => fetchDrupalFeeds(now))]
   ] as const;
 
   const results = await Promise.allSettled(checks.map(([, load]) => load()));
@@ -81,6 +85,7 @@ export async function refreshTechnologyMonitoring(
   );
   if (rowset.rows.length > 2000) throw new Error("monitoring-capacity-exceeded");
 
+  const wordfenceRecords = await loadWordfenceAdvisories(db);
   const groups = new Map<string, MonitoredComponent[]>();
   for (const row of rowset.rows) {
     const components = groups.get(row.project_id) ?? [];
@@ -95,16 +100,21 @@ export async function refreshTechnologyMonitoring(
 
   const healthyProviders = new Set(summary.providers.filter(p => p.status === "ok").map(p => p.provider));
   for (const [projectId, components] of groups) {
+    const wordfenceNotices = components.flatMap(component => wordfenceRecords
+      .map(record => wordfenceNoticeForComponent(record, component, now))
+      .filter((notice): notice is IntelligenceNotice => notice !== null));
     const matches = matchIntelligenceNotices({
-      projectIdentity: projectId, components, notices, now
+      projectIdentity: projectId, components, notices: [...notices, ...wordfenceNotices], now
     });
     for (const match of matches) {
       const provider = match.noticeId.startsWith("openai-retirement:") ? "openai"
-        : match.noticeId.startsWith("anthropic-retirement:") ? "anthropic" : null;
-      if (!provider || !healthyProviders.has(provider)) continue;
+        : match.noticeId.startsWith("anthropic-retirement:") ? "anthropic"
+        : match.noticeId.startsWith("drupal:") ? "drupal"
+        : match.noticeId.startsWith("wordfence:") ? "wordpress" : null;
+      if (!provider || (provider !== "wordpress" && !healthyProviders.has(provider))) continue;
       // Do not retain a now-superseded notice for the same component/provider
       // if an explicit replacement date was observed from a successful feed.
-      await db.query(
+      if (provider === "openai" || provider === "anthropic") await db.query(
         `UPDATE ship_check_technology_alerts SET active=false
          WHERE project_id=$1 AND provider=$2 AND component_kind=$3 AND component_id=$4 AND match_identity<>$5`,
         [projectId, provider, match.component.kind, match.component.id, match.identity]
