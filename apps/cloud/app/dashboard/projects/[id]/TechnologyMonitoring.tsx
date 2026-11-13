@@ -82,7 +82,7 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
     event.target.value = "";
     if (!file) return;
     setError(""); setInfo("");
-    if (file.size > 512_000) { setError("The JSON file exceeds the 512 KB limit."); return; }
+    if (file.size > 2_000_000) { setError("The JSON file exceeds the 2 MB limit."); return; }
     try {
       const imported = importTechnologyInventory(await file.text());
       const merged = new Map<string, Component>();
