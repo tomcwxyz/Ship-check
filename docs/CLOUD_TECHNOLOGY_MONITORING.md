@@ -13,7 +13,7 @@ Each project page provides an explicit enable action, inventory editor, active n
 
 Both adapters use fixed upstream hosts, bounded response sizes, timeouts and explicit fetch errors. Failures do not resolve existing alerts. Notice matching uses the shared canonical Cloud matcher and deduplicated identities. Cloud refreshes have no access to repository source.
 
-**CMS status:** WordPress and Drupal component recognition is present in source scans, but their Cloud vulnerability feeds and installed-version integrations **are not yet implemented**. CMS entries can be stored, but must not be presented as having had a complete live advisory check.
+**CMS intelligence (new):** Drupal reads official security RSS feeds and identifies exact module machine names, but does not infer affected version ranges. WordPress receives signed incremental Wordfence Intelligence updates after its separate webhook is configured; it does not backfill historical vulnerabilities. See [CMS integration and setup](./CLOUD_CMS_INTELLIGENCE.md). Neither integration proves what is installed in production.
 
 ## Deployment steps (feature remains disabled by default)
 
@@ -28,10 +28,10 @@ Feature-disabled deployments must return HTTP 503 for the new monitoring APIs an
 
 ## Limitations, next work
 
-- Inventory is manual during this pilot. A future opt-in CLI/CI export may populate it from source scans. Do not silently send source-derived model IDs through the existing assurance-metadata/0.1 sync.
+- Inventory can be entered manually or imported client-side from Composer lockfiles, WP-CLI plugin JSON and minimal Ship Check inventory JSON, then explicitly saved. Automatic CI inventory sync remains future work. Do not silently send source-derived model IDs through the existing assurance-metadata/0.1 sync.
 - No per-project provider key input. The single server-side OpenAI key determines which models are visible through the provider API; a missing model is not evidence it has been retired or is safe.
 - Anthropic HTML scraping is inherently less reliable than an official machine-readable feed. The parser fails closed and reports an error state if the table cannot be verified.
 - Model aliases, provider gateways and hosted variants may have different lifecycles. Verified runtime use requires a separate authenticated integration.
-- Advisory range parsing for WordPress and Drupal, provider licences, installed-component connectors, notification channels, dashboard roll-ups, alert acknowledgements and MCP details remain follow-on work.
+- Some Wordfence numeric-version comparisons are supported; unsupported versions and all Drupal RSS version impacts remain unverified. Historical Wordfence backfill, installed-component connectors, notification channels, dashboard roll-ups, alert acknowledgements and MCP details remain follow-on work.
 - The daily refresh has a hard limit of 2,000 component entries to prevent unbounded workload; it reports an incomplete run rather than silently skipping records.
 - The implementation currently shows matched notices **inside Cloud**, not by email/push notification.
