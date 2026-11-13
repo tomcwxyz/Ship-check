@@ -91,7 +91,7 @@ export async function getTechnologyInventory(
       [projectId]
     ) : Promise.resolve({ rows: [] as AlertRow[] }),
     enabled ? db.query<FeedRow>(
-      "SELECT provider, checked_at, success_at, last_error_code FROM ship_check_technology_feed_status WHERE provider IN ('openai','anthropic') ORDER BY provider"
+      "SELECT provider, checked_at, success_at, last_error_code FROM ship_check_technology_feed_status WHERE provider IN ('openai','anthropic','drupal','wordpress') ORDER BY provider"
     ) : Promise.resolve({ rows: [] as FeedRow[] })
   ]);
   return {
