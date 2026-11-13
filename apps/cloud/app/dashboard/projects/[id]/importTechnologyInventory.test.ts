@@ -28,7 +28,7 @@ describe("client-only technology inventory import", () => {
   });
   it("rejects arbitrary files, huge input and an empty discovered set", () => {
     expect(() => importTechnologyInventory('{"foo":"bar"}')).toThrow();
-    expect(() => importTechnologyInventory("x".repeat(512001))).toThrow();
+    expect(() => importTechnologyInventory("x".repeat(2000001))).toThrow();
     expect(() => importTechnologyInventory(JSON.stringify({packages:[{name:"not-a-drupal-package",version:"1"}]}))).toThrow();
   });
 });
