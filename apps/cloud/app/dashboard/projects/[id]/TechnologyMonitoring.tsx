@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent, type ChangeEvent } from "react";
+import { importTechnologyInventory } from "./importTechnologyInventory";
 
 type ComponentKind = "ai-model" | "wordpress-core" | "wordpress-plugin" | "wordpress-theme" | "drupal-package";
 type Component = { kind: ComponentKind; id: string; version?: string; evidence: "source-declared" };
@@ -76,6 +77,22 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
     setInfo("Inventory changed. Save to enable or update monitoring.");
   }
 
+  async function handleInventoryFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setError(""); setInfo("");
+    if (file.size > 512_000) { setError("The JSON file exceeds the 512 KB limit."); return; }
+    try {
+      const imported = importTechnologyInventory(await file.text());
+      const merged = new Map<string, Component>();
+      for (const item of [...components, ...imported]) merged.set(item.kind + ":" + item.id, item);
+      if (merged.size > 50) throw new Error("This would exceed the 50-component limit. Reduce the inventory first.");
+      setComponents([...merged.values()]);
+      setInfo("Imported " + imported.length + " components locally. Review them below, then save to enable monitoring.");
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not import JSON."); }
+  }
+
   async function save() {
     setBusy(true); setError(""); setInfo("");
     try {
@@ -114,6 +131,11 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
     {!data && !error && <p>Loading monitoring settings…</p>}
     {data && <>
       <p><strong>{data.enabled ? "Monitoring enabled" : "Monitoring off"}</strong> · Your project is only monitored after you save an inventory.</p>
+      <details className="technology-import">
+        <summary>Import a component list</summary>
+        <p>Choose a Drupal <code>composer.lock</code>, a JSON file from <code>wp plugin list --format=json</code>, or a Ship Check inventory JSON. The file is read in your browser; only the recognised component IDs and versions are saved when you choose Save.</p>
+        <input type="file" accept=".json,.lock,application/json" aria-label="Import technology inventory JSON" onChange={handleInventoryFile} disabled={busy} />
+      </details>
       <form onSubmit={addComponent} className="technology-entry">
         <label>Technology
           <select value={kind} onChange={event => setKind(event.target.value as ComponentKind)}>
@@ -140,7 +162,7 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
       </div>
       {data.enabled && <>
         <h3>Provider intelligence</h3>
-        <p>OpenAI model data uses its official API; Anthropic uses its official model-status table. WordPress and Drupal advisories are not yet connected, so CMS inventory is not a vulnerability assessment.</p>
+        <p>OpenAI and Anthropic retirement notices are checked against provider information. Drupal security notices use official feeds; WordPress notices require a signed Wordfence Intelligence connection. A match does not establish which version is installed on a live site.</p>
         {data.feeds.length === 0 && <p>Provider checks have not run yet.</p>}
         {data.feeds.map(feed => <p key={feed.provider}><strong>{feed.provider}</strong> · {feed.errorCode ? "Unavailable: " + feed.errorCode : "Checked " + new Date(feed.checkedAt).toLocaleString("en-GB")} {feed.successAt && feed.errorCode ? " · Last successful check " + new Date(feed.successAt).toLocaleString("en-GB") : ""}</p>)}
         <h3>Relevant notices</h3>
