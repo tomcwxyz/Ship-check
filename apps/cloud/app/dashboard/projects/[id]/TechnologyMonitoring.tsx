@@ -143,7 +143,7 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
           </select>
         </label>
         <label>Model or component ID
-          <input value={id} onChange={event => setId(event.target.value)} placeholder={kind === "ai-model" ? "gpt-5" : kind === "drupal-package" ? "drupal/token" : "plugin-slug"} required maxLength={160} />
+          <input value={id} onChange={event => setId(event.target.value)} placeholder={kind === "ai-model" ? "gpt-5" : kind === "drupal-package" ? "drupal/token" : kind === "wordpress-core" ? "wordpress" : "plugin-slug"} required maxLength={160} />
         </label>
         <label>Version (CMS only, optional)
           <input value={version} onChange={event => setVersion(event.target.value)} placeholder="1.2.3" maxLength={80} />
