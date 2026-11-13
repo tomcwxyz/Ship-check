@@ -27,7 +27,7 @@ function component(kind: string, id: unknown, version: unknown): ImportedCompone
 }
 
 export function importTechnologyInventory(jsonText: string): ImportedComponent[] {
-  if (jsonText.length > 512_000) throw new Error("Inventory import is limited to 512 KB.");
+  if (jsonText.length > 2_000_000) throw new Error("Inventory import is limited to 2 MB.");
   let data: unknown;
   try { data = JSON.parse(jsonText); }
   catch { throw new Error("Choose a valid JSON export."); }
