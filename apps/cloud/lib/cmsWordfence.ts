@@ -134,6 +134,10 @@ export async function applyWordfenceChange(
           item.publishedAt,JSON.stringify(item.ranges),item.sourceUrl]
       );
     }
+    await tx.query(
+      "INSERT INTO ship_check_technology_feed_status (provider,checked_at,success_at,last_error_code,notice_count) VALUES ('wordpress',now(),now(),NULL,$1) ON CONFLICT(provider) DO UPDATE SET checked_at=now(),success_at=now(),last_error_code=NULL,notice_count=EXCLUDED.notice_count",
+      [change.upserts.length + change.deletions.length]
+    );
   });
 }
 
