@@ -21,9 +21,22 @@ export async function POST(request: Request): Promise<Response> {
   if (!Number.isFinite(length) || length > MAX_BYTES) return error(413);
   let body: string;
   try {
-    body = await request.text();
-  } catch { return error(413); }
-  if (Buffer.byteLength(body,"utf8") > MAX_BYTES) return error(413);
+    const reader = request.body?.getReader();
+    if (!reader) return error(400);
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_BYTES) {
+        await reader.cancel();
+        return error(413);
+      }
+      chunks.push(value);
+    }
+    body = new TextDecoder("utf-8", { fatal: true }).decode(Buffer.concat(chunks, total));
+  } catch { return error(400); }
   const signature = request.headers.get("x-wordfence-signature");
   if (!verifyWordfenceSignature(body,signature,secret)) return error(401);
   try {
