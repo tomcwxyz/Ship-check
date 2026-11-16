@@ -105,7 +105,7 @@ export async function refreshTechnologyMonitoring(
       ...(row.version ? { version: row.version } : {}),
       evidence: row.evidence
     };
-    // Source-discovered records win over stale manual IDs for an identical component.
+    // Authenticated CMS inventory takes precedence over source declarations and manual entries.
     const existing = components.findIndex(item => item.kind === candidate.kind && item.id === candidate.id);
     if (existing >= 0) components[existing] = candidate;
     else components.push(candidate);
