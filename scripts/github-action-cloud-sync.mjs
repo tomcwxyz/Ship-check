@@ -2,10 +2,13 @@ import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { extractTechnologyInventory } from "./technology-inventory.mjs";
 
 const ALLOWED_EVENTS = new Set(["push", "schedule", "workflow_dispatch"]);
 const RETENTION = new Set(["30-days", "90-days", "180-days", "365-days", "until-deleted"]);
 const MAX_METADATA_BYTES = 256 * 1024;
+const MAX_REPORT_BYTES = 6 * 1024 * 1024;
+const UUID = /^[a-f0-9]{8}-(?:[a-f0-9]{4}-){3}[a-f0-9]{12}$/i;
 
 export function cloudSyncPlan(input) {
   if (!ALLOWED_EVENTS.has(input.eventName)) {
@@ -21,6 +24,13 @@ export function cloudSyncPlan(input) {
   const metadata = path.resolve(root, input.metadataPath);
   if (metadata === root || !metadata.startsWith(root + path.sep)) {
     throw new Error("Metadata path must stay within the repository checkout.");
+  }
+  if (input.technologySync && (!input.reportPath || path.isAbsolute(input.reportPath))) {
+    throw new Error("Technology discovery requires a repository-relative scan report path.");
+  }
+  const report = input.technologySync ? path.resolve(root, input.reportPath) : undefined;
+  if (report && (report === root || !report.startsWith(root + path.sep))) {
+    throw new Error("Technology report must stay inside the repository checkout.");
   }
   const retention = input.retention || "90-days";
   if (!RETENTION.has(retention)) throw new Error("Unsupported cloud retention policy.");
@@ -41,7 +51,7 @@ export function cloudSyncPlan(input) {
   ];
   // The bearer secret is sent only via environment, never as a CLI argument.
   return {
-    metadata, args,
+    metadata, report, technologySync: Boolean(input.technologySync), args,
     env: { SHIP_CHECK_CLOUD_URL: cloudUrl.origin, SHIP_CHECK_CLOUD_TOKEN: input.cloudToken }
   };
 }
@@ -54,7 +64,9 @@ async function run() {
     metadataPath: process.env.SHIP_CHECK_METADATA_PATH,
     cloudUrl: process.env.SHIP_CHECK_CLOUD_URL,
     cloudToken: process.env.SHIP_CHECK_CLOUD_TOKEN,
-    retention: process.env.SHIP_CHECK_CLOUD_RETENTION
+    retention: process.env.SHIP_CHECK_CLOUD_RETENTION,
+    technologySync: process.env.SHIP_CHECK_TECHNOLOGY_SYNC === "true",
+    reportPath: process.env.SHIP_CHECK_REPORT_PATH
   });
   const root = await fs.realpath(path.resolve(process.env.GITHUB_WORKSPACE));
   const metadataReal = await fs.realpath(plan.metadata);
@@ -78,13 +90,50 @@ async function run() {
   });
   // Intentionally do not forward CLI stdout/stderr: some SDKs could return
   // user-supplied values. In an automation context use a bounded status only.
-  child.stdout.resume();
+  let stdout = "";
+  child.stdout.setEncoding("utf8");
+  child.stdout.on("data", chunk => {
+    stdout += chunk;
+    if (stdout.length > 64 * 1024) child.kill();
+  });
   child.stderr.resume();
   const code = await new Promise((resolve, reject) => {
     child.once("error", reject);
     child.once("close", (exitCode) => resolve(exitCode));
   });
   if (code !== 0) throw new Error("Cloud metadata sync failed. Check Cloud connectivity, scoped token and retention policy.");
+  if (plan.technologySync) {
+    const reportReal = await fs.realpath(plan.report);
+    if (!reportReal.startsWith(root + path.sep)) throw new Error("Scan report outside workspace.");
+    const reportStat = await fs.stat(reportReal);
+    if (!reportStat.isFile() || reportStat.size > MAX_REPORT_BYTES) {
+      throw new Error("Technology discovery needs a regular, bounded local scan report.");
+    }
+    let connected;
+    try { connected = JSON.parse(stdout); }
+    catch { throw new Error("Cloud project connection returned an unreadable project ID."); }
+    const projectId = connected?.project?.id;
+    if (typeof projectId !== "string" || !UUID.test(projectId)) {
+      throw new Error("Cloud project connection did not identify a project.");
+    }
+    const report = JSON.parse(await fs.readFile(reportReal, "utf8"));
+    const inventory = extractTechnologyInventory(report);
+    const endpoint = plan.env.SHIP_CHECK_CLOUD_URL +
+      "/api/intelligence/projects/" + encodeURIComponent(projectId) + "/discover";
+    const result = await fetch(endpoint, {
+      method: "POST",
+      redirect: "error",
+      headers: {
+        authorization: "Bearer " + plan.env.SHIP_CHECK_CLOUD_TOKEN,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify(inventory),
+      signal: AbortSignal.timeout(10000)
+    });
+    // Do not disclose upstream response content, source or bearer secrets.
+    if (!result.ok) throw new Error("Technology discovery not accepted. Enable discovery in Cloud and verify CI permissions.");
+    process.stdout.write("Ship Check Cloud: " + inventory.components.length + " technologies synced with explicit consent.\n");
+  }
   if (process.env.GITHUB_STEP_SUMMARY) {
     await fs.appendFile(process.env.GITHUB_STEP_SUMMARY,
       "\nCloud: source-free assurance metadata synced (explicit opt-in). No source or full report uploaded.\n");
