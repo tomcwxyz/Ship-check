@@ -58,7 +58,7 @@ final class InventorySync {
 
   public function inventory(): array {
     $items = [];
-    $installed = \Drupal::service('extension.list.module')->getAllInstalledInfo();
+    $installed = $this->modules->getAllInstalledInfo();
     $core = \Drupal::VERSION;
     $items[] = ['kind' => 'drupal-package', 'id' => 'drupal/core', 'version' => $core, 'active' => TRUE];
     foreach ($installed as $name => $info) {
@@ -73,10 +73,11 @@ final class InventorySync {
         continue;
       }
       $id = 'drupal/' . $package;
-      if (!is_string($version) || !preg_match('/^[A-Za-z0-9._+\/-]{1,80}$/D', $version)) {
-        continue;
+      $item = ['kind' => 'drupal-package', 'id' => $id, 'active' => TRUE];
+      if (is_string($version) && preg_match('/^[A-Za-z0-9._+\\/-]{1,80}$/D', $version)) {
+        $item['version'] = $version;
       }
-      $items[] = ['kind' => 'drupal-package', 'id' => $id, 'version' => $version, 'active' => TRUE];
+      $items[] = $item;
     }
     // Deduplicate submodules belonging to the same contributed project.
     $unique = [];
