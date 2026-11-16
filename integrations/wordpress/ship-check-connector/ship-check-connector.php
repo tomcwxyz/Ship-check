@@ -16,6 +16,7 @@ add_action('admin_menu', function () {
 });
 add_action('admin_post_ship_check_pair', 'ship_check_pair');
 add_action('admin_post_ship_check_disconnect', 'ship_check_disconnect');
+add_action('admin_post_ship_check_sync', 'ship_check_sync_now');
 add_action(SHIP_CHECK_CRON, 'ship_check_sync');
 add_action('upgrader_process_complete', function () {
     wp_schedule_single_event(time() + 60, SHIP_CHECK_CRON);
@@ -39,12 +40,17 @@ function ship_check_admin_page() {
     echo '<div class="wrap"><h1>Ship Check Connector</h1><p>Send only installed component names, versions and active status. No user data, passwords or source code.</p>';
     if (isset($_GET['ship_check_result'])) {
         $result = sanitize_key(wp_unslash($_GET['ship_check_result']));
-        echo '<div class="notice notice-info"><p>' . esc_html($result === 'connected' ? 'Connected. First inventory sync requested.' : ($result === 'disconnected' ? 'Disconnected locally. Revoke the connector in Cloud as well.' : 'Connection failed. Check the pairing code and try again.')) . '</p></div>';
+        echo '<div class="notice notice-info"><p>' . esc_html($result === 'connected' ? 'Connected. First inventory sync requested.' : ($result === 'disconnected' ? 'Disconnected locally. Revoke the connector in Cloud as well.' : ($result === 'synced' ? 'Inventory synchronised.' : 'Connection or sync failed. Check your connection and try again.'))) . '</p></div>';
     }
     if ($connected) {
         echo '<p><strong>Connected to Ship Check Cloud</strong></p><form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
         wp_nonce_field('ship_check_disconnect');
         echo '<input type="hidden" name="action" value="ship_check_disconnect"><button class="button">Disconnect this site</button></form>';
+        echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
+        wp_nonce_field('ship_check_sync');
+        echo '<input type="hidden" name="action" value="ship_check_sync"><button class="button button-primary">Sync now</button></form>';
+        $last = get_option('ship_check_connector_last_success');
+        if (is_numeric($last)) echo '<p>Last successful sync: ' . esc_html(wp_date('j M Y H:i', (int) $last)) . '</p>';
     } else {
         echo '<p>In Ship Check Cloud, open your project and select Connect WordPress. Copy the pairing code into this form.</p>';
         echo '<form method="post" action="' . esc_url(admin_url('admin-post.php')) . '">';
@@ -73,10 +79,16 @@ function ship_check_pair() {
     wp_schedule_single_event(time() + 10, SHIP_CHECK_CRON);
     ship_check_redirect('connected');
 }
+function ship_check_sync_now() {
+    if (!current_user_can('manage_options')) wp_die('Access denied.');
+    check_admin_referer('ship_check_sync');
+    ship_check_redirect(ship_check_sync() ? 'synced' : 'failed');
+}
 function ship_check_disconnect() {
     if (!current_user_can('manage_options')) wp_die('Access denied.');
     check_admin_referer('ship_check_disconnect');
     delete_option(SHIP_CHECK_OPTION);
+    delete_option('ship_check_connector_last_success');
     wp_clear_scheduled_hook(SHIP_CHECK_CRON);
     ship_check_redirect('disconnected');
 }
@@ -106,12 +118,15 @@ function ship_check_inventory() {
 }
 function ship_check_sync() {
     $token = get_option(SHIP_CHECK_OPTION);
-    if (!is_string($token) || !preg_match('/^sc_site_[a-f0-9]{64}$/D', $token)) return;
+    if (!is_string($token) || !preg_match('/^sc_site_[a-f0-9]{64}$/D', $token)) return false;
     $components = ship_check_inventory();
-    if (count($components) > 500) return;
-    wp_remote_request(SHIP_CHECK_API . '/api/cms/inventory', [
+    if (count($components) > 500) return false;
+    $response = wp_remote_request(SHIP_CHECK_API . '/api/cms/inventory', [
         'method'=>'PUT','timeout'=>15,'redirection'=>0,
         'headers'=>['Authorization'=>'Bearer '.$token,'Content-Type'=>'application/json'],
         'body'=>wp_json_encode(['cms'=>'wordpress','components'=>$components])
     ]);
+    $success = !is_wp_error($response) && wp_remote_retrieve_response_code($response) === 200;
+    if ($success) update_option('ship_check_connector_last_success', time(), false);
+    return $success;
 }
