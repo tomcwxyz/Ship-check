@@ -174,11 +174,11 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
     {data && <>
       <p><strong>{data.enabled ? "Monitoring enabled" : "Monitoring off"}</strong> · Your project is only monitored after you save an inventory.</p>
       <div className="technology-notice">
-        <h3>Connect your WordPress website</h3>
-        <p>Install the read-only Ship Check Connector plugin in WordPress, then pair it here. It automatically sends installed plugins, themes and WordPress versions. No GitHub Actions required.</p>
-        <button type="button" disabled={busy} onClick={() => void createCmsPairing()}>Generate WordPress pairing code</button>
+        <h3>Connect WordPress or Drupal</h3>
+        <p>Install the read-only connector on your WordPress or Drupal website, then pair it here. It automatically sends installed components and versions. No GitHub Actions required.</p>
+        <button type="button" disabled={busy} onClick={() => void createCmsPairing()}>Generate website pairing code</button>
         {pairingCode && <div>
-          <p>Copy this code into WordPress → Tools → Ship Check within ten minutes. It can only be used once.</p>
+          <p>Copy this code into WordPress → Tools → Ship Check, or Drupal → Configuration → System → Ship Check Connector, within ten minutes. It can only be used once.</p>
           <code style={{overflowWrap:"anywhere"}}>{pairingCode}</code>
           <button type="button" onClick={() => void navigator.clipboard.writeText(pairingCode)}>Copy code</button>
         </div>}
@@ -187,7 +187,7 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
           {site.lastSeenAt?" · Last synced "+new Date(site.lastSeenAt).toLocaleString("en-GB"):" · Waiting for first sync"}
           {" "}<button type="button" disabled={busy} onClick={() => void revokeCmsConnector(site.id)}>Disconnect</button>
         </p>)}
-        <p><a href="https://github.com/tomcwxyz/Ship-check/tree/main/integrations/wordpress/ship-check-connector">Get the WordPress connector</a></p>
+        <p><a href="https://github.com/tomcwxyz/Ship-check/tree/main/integrations/wordpress/ship-check-connector">WordPress connector</a> · <a href="https://github.com/tomcwxyz/Ship-check/tree/main/integrations/drupal/ship_check_connector">Drupal connector</a></p>
       </div>
       <div className="technology-notice">
         <h3>Automatically discover from your scans</h3>
