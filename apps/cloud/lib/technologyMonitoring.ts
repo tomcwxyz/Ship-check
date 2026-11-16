@@ -8,7 +8,9 @@ export const MAX_COMPONENTS = 50;
 
 export type InventoryState = {
   enabled: boolean;
+  autoDiscovery: boolean;
   components: MonitoredComponent[];
+  discoveredComponents: MonitoredComponent[];
   alerts: Array<{
     identity: string;
     provider: string;
@@ -76,14 +78,18 @@ type ComponentRow = {
 export async function getTechnologyInventory(
   db: CloudHistoryDatabase, projectId: string, accountId: string
 ): Promise<InventoryState> {
-  const consent = await db.query<{ project_id: string }>(
-    "SELECT project_id FROM ship_check_technology_monitoring WHERE project_id=$1 AND account_id=$2",
+  const consent = await db.query<{ project_id: string; auto_discovery_enabled: boolean }>(
+    "SELECT project_id, auto_discovery_enabled FROM ship_check_technology_monitoring WHERE project_id=$1 AND account_id=$2",
     [projectId, accountId]
   );
   const enabled = consent.rows.length > 0;
-  const [components, alerts, feeds] = await Promise.all([
+  const [components, discovered, alerts, feeds] = await Promise.all([
     enabled ? db.query<ComponentRow>(
       "SELECT kind, component_id, version, evidence FROM ship_check_technology_components WHERE project_id=$1 ORDER BY kind, component_id",
+      [projectId]
+    ) : Promise.resolve({ rows: [] as ComponentRow[] }),
+    enabled ? db.query<ComponentRow>(
+      "SELECT kind, component_id, version, evidence FROM ship_check_discovered_components WHERE project_id=$1 ORDER BY kind, component_id",
       [projectId]
     ) : Promise.resolve({ rows: [] as ComponentRow[] }),
     enabled ? db.query<AlertRow>(
@@ -96,6 +102,12 @@ export async function getTechnologyInventory(
   ]);
   return {
     enabled,
+    autoDiscovery: enabled && consent.rows[0]?.auto_discovery_enabled === true,
+    discoveredComponents: discovered.rows.map(r => ({
+      kind: r.kind, id: r.component_id,
+      ...(r.version ? { version: r.version } : {}),
+      evidence: r.evidence
+    })),
     components: components.rows.map(r => ({
       kind: r.kind, id: r.component_id,
       ...(r.version ? { version: r.version } : {}),
@@ -146,9 +158,82 @@ export async function saveTechnologyInventory(
          SELECT 1 FROM ship_check_technology_components AS c WHERE c.project_id=a.project_id
            AND c.kind=a.component_kind AND c.component_id=a.component_id
            AND COALESCE(c.version,'')=COALESCE(a.component_version,'')
+         UNION ALL SELECT 1 FROM ship_check_discovered_components d WHERE d.project_id=a.project_id
+           AND d.kind=a.component_kind AND d.component_id=a.component_id
+           AND COALESCE(d.version,'')=COALESCE(a.component_version,'')
        )`,
       [projectId]
     );
+  });
+}
+
+/** Consent is controlled only by a verified browser session with project ownership. */
+export async function setAutomaticDiscovery(
+  db: CloudHistoryDatabase, projectId: string, accountId: string, enabled: boolean
+): Promise<void> {
+  await db.transaction(async tx => {
+    const owned = await tx.query(
+      "SELECT id FROM ship_check_projects WHERE id=$1 AND account_id=$2 FOR UPDATE",
+      [projectId, accountId]
+    );
+    if (owned.rows.length !== 1) throw new Error("Project unavailable.");
+    if (enabled) {
+      await tx.query(
+        `INSERT INTO ship_check_technology_monitoring(project_id,account_id,auto_discovery_enabled)
+         VALUES ($1,$2,true) ON CONFLICT(project_id) DO UPDATE
+         SET auto_discovery_enabled=true,updated_at=now()
+         WHERE ship_check_technology_monitoring.account_id=$2`,
+        [projectId,accountId]
+      );
+    } else {
+      await tx.query(
+        "UPDATE ship_check_technology_monitoring SET auto_discovery_enabled=false,updated_at=now() WHERE project_id=$1 AND account_id=$2",
+        [projectId,accountId]
+      );
+      // Disabling discovery deletes synced data, but preserves manual inventory.
+      await tx.query("DELETE FROM ship_check_discovered_components WHERE project_id=$1", [projectId]);
+      await tx.query(
+        `DELETE FROM ship_check_technology_alerts AS a WHERE a.project_id=$1
+         AND NOT EXISTS (SELECT 1 FROM ship_check_technology_components c
+                         WHERE c.project_id=a.project_id AND c.kind=a.component_kind
+                         AND c.component_id=a.component_id)`,[projectId]
+      );
+    }
+  });
+}
+
+/** CI can update discovered source IDs only when the project owner has explicitly enabled it. */
+export async function syncDiscoveredTechnologyInventory(
+  db: CloudHistoryDatabase, projectId: string, accountId: string, components: MonitoredComponent[]
+): Promise<boolean> {
+  return db.transaction(async tx => {
+    const consent = await tx.query(
+      `SELECT m.project_id FROM ship_check_technology_monitoring m
+       JOIN ship_check_projects p ON p.id=m.project_id
+       WHERE m.project_id=$1 AND m.account_id=$2 AND p.account_id=$2
+         AND m.auto_discovery_enabled=true FOR UPDATE OF m`,[projectId,accountId]
+    );
+    if (consent.rows.length !== 1) return false;
+    await tx.query("DELETE FROM ship_check_discovered_components WHERE project_id=$1",[projectId]);
+    for (const item of components) {
+      await tx.query(
+        `INSERT INTO ship_check_discovered_components(project_id,kind,component_id,version,evidence)
+         VALUES ($1,$2,$3,$4,'source-declared')`,
+        [projectId,item.kind,item.id,item.version ?? null]
+      );
+    }
+    await tx.query(
+      `DELETE FROM ship_check_technology_alerts a WHERE a.project_id=$1 AND NOT EXISTS (
+         SELECT 1 FROM ship_check_technology_components m
+           WHERE m.project_id=a.project_id AND m.kind=a.component_kind
+             AND m.component_id=a.component_id AND COALESCE(m.version,'')=COALESCE(a.component_version,'')
+         UNION ALL
+         SELECT 1 FROM ship_check_discovered_components d
+           WHERE d.project_id=a.project_id AND d.kind=a.component_kind
+             AND d.component_id=a.component_id AND COALESCE(d.version,'')=COALESCE(a.component_version,'')
+       )`, [projectId]
+    );
+    return true;
   });
 }
 
