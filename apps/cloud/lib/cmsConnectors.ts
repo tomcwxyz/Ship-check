@@ -67,6 +67,24 @@ export async function saveCmsInventory(db:CloudHistoryDatabase,token:string,comp
      VALUES($1,$2,$3,$4,$5,$6)`,[connector.id,connector.project_id,c.kind,c.id,c.version??null,c.active]);
   }
   await tx.query("UPDATE ship_check_cms_connectors SET last_seen_at=now() WHERE id=$1",[connector.id]);
+  // Reconcile alerts after a component is removed or its version changes.
+  // Keep alerts supported by manual or CI-discovered inventory.
+  await tx.query(
+   `DELETE FROM ship_check_technology_alerts a WHERE a.project_id=$1 AND NOT EXISTS (
+      SELECT 1 FROM ship_check_cms_components c
+       JOIN ship_check_cms_connectors s ON s.id=c.connector_id AND s.revoked_at IS NULL
+       WHERE c.project_id=a.project_id AND c.kind=a.component_kind
+         AND c.component_id=a.component_id
+         AND COALESCE(c.version,'')=COALESCE(a.component_version,'')
+      UNION ALL SELECT 1 FROM ship_check_technology_components m
+       WHERE m.project_id=a.project_id AND m.kind=a.component_kind
+         AND m.component_id=a.component_id
+         AND COALESCE(m.version,'')=COALESCE(a.component_version,'')
+      UNION ALL SELECT 1 FROM ship_check_discovered_components d
+       WHERE d.project_id=a.project_id AND d.kind=a.component_kind
+         AND d.component_id=a.component_id
+         AND COALESCE(d.version,'')=COALESCE(a.component_version,'')
+    )`,[connector.project_id]);
   return true;
  });
 }
