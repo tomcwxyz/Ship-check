@@ -51,6 +51,10 @@ inputs:
     description: "Metadata history retention for first connection and later idempotent reconnects."
     required: false
     default: "90-days"
+  cloud-technology-sync:
+    description: "Explicitly opt in to uploading only discovered model/CMS identifiers and versions, after enabling automatic discovery on the Cloud project. Full source and report stay in the runner."
+    required: false
+    default: "false"
 
 outputs:
   report-path:
@@ -141,6 +145,8 @@ runs:
         SHIP_CHECK_CLOUD_URL: ${{ inputs.cloud-url }}
         SHIP_CHECK_CLOUD_TOKEN: ${{ inputs.cloud-token }}
         SHIP_CHECK_CLOUD_RETENTION: ${{ inputs.cloud-retention }}
+        SHIP_CHECK_TECHNOLOGY_SYNC: ${{ inputs.cloud-technology-sync }}
+        SHIP_CHECK_REPORT_PATH: ${{ steps.scan.outputs.report-path }}
       run: node "$GITHUB_ACTION_PATH/scripts/github-action-cloud-sync.mjs"
 
     - name: Apply Ship Check gate
