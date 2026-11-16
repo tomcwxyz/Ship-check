@@ -91,11 +91,16 @@ function ship_check_inventory() {
         $slug = dirname($path);
         if ($slug === '.') $slug = basename($path, '.php');
         if (!preg_match('/^[A-Za-z0-9._-]{1,160}$/D', $slug)) continue;
-        $items[] = ['kind'=>'wordpress-plugin','id'=>$slug,'version'=>$data['Version'],'active'=>is_plugin_active($path)];
+        $item = ['kind'=>'wordpress-plugin','id'=>$slug,'active'=>is_plugin_active($path)];
+        if (isset($data['Version']) && is_string($data['Version']) && preg_match('/^[A-Za-z0-9._+\\/-]{1,80}$/D', $data['Version'])) $item['version'] = $data['Version'];
+        $items[] = $item;
     }
     foreach (wp_get_themes() as $slug => $theme) {
         if (!preg_match('/^[A-Za-z0-9._-]{1,160}$/D', $slug)) continue;
-        $items[] = ['kind'=>'wordpress-theme','id'=>$slug,'version'=>$theme->get('Version'),'active'=>($slug === get_stylesheet() || $slug === get_template())];
+        $item = ['kind'=>'wordpress-theme','id'=>$slug,'active'=>($slug === get_stylesheet() || $slug === get_template())];
+        $version = $theme->get('Version');
+        if (is_string($version) && preg_match('/^[A-Za-z0-9._+\\/-]{1,80}$/D', $version)) $item['version'] = $version;
+        $items[] = $item;
     }
     return $items;
 }
