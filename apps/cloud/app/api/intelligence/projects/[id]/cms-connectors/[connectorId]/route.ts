@@ -23,6 +23,22 @@ export async function DELETE(request:Request,context:{params:Promise<{id:string;
   await tx.query(
    "DELETE FROM ship_check_cms_components WHERE connector_id=$1 AND project_id=$2",
    [connectorId,id]);
+  await tx.query(
+   `DELETE FROM ship_check_technology_alerts a WHERE a.project_id=$1 AND NOT EXISTS (
+      SELECT 1 FROM ship_check_cms_components c
+       JOIN ship_check_cms_connectors s ON s.id=c.connector_id AND s.revoked_at IS NULL
+       WHERE c.project_id=a.project_id AND c.kind=a.component_kind
+         AND c.component_id=a.component_id
+         AND COALESCE(c.version,'')=COALESCE(a.component_version,'')
+      UNION ALL SELECT 1 FROM ship_check_technology_components m
+       WHERE m.project_id=a.project_id AND m.kind=a.component_kind
+         AND m.component_id=a.component_id
+         AND COALESCE(m.version,'')=COALESCE(a.component_version,'')
+      UNION ALL SELECT 1 FROM ship_check_discovered_components d
+       WHERE d.project_id=a.project_id AND d.kind=a.component_kind
+         AND d.component_id=a.component_id
+         AND COALESCE(d.version,'')=COALESCE(a.component_version,'')
+   )`,[id]);
  });
  return Response.json({revoked:true},{headers});
 }
