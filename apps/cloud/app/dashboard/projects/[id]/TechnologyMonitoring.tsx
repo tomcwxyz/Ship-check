@@ -198,7 +198,7 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
         <button type="button" disabled={busy || !components.length} onClick={save}>{busy ? "Saving…" : "Save manual components"}</button>
       </div>
       </details>
-      {data.enabled && <div className="technology-actions"><button type="button" disabled={busy} onClick={disable}>Stop all monitoring and delete data</button></div>
+      {data.enabled && <div className="technology-actions"><button type="button" disabled={busy} onClick={disable}>Stop all monitoring and delete data</button></div>}
       {data.enabled && <>
         <h3>Provider intelligence</h3>
         <p>OpenAI and Anthropic retirement notices are checked against provider information. Drupal security notices use official feeds; WordPress notices require a signed Wordfence Intelligence connection. A match does not establish which version is installed on a live site.</p>
