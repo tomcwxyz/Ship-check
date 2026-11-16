@@ -10,6 +10,7 @@ type Monitoring = {
   autoDiscovery: boolean;
   components: Component[];
   discoveredComponents: Component[];
+  cmsConnectors: Array<{id:string;cms:string;lastSeenAt:string|null;components:number}>;
   alerts: Array<{
     identity: string; provider: string; componentId: string; status: string; scope: string;
     summary: string; sourceUrl: string; effectiveDate: string | null; lastSeenAt: string;
@@ -35,6 +36,17 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  const [pairingCode, setPairingCode] = useState("");
+  async function createCmsPairing() {
+    setBusy(true);setError("");setPairingCode("");
+    try {
+      const response=await fetch(endpoint+"/cms-pairing",{method:"POST"});
+      const result=await response.json();
+      if(!response.ok) throw new Error(result.error??"Could not generate pairing code.");
+      setPairingCode(result.pairingCode);
+    } catch(e) {setError(e instanceof Error?e.message:"Could not connect.");}
+    finally {setBusy(false);}
+  }
 
   const load = useCallback(async () => {
     const response = await fetch(endpoint, { cache: "no-store" });
@@ -150,6 +162,21 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
     {!data && !error && <p>Loading monitoring settings…</p>}
     {data && <>
       <p><strong>{data.enabled ? "Monitoring enabled" : "Monitoring off"}</strong> · Your project is only monitored after you save an inventory.</p>
+      <div className="technology-notice">
+        <h3>Connect your WordPress website</h3>
+        <p>Install the read-only Ship Check Connector plugin in WordPress, then pair it here. It automatically sends installed plugins, themes and WordPress versions. No GitHub Actions required.</p>
+        <button type="button" disabled={busy} onClick={() => void createCmsPairing()}>Generate WordPress pairing code</button>
+        {pairingCode && <div>
+          <p>Copy this code into WordPress → Tools → Ship Check within ten minutes. It can only be used once.</p>
+          <code style={{overflowWrap:"anywhere"}}>{pairingCode}</code>
+          <button type="button" onClick={() => void navigator.clipboard.writeText(pairingCode)}>Copy code</button>
+        </div>}
+        {(data.cmsConnectors??[]).map(site=><p key={site.id}>
+          <strong>{site.cms==="wordpress"?"WordPress":"Drupal"} connected</strong> · {site.components} components
+          {site.lastSeenAt?" · Last synced "+new Date(site.lastSeenAt).toLocaleString("en-GB"):" · Waiting for first sync"}
+        </p>)}
+        <p><a href="https://github.com/tomcwxyz/Ship-check/tree/main/integrations/wordpress/ship-check-connector">Get the WordPress connector</a></p>
+      </div>
       <div className="technology-notice">
         <h3>Automatically discover from your scans</h3>
         <p>Recommended: Ship Check finds declared AI models, WordPress components and Drupal packages during a local or CI scan. With your permission, it sends only their identifiers and versions to Cloud — never the source files or full report.</p>
