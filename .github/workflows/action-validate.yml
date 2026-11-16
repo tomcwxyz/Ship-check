@@ -10,6 +10,9 @@ on:
       - "scripts/github-action-comparison.test.mjs"
       - "scripts/github-action-cloud-sync.mjs"
       - "scripts/github-action-cloud-sync.test.mjs"
+      - "scripts/technology-inventory.mjs"
+      - "scripts/technology-inventory.test.mjs"
+      - "scripts/technology-sync.test.mjs"
       - "packages/adapters/**"
       - "packages/cli/**"
       - "packages/core/**"
@@ -25,6 +28,9 @@ on:
       - "scripts/github-action-comparison.test.mjs"
       - "scripts/github-action-cloud-sync.mjs"
       - "scripts/github-action-cloud-sync.test.mjs"
+      - "scripts/technology-inventory.mjs"
+      - "scripts/technology-inventory.test.mjs"
+      - "scripts/technology-sync.test.mjs"
       - "packages/adapters/**"
       - "packages/cli/**"
       - "packages/core/**"
@@ -46,6 +52,9 @@ jobs:
 
       - name: Test opt-in Cloud sync boundaries
         run: node --test scripts/github-action-cloud-sync.test.mjs
+
+      - name: Test technology discovery consent and redaction
+        run: node --test scripts/technology-inventory.test.mjs scripts/technology-sync.test.mjs
 
       - name: Run local Ship Check action
         id: ship-check

@@ -1,6 +1,6 @@
 import { cloudDatabase, cloudRuntime, cloudTechnologyRateLimit } from "../../../../../lib/cloudRuntime";
 import { verifiedIdentity, subjectHash } from "../../../../../lib/neonAuth";
-import { getTechnologyInventory, parseComponents, saveTechnologyInventory, stopTechnologyMonitoring } from "../../../../../lib/technologyMonitoring";
+import { getTechnologyInventory, parseComponents, saveTechnologyInventory, setAutomaticDiscovery, stopTechnologyMonitoring } from "../../../../../lib/technologyMonitoring";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -50,6 +50,24 @@ async function handle(request: Request, context: Context): Promise<Response> {
       await stopTechnologyMonitoring(db, id, project.accountId);
       return Response.json({ enabled: false }, { headers: RESPONSE_HEADERS });
     }
+    if (method === "PATCH") {
+      if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) {
+        return error(415, "Expected JSON.");
+      }
+      const size = Number(request.headers.get("content-length") ?? 0);
+      if (!Number.isSafeInteger(size) || size > 300) return error(413, "Settings too large.");
+      const raw = await request.text();
+      if (raw.length > 300) return error(413, "Settings too large.");
+      let payload: unknown;
+      try { payload = JSON.parse(raw); } catch { return error(400, "Invalid JSON."); }
+      if (!payload || typeof payload !== "object" || Array.isArray(payload) ||
+          Object.keys(payload).length !== 1 || !Object.hasOwn(payload,"autoDiscovery") ||
+          typeof (payload as { autoDiscovery?: unknown }).autoDiscovery !== "boolean") {
+        return error(400, "Expected autoDiscovery boolean only.");
+      }
+      await setAutomaticDiscovery(db,id,project.accountId,(payload as {autoDiscovery:boolean}).autoDiscovery);
+      return Response.json(await getTechnologyInventory(db,id,project.accountId), { headers: RESPONSE_HEADERS });
+    }
     if (method !== "PUT") return error(405, "Method not allowed.");
     if (!(request.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) {
       return error(415, "Expected JSON.");
@@ -79,4 +97,5 @@ async function handle(request: Request, context: Context): Promise<Response> {
 
 export const GET = handle;
 export const PUT = handle;
+export const PATCH = handle;
 export const DELETE = handle;

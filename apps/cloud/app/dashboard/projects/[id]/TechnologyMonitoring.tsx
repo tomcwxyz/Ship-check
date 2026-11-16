@@ -7,7 +7,9 @@ type ComponentKind = "ai-model" | "wordpress-core" | "wordpress-plugin" | "wordp
 type Component = { kind: ComponentKind; id: string; version?: string; evidence: "source-declared" };
 type Monitoring = {
   enabled: boolean;
+  autoDiscovery: boolean;
   components: Component[];
+  discoveredComponents: Component[];
   alerts: Array<{
     identity: string; provider: string; componentId: string; status: string; scope: string;
     summary: string; sourceUrl: string; effectiveDate: string | null; lastSeenAt: string;
@@ -109,6 +111,23 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
     finally { setBusy(false); }
   }
 
+  async function setDiscovery(enabled: boolean) {
+    setBusy(true); setError(""); setInfo("");
+    try {
+      const response = await fetch(endpoint, {
+        method: "PATCH", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ autoDiscovery: enabled })
+      });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Unable to update discovery.");
+      await load();
+      setInfo(enabled
+        ? "Automatic discovery enabled. Add cloud-technology-sync: true to your Ship Check CI action, then scan."
+        : "Automatic discovery disabled. Scan-derived components have been deleted.");
+    } catch (e) { setError(e instanceof Error ? e.message : "Unable to update discovery."); }
+    finally { setBusy(false); }
+  }
+
   async function disable() {
     if (!window.confirm("Stop monitoring and permanently delete this project's component list and alerts?")) return;
     setBusy(true); setError(""); setInfo("");
@@ -125,12 +144,31 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
   return <section className="dashboard-panel" aria-labelledby="technology-heading">
     <p className="section-index">02 / TECHNOLOGY MONITORING</p>
     <h2 id="technology-heading">Keep an eye on your dependencies</h2>
-    <p>Optional monitoring for things that may change outside your code. Enter a model ID or CMS component from your project. This is a <strong>source-declared inventory</strong> – it does not prove what is deployed. No source code is uploaded.</p>
+    <p>Optional monitoring for things that change outside your code. Automatic discovery is recommended; manual entry remains available. Discovered source declarations do not prove what is actually deployed.</p>
     {error && <p role="alert" style={{ color: "#9c3328" }}>{error}</p>}
     {info && <p role="status">{info}</p>}
     {!data && !error && <p>Loading monitoring settings…</p>}
     {data && <>
       <p><strong>{data.enabled ? "Monitoring enabled" : "Monitoring off"}</strong> · Your project is only monitored after you save an inventory.</p>
+      <div className="technology-notice">
+        <h3>Automatically discover from your scans</h3>
+        <p>Recommended: Ship Check finds declared AI models, WordPress components and Drupal packages during a local or CI scan. With your permission, it sends only their identifiers and versions to Cloud — never the source files or full report.</p>
+        <p><strong>{data.autoDiscovery ? "Automatic discovery enabled" : "Automatic discovery off"}</strong></p>
+        <button type="button" disabled={busy} onClick={() => void setDiscovery(!data.autoDiscovery)}>
+          {data.autoDiscovery ? "Turn off automatic discovery" : "Enable automatic discovery"}
+        </button>
+        {data.autoDiscovery && <>
+          <p>In the Ship Check GitHub Action, set <code>cloud-technology-sync: "true"</code> alongside your existing <code>cloud-url</code> and <code>cloud-token</code>. It will update this inventory after each successful complete scan. <a href="https://github.com/tomcwxyz/Ship-check/blob/main/docs/CLOUD_AUTO_DISCOVERY.md">Configuration guide</a>.</p>
+          <h3>Discovered technologies <span className="count-chip">{data.discoveredComponents.length}</span></h3>
+          {data.discoveredComponents.length === 0 && <p>No scan has synced technologies yet. A complete scan with no recognised models or CMS components also results in an empty list.</p>}
+          {data.discoveredComponents.map(item => <div key={item.kind + item.id} className="technology-component">
+            <span><strong>{item.id}</strong> <small>{item.kind}{item.version ? " · " + item.version : ""} · source declaration, not live verification</small></span>
+          </div>)}
+        </>}
+      </div>
+      <details>
+        <summary>Prefer to add or import components manually?</summary>
+        <p>Manual entries are kept separately from automatic discoveries.</p>
       <details className="technology-import">
         <summary>Import a component list</summary>
         <p>Choose a Drupal <code>composer.lock</code>, a JSON file from <code>wp plugin list --format=json</code>, or a Ship Check inventory JSON. The file is read in your browser; only the recognised component IDs and versions are saved when you choose Save.</p>
@@ -157,9 +195,10 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
         </div>)}
       </div>}
       <div className="technology-actions">
-        <button type="button" disabled={busy || !components.length} onClick={save}>{busy ? "Saving…" : data.enabled ? "Save inventory" : "Enable monitoring"}</button>
-        {data.enabled && <button type="button" disabled={busy} onClick={disable}>Stop monitoring and delete data</button>}
+        <button type="button" disabled={busy || !components.length} onClick={save}>{busy ? "Saving…" : "Save manual components"}</button>
       </div>
+      </details>
+      {data.enabled && <div className="technology-actions"><button type="button" disabled={busy} onClick={disable}>Stop all monitoring and delete data</button></div>}
       {data.enabled && <>
         <h3>Provider intelligence</h3>
         <p>OpenAI and Anthropic retirement notices are checked against provider information. Drupal security notices use official feeds; WordPress notices require a signed Wordfence Intelligence connection. A match does not establish which version is installed on a live site.</p>

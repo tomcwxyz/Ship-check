@@ -78,10 +78,16 @@ export async function refreshTechnologyMonitoring(
   // Bound the job to a predictable amount of work. An oversized estate fails
   // visibly, without claiming to have checked every opted-in project.
   const rowset = await db.query<ComponentRow>(
-    `SELECT c.project_id,c.kind,c.component_id,c.version,c.evidence
-     FROM ship_check_technology_components c
-     INNER JOIN ship_check_technology_monitoring m ON m.project_id=c.project_id
-     ORDER BY c.project_id,c.kind,c.component_id LIMIT 2001`
+    `SELECT project_id,kind,component_id,version,evidence FROM (
+         SELECT c.project_id,c.kind,c.component_id,c.version,c.evidence,1 AS priority
+         FROM ship_check_discovered_components c
+         JOIN ship_check_technology_monitoring m ON m.project_id=c.project_id
+         WHERE m.auto_discovery_enabled=true
+         UNION ALL
+         SELECT c.project_id,c.kind,c.component_id,c.version,c.evidence,0 AS priority
+         FROM ship_check_technology_components c
+         JOIN ship_check_technology_monitoring m ON m.project_id=c.project_id
+       ) AS combined ORDER BY project_id,kind,component_id,priority LIMIT 2001`
   );
   if (rowset.rows.length > 2000) throw new Error("monitoring-capacity-exceeded");
 
@@ -89,11 +95,15 @@ export async function refreshTechnologyMonitoring(
   const groups = new Map<string, MonitoredComponent[]>();
   for (const row of rowset.rows) {
     const components = groups.get(row.project_id) ?? [];
-    components.push({
+    const candidate = {
       kind: row.kind, id: row.component_id,
       ...(row.version ? { version: row.version } : {}),
       evidence: row.evidence
-    });
+    };
+    // Source-discovered records win over stale manual IDs for an identical component.
+    const existing = components.findIndex(item => item.kind === candidate.kind && item.id === candidate.id);
+    if (existing >= 0) components[existing] = candidate;
+    else components.push(candidate);
     groups.set(row.project_id, components);
   }
   summary.projects = groups.size;
