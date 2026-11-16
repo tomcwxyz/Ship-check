@@ -1,0 +1,5 @@
+ship_check_connector.settings:
+  title: 'Ship Check Connector'
+  description: 'Connect Drupal component inventory to Ship Check Cloud.'
+  parent: system.admin_config_system
+  route_name: ship_check_connector.settings
