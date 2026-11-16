@@ -37,6 +37,17 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [pairingCode, setPairingCode] = useState("");
+  async function revokeCmsConnector(connectorId:string) {
+    if(!window.confirm("Disconnect this CMS connector and delete its inventory?")) return;
+    setBusy(true);setError("");
+    try {
+      const response=await fetch(endpoint+"/cms-connectors/"+connectorId,{method:"DELETE"});
+      const result=await response.json();
+      if(!response.ok) throw new Error(result.error??"Unable to disconnect.");
+      await load();setInfo("CMS connector revoked and its inventory deleted.");
+    } catch(e) {setError(e instanceof Error?e.message:"Unable to disconnect.");}
+    finally {setBusy(false);}
+  }
   async function createCmsPairing() {
     setBusy(true);setError("");setPairingCode("");
     try {
@@ -174,6 +185,7 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
         {(data.cmsConnectors??[]).map(site=><p key={site.id}>
           <strong>{site.cms==="wordpress"?"WordPress":"Drupal"} connected</strong> · {site.components} components
           {site.lastSeenAt?" · Last synced "+new Date(site.lastSeenAt).toLocaleString("en-GB"):" · Waiting for first sync"}
+          {" "}<button type="button" disabled={busy} onClick={() => void revokeCmsConnector(site.id)}>Disconnect</button>
         </p>)}
         <p><a href="https://github.com/tomcwxyz/Ship-check/tree/main/integrations/wordpress/ship-check-connector">Get the WordPress connector</a></p>
       </div>
