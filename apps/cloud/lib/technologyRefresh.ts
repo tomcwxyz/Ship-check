@@ -84,6 +84,11 @@ export async function refreshTechnologyMonitoring(
          JOIN ship_check_technology_monitoring m ON m.project_id=c.project_id
          WHERE m.auto_discovery_enabled=true
          UNION ALL
+         SELECT c.project_id,c.kind,c.component_id,c.version,'source-declared' AS evidence,2 AS priority
+         FROM ship_check_cms_components c
+         JOIN ship_check_cms_connectors s ON s.id=c.connector_id
+         WHERE s.revoked_at IS NULL
+         UNION ALL
          SELECT c.project_id,c.kind,c.component_id,c.version,c.evidence,0 AS priority
          FROM ship_check_technology_components c
          JOIN ship_check_technology_monitoring m ON m.project_id=c.project_id
