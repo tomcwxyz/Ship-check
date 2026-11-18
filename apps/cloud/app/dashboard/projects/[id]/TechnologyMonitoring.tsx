@@ -11,6 +11,7 @@ type Monitoring = {
   components: Component[];
   discoveredComponents: Component[];
   cmsConnectors: Array<{id:string;cms:string;lastSeenAt:string|null;components:number}>;
+  siteHints: Array<{cms:"wordpress"|"drupal";confidence:"likely"|"possible";lastSeenAt:string}>;
   alerts: Array<{
     identity: string; provider: string; componentId: string; status: string; scope: string;
     summary: string; sourceUrl: string; effectiveDate: string | null; lastSeenAt: string;
@@ -165,16 +166,24 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
   }
 
   return <section className="dashboard-panel" aria-labelledby="technology-heading">
-    <p className="section-index">02 / TECHNOLOGY MONITORING</p>
-    <h2 id="technology-heading">Keep an eye on your dependencies</h2>
-    <p>Optional monitoring for things that change outside your code. Connect a website to see its installed components and relevant security notices. Other ways to add technologies are available if you need them.</p>
+    <p className="section-index">02 / CONTINUOUS MONITORING</p>
+    <h2 id="technology-heading">What Ship Check is watching</h2>
+    <p>Optional monitoring for things that change outside your code. Scan with CLI, npm or Desktop, then choose to keep the project monitored. Recognised AI models and CMS components are checked for new notices. You can also connect a WordPress or Drupal website for a verified installed inventory. No GitHub Actions needed.</p>
     {error && <p role="alert" style={{ color: "#9c3328" }}>{error}</p>}
     {info && <p role="status">{info}</p>}
     {!data && !error && <p>Loading monitoring settings…</p>}
     {data && <>
-      <p><strong>{data.enabled ? "Monitoring enabled" : "Monitoring off"}</strong> · Your project is only monitored after you save an inventory.</p>
+      <div className="monitoring-status">
+        <strong>{data.enabled ? "Monitoring on" : "Monitoring not yet enabled"}</strong>
+        <span>{data.discoveredComponents.filter(x=>x.kind==="ai-model").length} AI models · {data.discoveredComponents.filter(x=>x.kind!=="ai-model").length} source-declared CMS components · {(data.cmsConnectors??[]).reduce((n,s)=>n+s.components,0)} installed CMS components</span>
+      </div>
+      {!data.enabled && <p>Run a CLI scan with <code>--monitor</code>, or select <strong>Keep discovered technologies monitored</strong> in Desktop. You can also connect a website below.</p>}
+      {(data.siteHints??[]).length>0 && <div className="technology-notice">
+        <h3>Websites recognised in scans</h3>
+        {(data.siteHints??[]).map(h=><p key={h.cms}><strong>{h.confidence==="likely"?"Likely ":"Possibly "}{h.cms==="wordpress"?"WordPress":"Drupal"}</strong> · Public-page identification on {new Date(h.lastSeenAt).toLocaleDateString("en-GB")}. This doesn't tell us which extensions are installed. A connector below can provide that information.</p>)}
+      </div>
       <div className="technology-notice" style={{ padding: "1.25rem", borderRadius: 12 }}>
-        <h3>Websites</h3>
+        <h3>Connect a website</h3>
         <p>Connect a WordPress or Drupal website to keep track of its installed components and versions. Once connected, Ship Check updates its inventory automatically. You don't need to configure GitHub Actions.</p>
         {(data.cmsConnectors??[]).length > 0 && <div aria-label="Connected websites">
           {(data.cmsConnectors??[]).map(site=><div className="technology-component" key={site.id}>
@@ -186,7 +195,8 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
           <summary>{(data.cmsConnectors??[]).length ? "Connect another website" : "Connect a website"}</summary>
           <div style={{ paddingTop: "0.75rem" }}>
             <p><strong>1. Install the connector.</strong> Download the appropriate connector and install it through your WordPress or Drupal administration area.</p>
-            <p><a href="https://github.com/tomcwxyz/Ship-check/actions/workflows/cms-connectors-package.yml">Download connector packages</a> · <a href="https://github.com/tomcwxyz/Ship-check/blob/main/docs/CMS_CONNECTORS.md">Installation instructions</a></p>
+            <p className="connector-downloads"><a href="/connectors/ship-check-wordpress-connector.zip" download>Download WordPress connector (ZIP)</a> · <a href="/connectors/ship-check-drupal-connector.zip" download>Download Drupal connector (ZIP)</a></p>
+            <p><small>WordPress: Plugins → Add Plugin → Upload Plugin. Drupal: install as a custom module. <a href="https://github.com/tomcwxyz/Ship-check/blob/main/docs/CMS_CONNECTORS.md" target="_blank" rel="noreferrer">Full instructions</a>.</small></p>
             <p><strong>2. Pair the website.</strong> Generate a one-time code, then enter it in WordPress → Tools → Ship Check or Drupal → Configuration → System → Ship Check Connector within ten minutes.</p>
             <button type="button" disabled={busy} onClick={() => void createCmsPairing()}>{busy?"Generating…":"Generate pairing code"}</button>
             {pairingCode && <div style={{ marginTop: "0.75rem" }}>
@@ -202,11 +212,11 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
         </details>
       </div>
       <details className="technology-notice">
-        <summary>Other ways to track technologies</summary>
+        <summary>Other scan and import options</summary>
         <div style={{ paddingTop: "0.75rem" }}>
-          <p>For projects without a connected website, you can identify technologies from Ship Check scans or add them manually. Scan results describe what is declared in your code, not necessarily what is installed on a live website.</p>
+          <p>For normal use, scan with CLI or Desktop and choose to keep the project monitored. Declared technology is not proof of deployment. Advanced CI synchronisation and manual entry remain optional.</p>
           <details>
-            <summary>Import automatically from code scans (advanced)</summary>
+            <summary>CI synchronisation for existing workflows (optional)</summary>
             <p><strong>{data.autoDiscovery?"Scan synchronisation enabled":"Scan synchronisation off"}</strong></p>
             <p>Optional for repositories already using the Ship Check GitHub Action. To send recognised model and CMS declarations to Cloud, enable synchronisation and set <code>cloud-technology-sync: "true"</code> alongside the existing Cloud settings in your action. This step is not required for connected WordPress or Drupal websites.</p>
             <button type="button" disabled={busy} onClick={() => void setDiscovery(!data.autoDiscovery)}>{data.autoDiscovery?"Disable scan synchronisation":"Enable scan synchronisation"}</button>
