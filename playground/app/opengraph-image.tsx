@@ -1,124 +1,78 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Ship Check Playground — Before you ship, check. Findings, to verify, coverage.";
+export const alt = "Ship Check Playground. Before you ship, check. Findings, to verify, coverage.";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 const ink = "#19372e";
 const cream = "#f6f3e9";
 const lime = "#e0ee8b";
-const sage = "#97b09b";
 
-const labelStyle = {
-  display: "flex" as const,
-  alignItems: "center" as const,
-  gap: 11,
-  padding: "10px 14px",
-  borderRadius: 28,
-  background: "#f8f8ee",
-  border: "1px solid #dce4d7",
-  color: ink,
-  fontSize: 18,
-  fontWeight: 600
-};
+function SmallLabel({label,mark,color}:{label:string;mark:string;color:string}) {
+  return <div style={{display:"flex",alignItems:"center",gap:12,padding:"11px 16px",
+    borderRadius:26,backgroundColor:"#fffdf4",border:"1px solid #d7dfd2"}}>
+    <div style={{display:"flex",width:24,height:24,alignItems:"center",justifyContent:"center",
+      backgroundColor:color,borderRadius:14,fontFamily:"Arial",fontWeight:700,fontSize:14}}>{mark}</div>
+    <span style={{fontFamily:"Arial",fontSize:18,fontWeight:600,color:ink}}>{label}</span>
+  </div>;
+}
 
 export default function OpenGraphImage() {
   return new ImageResponse(
-    <div style={{
-      width: "100%",
-      height: "100%",
-      display: "flex",
-      position: "relative",
-      overflow: "hidden",
-      backgroundColor: cream,
-      color: ink
-    }}>
-      {/* Subtle landscape contours echo the site's circular hero artwork. */}
-      <div style={{
-        position: "absolute", width: 930, height: 380, borderRadius: "50%",
-        left: -150, bottom: -295, backgroundColor: "#d2e0cb", transform: "rotate(-9deg)"
-      }}/>
-      <div style={{
-        position: "absolute", width: 790, height: 310, borderRadius: "50%",
-        left: 360, bottom: -260, backgroundColor: "#a9c0ad", transform: "rotate(-12deg)"
-      }}/>
-      <div style={{
-        position: "absolute", width: 830, height: 310, borderRadius: "50%",
-        right: -340, bottom: -226, backgroundColor: ink, transform: "rotate(-11deg)"
-      }}/>
+    <div style={{width:1200,height:630,position:"relative",display:"flex",
+      backgroundColor:cream,color:ink,overflow:"hidden"}}>
+      <div style={{position:"absolute",display:"flex",width:950,height:370,left:-160,bottom:-299,
+        borderRadius:470,backgroundColor:"#d1dfca",transform:"rotate(-8deg)"}}/>
+      <div style={{position:"absolute",display:"flex",width:820,height:300,left:360,bottom:-255,
+        borderRadius:420,backgroundColor:"#aac1ad",transform:"rotate(-10deg)"}}/>
+      <div style={{position:"absolute",display:"flex",width:850,height:300,right:-350,bottom:-215,
+        borderRadius:425,backgroundColor:ink,transform:"rotate(-11deg)"}}/>
 
-      {/* Main message stays legible at small social-preview sizes. */}
-      <div style={{
-        display: "flex", flexDirection: "column", zIndex: 2,
-        width: 758, paddingTop: 48, paddingLeft: 64, paddingBottom: 48
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{
-            width: 46, height: 46, display: "flex",
-            alignItems: "center", justifyContent: "center",
-            borderRadius: 12, backgroundColor: lime, color: ink,
-            fontSize: 36, lineHeight: 1
-          }}>✳</div>
-          <span style={{
-            fontFamily: "Georgia, serif", fontSize: 39, letterSpacing: -1.8
-          }}>ship/check</span>
+      <div style={{display:"flex",flexDirection:"column",position:"relative",zIndex:2,
+        width:790,padding:"48px 0 48px 62px"}}>
+        <div style={{display:"flex",alignItems:"center",gap:14}}>
+          <div style={{display:"flex",width:46,height:46,backgroundColor:lime,borderRadius:12,
+            alignItems:"center",justifyContent:"center"}}>
+            <div style={{display:"flex",width:23,height:23,borderRadius:12,backgroundColor:ink}}/>
+          </div>
+          <span style={{fontFamily:"Georgia,serif",fontSize:40,letterSpacing:-1.5}}>ship/check</span>
         </div>
-
-        <div style={{
-          marginTop: 58, display: "flex", flexDirection: "column",
-          fontFamily: "Georgia, serif", letterSpacing: -3.1,
-          fontSize: 75, lineHeight: 1.02
-        }}>
+        <div style={{display:"flex",flexDirection:"column",marginTop:64,
+          fontFamily:"Georgia,serif",fontSize:71,letterSpacing:-3,lineHeight:1.05}}>
           <span>Before you ship,</span>
           <span>check.</span>
         </div>
-        <div style={{
-          width: 225, height: 7, borderRadius: 99,
-          marginTop: 11, backgroundColor: lime
-        }}/>
-        <div style={{
-          marginTop: 27, fontFamily: "Arial, sans-serif",
-          fontSize: 24, lineHeight: 1.35, maxWidth: 585
-        }}>
-          <span>See what needs fixing — and what</span>
+        <div style={{display:"flex",marginTop:12,width:225,height:7,borderRadius:8,backgroundColor:lime}}/>
+        <div style={{display:"flex",flexDirection:"column",marginTop:32,
+          fontFamily:"Arial",fontSize:25,lineHeight:1.35}}>
+          <span>See what needs fixing, and what</span>
           <span>still needs checking.</span>
         </div>
-        <div style={{
-          display: "flex", marginTop: "auto", alignSelf: "flex-start",
-          borderRadius: 10, padding: "12px 17px", backgroundColor: lime,
-          fontFamily: "Arial, sans-serif", color: ink,
-          fontSize: 16, fontWeight: 700, letterSpacing: 1.4
-        }}>PUBLIC PLAYGROUND  ·  NO SIGN-IN</div>
+        <div style={{display:"flex",alignItems:"center",alignSelf:"flex-start",marginTop:"auto",
+          padding:"13px 18px",backgroundColor:lime,borderRadius:10,
+          fontFamily:"Arial",fontSize:16,fontWeight:700,letterSpacing:1}}>
+          PUBLIC PLAYGROUND - NO SIGN-IN
+        </div>
       </div>
 
-      <div style={{
-        position: "relative", display: "flex", alignItems: "center",
-        justifyContent: "center", flex: 1, marginTop: 35
-      }}>
-        <div style={{
-          display: "flex", position: "absolute",
-          width: 365, height: 365, borderRadius: "50%",
-          border: "2px solid #a7baa8", top: 93, left: -15
-        }}/>
-        <div style={{
-          display: "flex", position: "absolute",
-          width: 270, height: 270, borderRadius: "50%",
-          border: "2px solid #9db49f", top: 140, left: 33
-        }}/>
-        <div style={{
-          display: "flex", width: 188, height: 188, borderRadius: "50%",
-          backgroundColor: ink, alignItems: "center", justifyContent: "center",
-          color: "#ffffff", fontFamily: "Arial, sans-serif", fontSize: 117,
-          zIndex: 1, marginRight: 100, marginBottom: 13
-        }}>✓</div>
-        <div style={{
-          display: "flex", flexDirection: "column", position: "absolute",
-          gap: 34, right: 18, top: 115, zIndex: 3
-        }}>
-          <div style={labelStyle}><span style={{ color: "#b65a46" }}>●</span> Findings</div>
-          <div style={labelStyle}><span style={{ color: "#957c32" }}>?</span> To verify</div>
-          <div style={labelStyle}><span style={{ color: "#5a866b" }}>✓</span> Coverage</div>
+      <div style={{position:"relative",display:"flex",flex:1,alignItems:"center",
+        justifyContent:"center",marginTop:16}}>
+        <div style={{position:"absolute",display:"flex",width:340,height:340,top:122,left:-2,
+          borderRadius:170,border:"2px solid #a9bba9"}}/>
+        <div style={{position:"absolute",display:"flex",width:260,height:260,top:162,left:38,
+          borderRadius:130,border:"2px solid #a9bba9"}}/>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",
+          width:182,height:182,marginRight:95,marginBottom:15,zIndex:1,
+          borderRadius:100,backgroundColor:ink}}>
+          <div style={{display:"flex",width:60,height:90,transform:"rotate(42deg)",
+            borderBottom:"16px solid white",borderRight:"16px solid white",marginBottom:23}}/>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:30,position:"absolute",
+          right:15,top:136,zIndex:3}}>
+          <SmallLabel label="Findings" mark="!" color="#f1b19e"/>
+          <SmallLabel label="To verify" mark="?" color={lime}/>
+          <SmallLabel label="Coverage" mark="OK" color="#bdd8c0"/>
         </div>
       </div>
     </div>,
