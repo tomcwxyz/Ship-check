@@ -16,6 +16,8 @@ export function scanEgressPolicy(source, vulnerabilityIntelligence = false) {
     if (target.protocol !== "https:" || target.port || target.username || target.password) throw new Error("Only public HTTPS URLs are supported.");
     // Also require a public IPv4 address at every socket connection.
     allowed.push(target.hostname);
+    const alternate=target.hostname.startsWith("www.")?target.hostname.slice(4):"www."+target.hostname;
+    allowed.push(alternate);
   } else {
     throw new Error("Unknown playground source.");
   }
