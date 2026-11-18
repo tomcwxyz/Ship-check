@@ -102,7 +102,7 @@ function Results({ report, example, onReset }: { report: ScanReport; example: bo
   const [panel, setPanel] = useState<Panel>("findings");
   const [handoffError,setHandoffError]=useState("");
   const notAssessed = useMemo(() => report.coverage.filter(c => c.status === "not-assessed").length, [report]);
-  const cmsFingerprints=(report.observations??[]).filter(o=>o.checkId==="runtime.cms-fingerprint" && /^runtime\\.cms-fingerprint:(wordpress|drupal)$/.test(o.id));
+  const cmsFingerprints=(report.observations??[]).filter(o=>o.checkId==="runtime.cms-fingerprint" && /^runtime\.cms-fingerprint:(wordpress|drupal)$/.test(o.id));
   return <section className="results" aria-live="polite">
     <div className="results-head">
       <div><div className="eyebrow">{example ? "ILLUSTRATIVE DEMONSTRATION · NOT A REAL SCAN" : "SCAN COMPLETED"}</div>
