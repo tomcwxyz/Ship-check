@@ -44,3 +44,9 @@ footer{padding:55px 6%;background:#e8ebdf;border-top:1px solid #cfd9ce}footer .w
 @media(max-width:800px){.masthead{height:75px;padding:0 5%}nav{gap:13px}nav a{font-size:11px}.hero{padding:60px 5%;grid-template-columns:1fr;min-height:0}.hero-art{display:none}.hero-lede{font-size:19px}.scan-section{padding:55px 5%}.scan-grid{grid-template-columns:1fr;gap:28px;margin-top:25px}.scan-intro h2{font-size:54px}.scan-intro .micro{margin-top:18px}.example-section{padding:48px 5%;align-items:flex-start;flex-direction:column}.results{margin:38px 5%;padding:23px}.results-head h2{font-size:37px}.results-head{gap:10px}.stats{gap:6px}.stats>div{padding:12px}.stats b{font-size:28px}.stats span{font-size:10px}.principles{padding:60px 5%}.principle-grid{grid-template-columns:1fr;gap:18px}.principle-grid h3{margin:12px 0}.results-footer{align-items:stretch;flex-direction:column}.finding-detail{margin-left:0}.coverage-status{display:none}footer{padding:40px 5%}}
 @media(max-width:430px){.wordmark{font-size:21px}nav a:nth-child(2){display:none}h1{font-size:65px}.scan-card{padding:18px}.mode-switch button{font-size:12px}.tabs button{font-size:11px;padding:13px 8px}.finding-title{gap:9px}.severity{min-width:56px;padding:5px}.hero{padding-top:50px}.form-foot{gap:10px;flex-wrap:wrap}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* Public website recognition: suggest a CMS without implying installed version certainty. */
+.site-cms-finding {border:1px solid #c6d6c0;border-radius:9px;background:#eff3e9;padding:18px 20px;margin:20px 0;}
+.site-cms-finding strong{display:flex;align-items:center;gap:9px;font-size:15px;}
+.site-cms-finding strong svg{width:18px;height:18px;color:#466c56;}
+.site-cms-finding p{font-size:13px;line-height:1.65;margin:10px 0 0;color:#526b59;}
