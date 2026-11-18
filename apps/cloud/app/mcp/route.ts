@@ -1,6 +1,6 @@
 import { cloudDatabase, cloudRuntime } from "../../lib/cloudRuntime";
 import { getTechnologyInventory } from "../../lib/technologyMonitoring";
-import packageManifest from "../../../../package.json" with { type: "json" };
+import packageManifest from "../../../../package.json";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
