@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { Coverage, Finding, ScanReport } from "../lib/types";
 
 type Mode = "github" | "site";
+const SITE_SCAN_AVAILABLE = process.env.NEXT_PUBLIC_SHIP_CHECK_PLAYGROUND_SITE_SCANS_ENABLED === "1";
 type Panel = "findings" | "verify" | "coverage";
 const demo: ScanReport = {
   schemaVersion: "0.1", tool: { name: "ship-check", version: "demo" },
@@ -190,7 +191,7 @@ export default function Page() {
         <form className="scan-card" onSubmit={scan}>
           <div className="mode-switch" role="group" aria-label="What to scan">
             <button type="button" aria-pressed={mode === "github"} className={mode === "github" ? "active" : ""} onClick={() => { setMode("github"); setUrl(""); setError(""); }}><Icon name="github"/> GitHub repo</button>
-            <button type="button" aria-pressed={mode === "site"} className={mode === "site" ? "active" : ""} onClick={() => { setMode("site"); setUrl(""); setError(""); setVulnerabilityIntelligence(false); }}><Icon name="globe"/> Website</button>
+            <button type="button" disabled={!SITE_SCAN_AVAILABLE} title={SITE_SCAN_AVAILABLE ? "Scan a public website" : "Website scanning is being safety-tested"} aria-pressed={mode === "site"} className={mode === "site" ? "active" : ""} onClick={() => { setMode("site"); setUrl(""); setError(""); setVulnerabilityIntelligence(false); }}><Icon name="globe"/> Website</button>
           </div>
           <label htmlFor="project-url">{mode === "github" ? "Public GitHub repository" : "Public website URL"}</label>
           <input id="project-url" type="text" autoComplete="off" spellCheck={false} maxLength={500} required value={url} onChange={e => setUrl(e.target.value)} placeholder={mode === "github" ? "https://github.com/owner/repository" : "https://your-app.example"} />
