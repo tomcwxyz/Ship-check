@@ -9,6 +9,7 @@ export type ScanReport = {
   schemaVersion: "0.1";
   tool: { name: "ship-check"; version: string };
   project: { path: string; fileCount: number; snapshot?: { source: { executionLocation: string } } };
+  observations?: Array<{id:string;checkId:string;title:string;summary:string}>;
   findings: Finding[];
   gaps: Gap[];
   coverage: Coverage[];
