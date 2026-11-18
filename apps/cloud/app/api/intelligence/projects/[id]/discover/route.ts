@@ -31,9 +31,9 @@ async function readBounded(request: Request): Promise<string> {
 }
 
 /**
- * A pre-existing history:sync token cannot silently switch on monitoring.
- * Both the per-project owner consent flag and the explicit caller operation
- * are needed. No source, repository URL or whole scan report is accepted.
+ * Existing CI updates remain blocked until the project owner opts in. A direct
+ * CLI/Desktop publish can explicitly opt in with monitor:true and a scoped
+ * history:sync token. Never accept source, URLs or whole scan reports.
  */
 export async function POST(request: Request, context: Context): Promise<Response> {
   if(process.env.SHIP_CHECK_TECH_MONITORING_ENABLED!=="1") return failure(503,"Monitoring disabled.");
@@ -60,15 +60,31 @@ export async function POST(request: Request, context: Context): Promise<Response
     catch { return failure(400,"Invalid or oversized inventory."); }
     if(!payload||typeof payload!=="object"||Array.isArray(payload)) return failure(400,"Inventory object required.");
     const body=payload as Record<string,unknown>;
-    if(Object.keys(body).some(k=>k!=="schemaVersion"&&k!=="components") ||
+    if(Object.keys(body).some(k=>!["schemaVersion","components","monitor","siteHints"].includes(k)) ||
        body.schemaVersion!=="ship-check-technology-inventory/0.1" ||
-       !Array.isArray(body.components)) return failure(400,"Unsupported inventory contract.");
+       !Array.isArray(body.components) ||
+       (body.monitor!==undefined && body.monitor!==true) ||
+       (body.siteHints!==undefined && !Array.isArray(body.siteHints))) return failure(400,"Unsupported inventory contract.");
+    const siteHints:Array<{cms:"wordpress"|"drupal";confidence:"likely"|"possible"}>=[];
+    if(Array.isArray(body.siteHints)) {
+      if(body.siteHints.length>2) return failure(400,"Too many site hints.");
+      for(const item of body.siteHints) {
+        if(!item||typeof item!=="object"||Array.isArray(item)) return failure(400,"Invalid CMS hint.");
+        const hint=item as Record<string,unknown>;
+        if(Object.keys(hint).some(k=>k!=="cms"&&k!=="confidence") ||
+           !["wordpress","drupal"].includes(String(hint.cms)) ||
+           !["likely","possible"].includes(String(hint.confidence)) ||
+           siteHints.some(h=>h.cms===hint.cms)) return failure(400,"Invalid CMS hint.");
+        siteHints.push(hint as {cms:"wordpress"|"drupal";confidence:"likely"|"possible"});
+      }
+    }
     let components;
     try { components=body.components.length ? parseComponents(body.components) : []; }
     catch { return failure(400,"Invalid component identifiers."); }
-    const saved=await syncDiscoveredTechnologyInventory(db,id,authenticated.accountId,components);
-    if(!saved) return failure(409,"Enable automatic discovery for this project in Cloud first.");
-    return Response.json({synced:true,componentCount:components.length},{headers});
+    const saved=await syncDiscoveredTechnologyInventory(db,id,authenticated.accountId,components,
+      {optIn:body.monitor===true,siteHints});
+    if(!saved) return failure(409,"Enable automatic discovery in Cloud or explicitly opt in when publishing a scan.");
+    return Response.json({synced:true,componentCount:components.length,monitoringEnabled:true},{headers});
   } catch (e) {
     console.error("Discovered inventory sync failed",e instanceof Error ? e.name : "unknown");
     return failure(503,"Discovery sync temporarily unavailable.");
