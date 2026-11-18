@@ -139,7 +139,7 @@ async function invoke(request: Request, name: string, args: Args): Promise<unkno
         summary:n.summary.slice(0,1200),sourceUrl:safeNoticeUrl(n.sourceUrl),
         effectiveDate:n.effectiveDate,lastSeenAt:n.lastSeenAt
       })),
-      totalActiveNotices:state.alerts.length,truncated:state.alerts.length>limit,
+      loadedMatchedNotices:state.alerts.length,truncated:state.alerts.length>limit || state.alerts.length>=100,
       providerHealth:state.feeds,
       warning:"Only matched active notices are shown; missing, delayed or failed provider feeds do not mean software is safe."};
   }
