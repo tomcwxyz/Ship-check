@@ -1,4 +1,6 @@
-import { cloudRuntime } from "../../lib/cloudRuntime";
+import { cloudDatabase, cloudRuntime } from "../../lib/cloudRuntime";
+import { getTechnologyInventory } from "../../lib/technologyMonitoring";
+import packageManifest from "../../../../package.json" with { type: "json" };
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,7 +25,10 @@ const tools = [
   { name:"ship_check_get_project_status", description:"Get the latest available assurance counts and scan freshness for one account-owned project. Zero findings is not a safety guarantee.", inputSchema:{type:"object",properties:{projectId:{type:"string",format:"uuid"}},required:["projectId"],additionalProperties:false} },
   { name:"ship_check_get_project_history", description:"Get a bounded timeline and scan continuity for an account-owned project, newest first.", inputSchema:{type:"object",properties:{projectId:{type:"string",format:"uuid"}},required:["projectId"],additionalProperties:false} },
   { name:"ship_check_get_coverage", description:"Get assessed, partial and unassessed coverage totals from the latest scan.", inputSchema:{type:"object",properties:{projectId:{type:"string",format:"uuid"}},required:["projectId"],additionalProperties:false} },
-  { name:"ship_check_get_attention_changes", description:"Summarise whether latest reported counts or coverage changed; not evidence that an issue was fixed.", inputSchema:{type:"object",properties:{projectId:{type:"string",format:"uuid"}},required:["projectId"],additionalProperties:false} }
+  { name:"ship_check_get_attention_changes", description:"Summarise whether latest reported counts or coverage changed; not evidence that an issue was fixed.", inputSchema:{type:"object",properties:{projectId:{type:"string",format:"uuid"}},required:["projectId"],additionalProperties:false} },
+  { name:"ship_check_get_monitored_technologies", description:"Account-owned manual and source-declared model/CMS inventories, CMS website hints and verified connector-reported installed components. A public CMS hint does not prove plugin versions.", inputSchema:{type:"object",properties:{projectId:{type:"string",format:"uuid"}},required:["projectId"],additionalProperties:false} },
+  { name:"ship_check_list_technology_notices", description:"Active provider security and model-retirement notices for an account-owned project, with source feed health and uncertainty. Absence of notices is not evidence of safety.", inputSchema:{type:"object",properties:{projectId:{type:"string",format:"uuid"}},required:["projectId"],additionalProperties:false} },
+  { name:"ship_check_get_mcp_version", description:"Report the deployed Cloud MCP server build version and its read-only capabilities. It cannot determine an agent's separately installed CLI version.", inputSchema:{type:"object",properties:{},additionalProperties:false} }
 ] as const;
 
 type DataReply = { ok: boolean; status: number; data: unknown };
@@ -51,7 +56,51 @@ function parsedArgs(params: unknown): Args {
   if (Object.keys(args).some(k => !["projectId", "limit", "cursor"].includes(k))) throw Error("Unsupported arguments.");
   return args;
 }
+/** This server trusts only the project's accountId supplied by the authenticated,
+ * history:read-scoped Cloud service. The client never supplies an account ID.
+ */
+function ownedAccountId(projectReply: unknown): string {
+  const accountId = object(projectReply).accountId;
+  if (typeof accountId !== "string" || !UUID.test(accountId)) {
+    throw Error("Account ownership could not be verified.");
+  }
+  return accountId;
+}
+function safeNoticeUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && !url.username && !url.password ? url.href : null;
+  } catch { return null; }
+}
+async function monitoredState(projectId: string, accountId: string) {
+  return getTechnologyInventory(cloudDatabase(), projectId, accountId);
+}
+async function ownedInstalledComponents(projectId: string, accountId: string) {
+  const result = await cloudDatabase().query<{
+    kind:string;component_id:string;version:string|null;active:boolean;observed_at:string|Date;cms:string;
+  }>(
+    `SELECT c.kind,c.component_id,c.version,c.active,c.observed_at,s.cms
+     FROM ship_check_cms_components c
+     JOIN ship_check_cms_connectors s ON s.id=c.connector_id
+     WHERE s.project_id=$1 AND s.account_id=$2 AND s.revoked_at IS NULL
+     ORDER BY c.kind,c.component_id LIMIT 101`,[projectId,accountId]
+  );
+  return {
+    items:result.rows.slice(0,100).map(row=>({
+      kind:row.kind,id:row.component_id,...(row.version?{version:row.version}:{}),
+      active:row.active,cms:row.cms,evidence:"connector-reported",
+      observedAt:new Date(row.observed_at).toISOString()
+    })),
+    truncated:result.rows.length>100
+  };
+}
+
 async function invoke(request: Request, name: string, args: Args): Promise<unknown> {
+  if(name==="ship_check_get_mcp_version") {
+    return {server:"ship-check-cloud",serverVersion:packageManifest.version,
+      capability:"read-only account-owned project history, monitoring inventories and provider notices",
+      scannerVersion:"The scanner version belongs to each recorded scan; an agent's local scanner cannot be inspected remotely."};
+  }
   if (name === "ship_check_list_projects") {
     if (args.limit !== undefined && (!Number.isInteger(args.limit) || Number(args.limit) < 1 || Number(args.limit) > 100)) throw Error("Invalid limit.");
     if (args.cursor !== undefined && (typeof args.cursor !== "string" || args.cursor.length > 512)) throw Error("Invalid cursor.");
@@ -66,6 +115,34 @@ async function invoke(request: Request, name: string, args: Args): Promise<unkno
   const id = String(args.projectId);
   const project = await read(request, "/v1/projects/" + id);
   if (!project.ok) throw Error(`Project not accessible (${project.status}).`);
+  if(name==="ship_check_get_monitored_technologies" || name==="ship_check_list_technology_notices") {
+    const accountId=ownedAccountId(project.data);
+    const state=await monitoredState(id,accountId);
+    if(name==="ship_check_get_monitored_technologies") {
+      const installed=state.enabled ? await ownedInstalledComponents(id,accountId) : {items:[],truncated:false};
+      return {projectId:id,monitoringEnabled:state.enabled,
+        manual:state.components,sourceDeclared:state.discoveredComponents,
+        publicCmsHints:state.siteHints,
+        connectedWebsites:state.cmsConnectors.map(c=>({
+          cms:c.cms,componentCount:c.components,lastSeenAt:c.lastSeenAt,
+          connection:c.lastSeenAt?"synced":"awaiting-first-sync"
+        })),
+        installed:installed.items,truncated:installed.truncated,
+        provenance:"Source declarations and public CMS hints are not verified production software. Connector-reported versions are self-reported by the website.",
+        warning:!state.enabled?"Monitoring has not been enabled for this project.":"A quiet inventory does not establish security."};
+    }
+    const limit=args.limit===undefined?20:Number(args.limit);
+    if(!Number.isSafeInteger(limit)||limit<1||limit>50) throw Error("Limit must be between 1 and 50.");
+    return {projectId:id,monitoringEnabled:state.enabled,
+      notices:state.alerts.slice(0,limit).map(n=>({
+        provider:n.provider,componentId:n.componentId,status:n.status,scope:n.scope,
+        summary:n.summary.slice(0,1200),sourceUrl:safeNoticeUrl(n.sourceUrl),
+        effectiveDate:n.effectiveDate,lastSeenAt:n.lastSeenAt
+      })),
+      totalActiveNotices:state.alerts.length,truncated:state.alerts.length>limit,
+      providerHealth:state.feeds,
+      warning:"Only matched active notices are shown; missing, delayed or failed provider feeds do not mean software is safe."};
+  }
   const history = await read(request, "/v1/projects/" + id + "/timeline");
   if (!history.ok) throw Error(`Project history not accessible (${history.status}).`);
   const { timeline, latestEvent } = details(history.data);
@@ -145,7 +222,7 @@ export async function POST(request: Request): Promise<Response> {
     return rpc(rpcRequest.id,{
       protocolVersion: "2025-11-25",
       capabilities: { tools: { listChanged: false } },
-      serverInfo: { name: "ship-check-cloud", version: "0.0.0-alpha.12" },
+      serverInfo: { name: "ship-check-cloud", version: packageManifest.version },
       instructions: "Read-only, account-scoped metadata. Never infer that no findings means safe."
     });
   }
