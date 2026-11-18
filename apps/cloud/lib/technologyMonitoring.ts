@@ -266,8 +266,23 @@ export async function syncDiscoveredTechnologyInventory(
 }
 
 export async function stopTechnologyMonitoring(db: CloudHistoryDatabase, projectId: string, accountId: string): Promise<void> {
-  await db.query(
-    "DELETE FROM ship_check_technology_monitoring WHERE project_id=$1 AND account_id=$2",
-    [projectId, accountId]
-  ); // Cascades all components and alert records.
+  await db.transaction(async tx => {
+    const owned=await tx.query(
+      "SELECT id FROM ship_check_projects WHERE id=$1 AND account_id=$2 FOR UPDATE",
+      [projectId,accountId]
+    );
+    if (owned.rows.length!==1) throw new Error("Project unavailable.");
+    // Revocation is irreversible for existing connector bearer tokens.
+    await tx.query(
+      "UPDATE ship_check_cms_connectors SET revoked_at=now() WHERE project_id=$1 AND account_id=$2 AND revoked_at IS NULL",
+      [projectId,accountId]
+    );
+    await tx.query("DELETE FROM ship_check_cms_components WHERE project_id=$1",[projectId]);
+    await tx.query(
+      "DELETE FROM ship_check_technology_monitoring WHERE project_id=$1 AND account_id=$2",
+      [projectId,accountId]
+    );
+    // For projects monitored via connector alone there may be no consent row.
+    await tx.query("DELETE FROM ship_check_technology_alerts WHERE project_id=$1",[projectId]);
+  });
 }
