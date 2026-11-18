@@ -42,7 +42,7 @@ jobs:
             suffix: win32-x64
             gitleaks: gitleaks.exe
             osv: osv-scanner.exe
-          - os: macos-14
+          - os: macos-15
             suffix: darwin-arm64
             gitleaks: gitleaks
             osv: osv-scanner
