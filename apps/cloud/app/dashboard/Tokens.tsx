@@ -74,7 +74,7 @@ export default function Tokens({ firstProject = false }: { firstProject?: boolea
       <label>Label <input maxLength={80} value={label} onChange={e=>setLabel(e.target.value)} /></label>
       <label>Permission <select value={scope} onChange={e=>setScope(e.target.value as typeof scope)}>
         <option value="history:sync">Upload scan summaries — Desktop or CI</option>
-        <option value="history:read">Read project history — MCP / agent</option>
+        <option value="history:read">Read project history and monitoring — MCP / agent</option>
       </select></label>
       <button type="button" onClick={create} disabled={busy || !label.trim()}>Create token</button>
     </div>
