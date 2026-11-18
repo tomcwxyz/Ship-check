@@ -55,14 +55,13 @@ Two viable stages:
 
 Do **not** make Lookout receive Ship Check's raw scanner inputs, token secrets or full unconsented evidence by default. Avoid circular refresh jobs between both services. Let either service be used independently.
 
-## Dependencies before launch
+## Outstanding work before broader MCP availability
 
-1. Deploy Cloud with real Postgres and migrations, normal account sessions, project access controls and operational rate limiting; exercise deletion/retention.
-2. Add trustworthy, user-visible project history and a clear consent flow for optional CI/desktop metadata sync.
-3. Build a small read-only domain adapter over the existing Cloud history service; test account isolation and comparison completeness.
-4. Expose the current authenticated Streamable HTTP MCP endpoint, OAuth discovery and scoped tools; test in at least two independent MCP clients/agents.
-5. Establish optional account consent and explicit project mapping with Lookout.
-6. After adding structured advisory history and proper scheduling, expose detailed new-vulnerability tools and alert subscriptions.
+1. Verify local MCP on a real coding-agent client (including Windows), with `SHIP_CHECK_JS_ENTRY` pointing to a published Node CLI build. The isolated guard and scanner tests do not substitute for a complete live client pilot.
+2. Verify Cloud MCP against at least two clients with dedicated `history:read` tokens and a multi-project test account. Confirm tenant isolation, active notices and low-impact output bounds.
+3. Add delegated OAuth 2.1 authorisation, metadata discovery, per-user consent and the necessary client-compatibility tests before advertising Cloud MCP as a general-purpose remote connector.
+4. Only after separately authorised structured findings are available, offer detailed individual findings, verified controls and alert subscriptions.
+5. Optionally link a user-approved Lookout project to an exact Ship Check project ID. Do not infer a relationship from similar project names.
 
 ## Useful sources
 
