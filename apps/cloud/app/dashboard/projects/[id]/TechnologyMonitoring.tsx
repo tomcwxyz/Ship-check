@@ -145,7 +145,7 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
       if (!response.ok) throw new Error(result.error ?? "Unable to update discovery.");
       await load();
       setInfo(enabled
-        ? "Automatic discovery enabled. Add cloud-technology-sync: true to your Ship Check CI action, then scan."
+        ? "Automatic discovery enabled. Scan syncing is available as an optional advanced setup."
         : "Automatic discovery disabled. Scan-derived components have been deleted.");
     } catch (e) { setError(e instanceof Error ? e.message : "Unable to update discovery."); }
     finally { setBusy(false); }
@@ -167,46 +167,58 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
   return <section className="dashboard-panel" aria-labelledby="technology-heading">
     <p className="section-index">02 / TECHNOLOGY MONITORING</p>
     <h2 id="technology-heading">Keep an eye on your dependencies</h2>
-    <p>Optional monitoring for things that change outside your code. Automatic discovery is recommended; manual entry remains available. Discovered source declarations do not prove what is actually deployed.</p>
+    <p>Optional monitoring for things that change outside your code. Connect a website to see its installed components and relevant security notices. Other ways to add technologies are available if you need them.</p>
     {error && <p role="alert" style={{ color: "#9c3328" }}>{error}</p>}
     {info && <p role="status">{info}</p>}
     {!data && !error && <p>Loading monitoring settings…</p>}
     {data && <>
       <p><strong>{data.enabled ? "Monitoring enabled" : "Monitoring off"}</strong> · Your project is only monitored after you save an inventory.</p>
-      <div className="technology-notice">
-        <h3>Connect WordPress or Drupal</h3>
-        <p>Install the read-only connector on your WordPress or Drupal website, then pair it here. It automatically sends installed components and versions. No GitHub Actions required.</p>
-        <button type="button" disabled={busy} onClick={() => void createCmsPairing()}>Generate website pairing code</button>
-        {pairingCode && <div>
-          <p>Copy this code into WordPress → Tools → Ship Check, or Drupal → Configuration → System → Ship Check Connector, within ten minutes. It can only be used once.</p>
-          <code style={{overflowWrap:"anywhere"}}>{pairingCode}</code>
-          <button type="button" onClick={() => void navigator.clipboard.writeText(pairingCode)}>Copy code</button>
-        </div>}
-        {(data.cmsConnectors??[]).map(site=><p key={site.id}>
-          <strong>{site.cms==="wordpress"?"WordPress":"Drupal"} connected</strong> · {site.components} components
-          {site.lastSeenAt?" · Last synced "+new Date(site.lastSeenAt).toLocaleString("en-GB"):" · Waiting for first sync"}
-          {" "}<button type="button" disabled={busy} onClick={() => void revokeCmsConnector(site.id)}>Disconnect</button>
-        </p>)}
-        <p><a href="https://github.com/tomcwxyz/Ship-check/tree/main/integrations/wordpress/ship-check-connector">WordPress connector</a> · <a href="https://github.com/tomcwxyz/Ship-check/tree/main/integrations/drupal/ship_check_connector">Drupal connector</a></p>
-      </div>
-      <div className="technology-notice">
-        <h3>Automatically discover from your scans</h3>
-        <p>Recommended: Ship Check finds declared AI models, WordPress components and Drupal packages during a local or CI scan. With your permission, it sends only their identifiers and versions to Cloud — never the source files or full report.</p>
-        <p><strong>{data.autoDiscovery ? "Automatic discovery enabled" : "Automatic discovery off"}</strong></p>
-        <button type="button" disabled={busy} onClick={() => void setDiscovery(!data.autoDiscovery)}>
-          {data.autoDiscovery ? "Turn off automatic discovery" : "Enable automatic discovery"}
-        </button>
-        {data.autoDiscovery && <>
-          <p>In the Ship Check GitHub Action, set <code>cloud-technology-sync: "true"</code> alongside your existing <code>cloud-url</code> and <code>cloud-token</code>. It will update this inventory after each successful complete scan. <a href="https://github.com/tomcwxyz/Ship-check/blob/main/docs/CLOUD_AUTO_DISCOVERY.md">Configuration guide</a>.</p>
-          <h3>Discovered technologies <span className="count-chip">{data.discoveredComponents.length}</span></h3>
-          {data.discoveredComponents.length === 0 && <p>No scan has synced technologies yet. A complete scan with no recognised models or CMS components also results in an empty list.</p>}
-          {data.discoveredComponents.map(item => <div key={item.kind + item.id} className="technology-component">
-            <span><strong>{item.id}</strong> <small>{item.kind}{item.version ? " · " + item.version : ""} · source declaration, not live verification</small></span>
+      <div className="technology-notice" style={{ padding: "1.25rem", borderRadius: 12 }}>
+        <h3>Websites</h3>
+        <p>Connect a WordPress or Drupal website to keep track of its installed components and versions. Once connected, Ship Check updates its inventory automatically. You don't need to configure GitHub Actions.</p>
+        {(data.cmsConnectors??[]).length > 0 && <div aria-label="Connected websites">
+          {(data.cmsConnectors??[]).map(site=><div className="technology-component" key={site.id}>
+            <span><strong>{site.cms==="wordpress"?"WordPress":"Drupal"} website</strong><small>{site.components} components · {site.lastSeenAt?"Last synced "+new Date(site.lastSeenAt).toLocaleString("en-GB"):"Waiting for first sync"}</small></span>
+            <button type="button" disabled={busy} onClick={() => void revokeCmsConnector(site.id)}>Disconnect</button>
           </div>)}
-        </>}
+        </div>}
+        <details>
+          <summary>{(data.cmsConnectors??[]).length ? "Connect another website" : "Connect a website"}</summary>
+          <div style={{ paddingTop: "0.75rem" }}>
+            <p><strong>1. Install the connector.</strong> Download the appropriate connector and install it through your WordPress or Drupal administration area.</p>
+            <p><a href="https://github.com/tomcwxyz/Ship-check/actions/workflows/cms-connectors-package.yml">Download connector packages</a> · <a href="https://github.com/tomcwxyz/Ship-check/blob/main/docs/CMS_CONNECTORS.md">Installation instructions</a></p>
+            <p><strong>2. Pair the website.</strong> Generate a one-time code, then enter it in WordPress → Tools → Ship Check or Drupal → Configuration → System → Ship Check Connector within ten minutes.</p>
+            <button type="button" disabled={busy} onClick={() => void createCmsPairing()}>{busy?"Generating…":"Generate pairing code"}</button>
+            {pairingCode && <div style={{ marginTop: "0.75rem" }}>
+              <label htmlFor="cms-pairing-code"><strong>One-time pairing code</strong></label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center" }}>
+                <code id="cms-pairing-code" style={{ overflowWrap: "anywhere", flex: "1 1 15rem" }}>{pairingCode}</code>
+                <button type="button" onClick={() => void navigator.clipboard.writeText(pairingCode)}>Copy code</button>
+              </div>
+              <p><small>This code expires after ten minutes and can only be used once.</small></p>
+            </div>}
+            <p><strong>3. Check the connection.</strong> Once the connector synchronises, the website and its component count will appear above.</p>
+          </div>
+        </details>
       </div>
+      <details className="technology-notice">
+        <summary>Other ways to track technologies</summary>
+        <div style={{ paddingTop: "0.75rem" }}>
+          <p>For projects without a connected website, you can identify technologies from Ship Check scans or add them manually. Scan results describe what is declared in your code, not necessarily what is installed on a live website.</p>
+          <details>
+            <summary>Import automatically from code scans (advanced)</summary>
+            <p><strong>{data.autoDiscovery?"Scan synchronisation enabled":"Scan synchronisation off"}</strong></p>
+            <p>Optional for repositories already using the Ship Check GitHub Action. To send recognised model and CMS declarations to Cloud, enable synchronisation and set <code>cloud-technology-sync: "true"</code> alongside the existing Cloud settings in your action. This step is not required for connected WordPress or Drupal websites.</p>
+            <button type="button" disabled={busy} onClick={() => void setDiscovery(!data.autoDiscovery)}>{data.autoDiscovery?"Disable scan synchronisation":"Enable scan synchronisation"}</button>
+            <p><a href="https://github.com/tomcwxyz/Ship-check/blob/main/docs/CLOUD_AUTO_DISCOVERY.md">Scan synchronisation instructions</a></p>
+            <p><strong>Technologies found by scans ({data.discoveredComponents.length})</strong></p>
+            {data.discoveredComponents.length===0 && <p>No technologies have been received from scans yet.</p>}
+            {data.discoveredComponents.map(item=><div key={item.kind+item.id} className="technology-component"><span><strong>{item.id}</strong><small>{item.kind}{item.version?" · "+item.version:""} · declared in code</small></span></div>)}
+          </details>
+        </div>
+      </details>
       <details>
-        <summary>Prefer to add or import components manually?</summary>
+        <summary>Add or import components manually</summary>
         <p>Manual entries are kept separately from automatic discoveries.</p>
       <details className="technology-import">
         <summary>Import a component list</summary>
@@ -237,7 +249,7 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
         <button type="button" disabled={busy || !components.length} onClick={save}>{busy ? "Saving…" : "Save manual components"}</button>
       </div>
       </details>
-      {data.enabled && <div className="technology-actions"><button type="button" disabled={busy} onClick={disable}>Stop all monitoring and delete data</button></div>}
+      {data.enabled && <div className="technology-actions"><button type="button" disabled={busy} onClick={disable}>Stop monitoring and delete its data</button></div>}
       {data.enabled && <>
         <h3>Provider intelligence</h3>
         <p>OpenAI and Anthropic retirement notices are checked against provider information. Drupal security notices use official feeds; WordPress notices require a signed Wordfence Intelligence connection. A match does not establish which version is installed on a live site.</p>
