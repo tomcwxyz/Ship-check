@@ -224,9 +224,10 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
           <p>For normal use, scan with CLI or Desktop and choose to keep the project monitored. Declared technology is not proof of deployment. Advanced CI synchronisation and manual entry remain optional.</p>
           <details>
             <summary>CI synchronisation for existing workflows (optional)</summary>
-            <p><strong>{data.autoDiscovery?"Scan synchronisation enabled":"Scan synchronisation off"}</strong></p>
+            <p><strong>{data.autoDiscovery?"Scan sharing permitted":"Scan sharing not enabled"}</strong></p>
             <p>Optional for repositories already using the Ship Check GitHub Action. To send recognised model and CMS declarations to Cloud, enable synchronisation and set <code>cloud-technology-sync: "true"</code> alongside the existing Cloud settings in your action. This step is not required for connected WordPress or Drupal websites.</p>
-            <button type="button" disabled={busy} onClick={() => void setDiscovery(!data.autoDiscovery)}>{data.autoDiscovery?"Disable scan synchronisation":"Enable scan synchronisation"}</button>
+            {!data.autoDiscovery && <button type="button" disabled={busy} onClick={() => void setDiscovery(true)}>Allow scan synchronisation</button>}
+            {data.autoDiscovery && <p><small>To stop monitoring altogether, use the option at the end of this section. Turning off discovery would also remove CLI and Desktop inventories.</small></p>}
             <p><a href="https://github.com/tomcwxyz/Ship-check/blob/main/docs/CLOUD_AUTO_DISCOVERY.md">Scan synchronisation instructions</a></p>
           </details>
         </div>
