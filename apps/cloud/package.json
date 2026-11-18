@@ -12,6 +12,7 @@
   "dependencies": {
     "@ship-check/adapters": "workspace:*",
     "@ship-check/cloud-runtime": "workspace:*",
+    "@ship-check/schemas": "workspace:*",
     "next": "^15.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
