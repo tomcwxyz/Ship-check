@@ -11,6 +11,10 @@ export function scanEgressPolicy(source, vulnerabilityIntelligence = false) {
   const allowed = ["registry.npmjs.org"];
   if (source.kind === "github") {
     allowed.push("github.com");
+  } else if (source.kind === "site") {
+    const target = new URL(source.target);
+    if (target.protocol !== "https:" || target.port || target.username || target.password) throw new Error("Only public HTTPS URLs are supported.");
+    allowed.push(target.hostname);
   } else {
     throw new Error("Unknown playground source.");
   }
