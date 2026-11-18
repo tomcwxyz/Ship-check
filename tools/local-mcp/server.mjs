@@ -4,7 +4,7 @@ import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import * as z from "zod/v4";
 import {
   boundedReport, boundedTechnologies, invokeShipCheck,
-  requireCloudMonitoringConsent, resolveProjectRoot, scanWebsite, scannerVersion
+  requireCloudMonitoringConsent, resolveProjectRoot, scanWebsite, scanGitHubRepository, scannerVersion
 } from "./runner.mjs";
 
 const root = process.env.SHIP_CHECK_PROJECT_ROOT || process.cwd();
@@ -71,6 +71,20 @@ serveStdio(() => {
       const report=JSON.parse(output);
       return reply({scannerVersion:report.tool?.version??null,
         technologies:boundedTechnologies(report)});
+    }catch(error){return rejected(error);}
+  });
+
+  server.registerTool("ship_check_github_repository", {
+    description:"Scan a public GitHub owner/repository through the canonical Ship Check engine. Requires explicit external-request permission; returns only bounded findings and recognised AI/CMS technologies, never raw repository source. Cloud monitoring is off without a separate owner-configured double opt-in.",
+    inputSchema:z.object({
+      repository:z.string().max(140),
+      confirmExternalRequest:z.literal(true),
+      monitor:z.boolean().default(false)
+    })
+  },async ({repository,monitor})=>{
+    try {
+      const cwd=await resolveProjectRoot(root,".");
+      return reply(await scanGitHubRepository(repository,cwd,{monitor}));
     }catch(error){return rejected(error);}
   });
 
