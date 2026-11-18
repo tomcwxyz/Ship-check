@@ -15,4 +15,5 @@ export type ScanReport = {
   checks: Array<{ status: string }>;
   summary: { total: number; critical: number; high: number; medium: number; low: number; info: number };
   generatedAt: string;
+  monitoringHandoff?: {schemaVersion:"ship-check-monitoring-handoff/0.1";metadata:unknown;inventory:{schemaVersion:"ship-check-technology-inventory/0.1";components:unknown[];sourceInventory:"complete"|"not-assessed";siteHints?:Array<{cms:"wordpress"|"drupal";confidence:"likely"|"possible"}>}};
 };
