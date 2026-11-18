@@ -236,6 +236,7 @@ export function createCloudHistoryClient(options: CloudHistoryClientOptions) {
         schemaVersion: "ship-check-technology-inventory/0.1";
         components: Array<{kind:string;id:string;version?:string;evidence:"source-declared"}>;
         siteHints?:Array<{cms:"wordpress"|"drupal";confidence:"likely"|"possible"}>;
+        sourceInventory?: "complete" | "not-assessed";
       },
       monitor = false
     ): Promise<{synced:boolean;componentCount:number;monitoringEnabled:boolean}> {
