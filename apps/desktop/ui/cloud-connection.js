@@ -12,6 +12,7 @@ export function initCloudConnection(bridge, doc) {
   const forget = root.querySelector("#cloud-forget");
   const send = root.querySelector("#cloud-send");
   const projectName = root.querySelector("#cloud-project-name");
+  const monitor = root.querySelector("#cloud-monitor");
   const receipt = root.querySelector("#cloud-receipt");
   const historyLink = root.querySelector("#cloud-history-link");
   const dashboardLink = root.querySelector("#cloud-dashboard-link");
@@ -100,10 +101,14 @@ export function initCloudConnection(bridge, doc) {
     receipt.textContent = "Sending source-free metadata summary…";
     historyLink.hidden = true;
     try {
-      const result = await bridge.cloudPublishSummary(report, name);
-      receipt.textContent = result.status === "duplicate"
-        ? "This exact scan already exists in Cloud."
-        : "Scan summary received by Cloud. Your source and full report stayed on this device.";
+      const result = await bridge.cloudPublishSummary(report, name, monitor.checked === true);
+      receipt.textContent = result.monitoringStatus === "enabled"
+        ? "Cloud is watching " + (result.technologyCount ?? 0) + " discovered technologies. Source code and full reports stayed on this device."
+        : result.monitoringStatus === "failed"
+          ? "Scan history was saved, but monitoring could not be enabled. Check this project in Cloud."
+          : result.status === "duplicate"
+            ? "This exact scan already exists in Cloud."
+            : "Scan summary received by Cloud. Your source and full report stayed on this device.";
       historyLink.href = result.timelineUrl;
       historyLink.hidden = false;
       setStatus("Last sync: " + new Date(result.ingestedAt).toLocaleString("en-GB"));
@@ -126,7 +131,7 @@ export function initCloudConnection(bridge, doc) {
     onScanCompleted(newReport, sourceName) {
       report = newReport;
       projectName.value = String(sourceName || "My project").slice(0, 120);
-      receipt.textContent = "Ready to send a summary. Nothing is shared until you choose Send.";
+      receipt.textContent = "Ready to share after you choose Send. Monitoring is optional.";
       render();
     }
   };

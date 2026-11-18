@@ -9,8 +9,11 @@ test("GitHub scans reach only npm registry and GitHub", () => {
   assert.ok(policy.subnets.deny.every(value => !value.includes(":")), "Sandbox CIDRs must be IPv4-only");
   assert.ok(!policy.allow.includes("*"));
 });
-test("Site scans cannot enable arbitrary egress until DNS and IPv6 policies are ready", () => {
-  assert.throws(() => scanEgressPolicy({ kind: "site", target: "https://example.org/" }), /Unknown playground source/);
+test("Public website scans permit only the selected HTTPS hostname, never broad egress", () => {
+  const policy = scanEgressPolicy({kind:"site",target:"https://example.org/"});
+  assert.deepEqual(policy.allow,["registry.npmjs.org","example.org"]);
+  assert.ok(!policy.allow.includes("*"));
+  assert.ok(policy.subnets.deny.includes("169.254.0.0/16"));
 });
 
 test("Opted-in GitHub security intelligence uses only fixed advisory hosts", () => {

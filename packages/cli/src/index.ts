@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import { parseArgs } from "node:util";
 import {
   buildProjectHistoryTimeline,
+  buildMonitoringHandoff,
   evaluateAssuranceGate,
   toOrganisationalAssuranceSummary,
   toProjectHistoryMetadata,
@@ -37,6 +38,7 @@ import {
   type Severity
 } from "@ship-check/schemas";
 import { resolveDatabaseInspection, scanConfiguredDatabase } from "./databaseInspection.js";
+import { extractTechnologyInventory } from "./technologyInventory.js";
 import {
   buildEstateScanReport,
   discoverProjectDirectories,
@@ -73,8 +75,8 @@ const areaNames: Record<AssessmentArea, string> = {
 };
 
 function usage(): string {
-  return `Ship Check ${version}\n\nQuick start:\n  ship-check scan .                                          Review this local project\n  ship-check scan . --format markdown > ship-check-review.md   Save a Markdown report\n  ship-check scan-dir ~/Code                                 Review multiple local projects\n\nReports print to the terminal by default; use > file.md or > file.json to save them.\nFull npx guide: https://github.com/tomcwxyz/Ship-check/blob/main/docs/CLI_GUIDE.md\n\nUsage:\n  ship-check scan [project-source] [--deployment-url url] [--inspect-database] [--database-url-env ENV_NAME] [--database-platform postgres|supabase|neon] [--database-table-limit 1000] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--local-semgrep-scan] [--networked-dependency-scan] [--git-history-secrets] [--format pretty|json|markdown|metadata|rack|oos] [--fail-on critical|high|medium|low|never]\n  ship-check scan-dir [directory] [--max-depth 3] [--exclude relative/path] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--local-semgrep-scan] [--networked-dependency-scan] [--git-history-secrets] [--format pretty|json|markdown] [--fail-on critical|high|medium|low|never]\n  ship-check compare <before-report.json> <after-report.json> [--format markdown|json]\n  ship-check focus <report.json|-> [--format pretty|json]\n  ship-check skill install [directory] [--force]\n  ship-check agent-check [directory] [--networked-dependency-scan] [--force]\n  ship-check agent-hook install [directory] [--networked-dependency-scan]\n\nFocused review:\n  focus surfaces one active item from an existing complete JSON report. Confirmed findings come first as FIX work, highest severity first; only when no active finding exists does it surface an unanswered control as VERIFY work. It does not convert unanswered controls into defects. Use - as the report path to read complete JSON from stdin.\n\nAgent Skill:\n  skill install writes the canonical Ship Check Agent Skill to .claude/skills/ship-check/SKILL.md in the target project. Existing different content is preserved unless --force is explicit.\n\nEstate review:\n  scan-dir discovers bounded project roots under a local directory, scans each project independently and keeps evidence/coverage separate. It does not infer project importance from raw finding counts. Requested-but-unavailable scanners are called out explicitly in aggregate output.\n\nRepair comparison:\n  compare requires two complete Ship Check JSON reports produced with the same ruleset. It distinguishes introduced, persistent, reactivated, newly accepted and no-longer-active findings/gaps. “No longer active” is a scan-state change, not proof of remediation.\n\nCloud history (metadata only):\n  ship-check cloud publish <report.json|-> [--cloud-url https://...] [--display-name name] [--retention 90-days]\n  ship-check cloud connect <metadata.json> [--cloud-url https://...] [--display-name name] [--retention 30-days|90-days|180-days|365-days|until-deleted]\n  ship-check cloud sync <project-id> <metadata.json> [--cloud-url https://...]\n  ship-check cloud projects [--cloud-url https://...]\n  ship-check cloud timeline <project-id> [--cloud-url https://...]\n    Uses SHIP_CHECK_CLOUD_TOKEN for bearer authentication and sends only the source-free assurance metadata envelope. SHIP_CHECK_CLOUD_URL may provide the endpoint instead of --cloud-url.\n\nAI discovery:\n  ship-check discover-ai [project-source] [--ref branch-or-tag]\n    Emits a metadata-only crux-discovery/0.1 report. Discovery identifies technical AI/workflow signals only; it does not declare organisational purpose or authority.\n\nProject sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  Exported project: C:\\path\\to\\project.zip\n  Deployment URL only: https://example.com\n  Source + deployment: add --deployment-url https://example.com\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nRuntime URL checks:\n  Deployment URLs use a bounded, non-mutating GET probe with manual redirect following. Ship Check records transport, selected browser security headers, cookie flags and a synthetic CORS Origin response. It does not retain response bodies or cookie values. A URL-only run leaves source/database checks not assessed; --deployment-url combines runtime evidence with the supplied source in one project report.\n\nDatabase metadata checks:\n  --inspect-database explicitly opts into a local read-only Postgres metadata inspection and requires Production Ready. The connection URL is read from SHIP_CHECK_DATABASE_URL by default; use --database-url-env NAME to select another environment variable. Do not put a database URL on the command line. Ship Check opens a read-only transaction, runs only its fixed system-catalog metadata queries, reads no application rows, rolls the transaction back and does not retain the connection URL or database role name. --database-platform labels provider-specific evidence; --database-table-limit bounds the table inventory from 1 to 5000 (default 1000).\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  Server-boundary checks trace a bounded local import graph so auth, webhook verification, paid work, object-level authorisation questions and outbound-request questions can include shared helpers.\n  Production Ready records positive server-surface observations separately from findings and checks selected GitHub Actions supply-chain boundaries.\n  --local-semgrep-scan opts into Ship Check's small pinned local Semgrep ruleset and requires Secure Build. It stays offline, disables Semgrep metrics/version checks and never uses Registry/auto rules. Semgrep itself is not bundled in the alpha desktop; use a compatible local CLI or SHIP_CHECK_SEMGREP_PATH.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.
-  --git-history-secrets opts into a separate Gitleaks scan of Git history and requires Secure Build. Historical exposure remains distinct from current-source credentials; removing a value from history does not establish revocation.\n\nAccepted exceptions:\n  A tracked .ship-check.json may suppress an exact finding ID only when it also names the matching rule version and a substantive rationale. Suppressed findings remain visible in the report and rule-version changes invalidate old suppressions. Runtime-only URL scans do not load repository suppression configuration.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan-dir ~/Code --format markdown\n  ship-check scan-dir ~/Code --max-depth 4 --networked-dependency-scan --format json\n  ship-check compare before.json after.json --format markdown\n  ship-check focus after.json\n  ship-check skill install .\n  ship-check discover-ai .\n  ship-check discover-ai tomcwxyz/open-recs-local --ref master\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan ./lovable-export.zip\n  ship-check scan https://example.com\n  ship-check scan ./lovable-export.zip --deployment-url https://example.com\n  ship-check scan tomcwxyz/Ship-check --deployment-url https://ship-check.example\n  SHIP_CHECK_DATABASE_URL=postgresql://... ship-check scan . --inspect-database --database-platform supabase\n  ship-check scan . --inspect-database --database-url-env MY_READONLY_DATABASE_URL --database-platform neon\n  ship-check scan . --pack secure-build --local-semgrep-scan\n  ship-check scan . --networked-dependency-scan
+  return `Ship Check ${version}\n\nQuick start:\n  ship-check scan .                                          Review this local project\n  ship-check scan . --format markdown > ship-check-review.md   Save a Markdown report\n  ship-check scan-dir ~/Code                                 Review multiple local projects\n\nReports print to the terminal by default; use > file.md or > file.json to save them.\nFull npx guide: https://github.com/tomcwxyz/Ship-check/blob/main/docs/CLI_GUIDE.md\n\nUsage:\n  ship-check scan [project-source] [--monitor] [--deployment-url url] [--inspect-database] [--database-url-env ENV_NAME] [--database-platform postgres|supabase|neon] [--database-table-limit 1000] [--ref branch-or-tag] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--local-semgrep-scan] [--networked-dependency-scan] [--git-history-secrets] [--format pretty|json|markdown|metadata|rack|oos] [--fail-on critical|high|medium|low|never]\n  ship-check scan-dir [directory] [--max-depth 3] [--exclude relative/path] [--pack secure-build] [--pack production-ready] [--pack cost-aware] [--local-semgrep-scan] [--networked-dependency-scan] [--git-history-secrets] [--format pretty|json|markdown] [--fail-on critical|high|medium|low|never]\n  ship-check compare <before-report.json> <after-report.json> [--format markdown|json]\n  ship-check focus <report.json|-> [--format pretty|json]\n  ship-check skill install [directory] [--force]\n  ship-check agent-check [directory] [--networked-dependency-scan] [--force]\n  ship-check agent-hook install [directory] [--networked-dependency-scan]\n\nFocused review:\n  focus surfaces one active item from an existing complete JSON report. Confirmed findings come first as FIX work, highest severity first; only when no active finding exists does it surface an unanswered control as VERIFY work. It does not convert unanswered controls into defects. Use - as the report path to read complete JSON from stdin.\n\nAgent Skill:\n  skill install writes the canonical Ship Check Agent Skill to .claude/skills/ship-check/SKILL.md in the target project. Existing different content is preserved unless --force is explicit.\n\nEstate review:\n  scan-dir discovers bounded project roots under a local directory, scans each project independently and keeps evidence/coverage separate. It does not infer project importance from raw finding counts. Requested-but-unavailable scanners are called out explicitly in aggregate output.\n\nRepair comparison:\n  compare requires two complete Ship Check JSON reports produced with the same ruleset. It distinguishes introduced, persistent, reactivated, newly accepted and no-longer-active findings/gaps. “No longer active” is a scan-state change, not proof of remediation.\n\nCloud history (metadata only):\n  ship-check cloud publish <report.json|-> [--monitor-technologies] [--cloud-url https://...] [--display-name name] [--retention 90-days]\n  ship-check cloud connect <metadata.json> [--cloud-url https://...] [--display-name name] [--retention 30-days|90-days|180-days|365-days|until-deleted]\n  ship-check cloud sync <project-id> <metadata.json> [--cloud-url https://...]\n  ship-check cloud projects [--cloud-url https://...]\n  ship-check cloud timeline <project-id> [--cloud-url https://...]\n    Uses SHIP_CHECK_CLOUD_TOKEN for bearer authentication and sends only the source-free assurance metadata envelope. SHIP_CHECK_CLOUD_URL may provide the endpoint instead of --cloud-url.\n\nAI discovery:\n  ship-check discover-ai [project-source] [--ref branch-or-tag]\n    Emits a metadata-only crux-discovery/0.1 report. Discovery identifies technical AI/workflow signals only; it does not declare organisational purpose or authority.\n\nProject sources:\n  Local folder: . or C:\\path\\to\\project\n  GitHub: owner/repository or https://github.com/owner/repository\n  Exported project: C:\\path\\to\\project.zip\n  Deployment URL only: https://example.com\n  Source + deployment: add --deployment-url https://example.com\n  --ref <branch-or-tag> clones that Git ref for a GitHub source\n\nRuntime URL checks:\n  Deployment URLs use a bounded, non-mutating GET probe with manual redirect following. Ship Check records transport, selected browser security headers, cookie flags and a synthetic CORS Origin response. It does not retain response bodies or cookie values. A URL-only run leaves source/database checks not assessed; --deployment-url combines runtime evidence with the supplied source in one project report.\n\nDatabase metadata checks:\n  --inspect-database explicitly opts into a local read-only Postgres metadata inspection and requires Production Ready. The connection URL is read from SHIP_CHECK_DATABASE_URL by default; use --database-url-env NAME to select another environment variable. Do not put a database URL on the command line. Ship Check opens a read-only transaction, runs only its fixed system-catalog metadata queries, reads no application rows, rolls the transaction back and does not retain the connection URL or database role name. --database-platform labels provider-specific evidence; --database-table-limit bounds the table inventory from 1 to 5000 (default 1000).\n\nDeep checks:\n  Secure Build uses Gitleaks when available, against a temporary mirror of the scanned repository inventory.\n  Server-boundary checks trace a bounded local import graph so auth, webhook verification, paid work, object-level authorisation questions and outbound-request questions can include shared helpers.\n  Production Ready records positive server-surface observations separately from findings and checks selected GitHub Actions supply-chain boundaries.\n  --local-semgrep-scan opts into Ship Check's small pinned local Semgrep ruleset and requires Secure Build. It stays offline, disables Semgrep metrics/version checks and never uses Registry/auto rules. Semgrep itself is not bundled in the alpha desktop; use a compatible local CLI or SHIP_CHECK_SEMGREP_PATH.\n  --networked-dependency-scan opts into OSV-Scanner and requires Production Ready. Only dependency manifests/lockfiles are mirrored; package identifiers and versions may be sent to the OSV service.
+  --git-history-secrets opts into a separate Gitleaks scan of Git history and requires Secure Build. Historical exposure remains distinct from current-source credentials; removing a value from history does not establish revocation.\n\nAccepted exceptions:\n  A tracked .ship-check.json may suppress an exact finding ID only when it also names the matching rule version and a substantive rationale. Suppressed findings remain visible in the report and rule-version changes invalidate old suppressions. Runtime-only URL scans do not load repository suppression configuration.\n\nRACK/OOS options:\n  --gate ship-check|ship-check-secure-build|ship-check-production-ready|ship-check-cost-aware\n  --step-id <rack verification step id>   Required with --format rack\n\nExamples:\n  ship-check scan .\n  ship-check scan . --monitor  # explicitly save summary and discovered technologies to Cloud\n  ship-check scan-dir ~/Code --format markdown\n  ship-check scan-dir ~/Code --max-depth 4 --networked-dependency-scan --format json\n  ship-check compare before.json after.json --format markdown\n  ship-check focus after.json\n  ship-check skill install .\n  ship-check discover-ai .\n  ship-check discover-ai tomcwxyz/open-recs-local --ref master\n  ship-check scan tomcwxyz/Ship-check\n  ship-check scan ./lovable-export.zip\n  ship-check scan https://example.com\n  ship-check scan ./lovable-export.zip --deployment-url https://example.com\n  ship-check scan tomcwxyz/Ship-check --deployment-url https://ship-check.example\n  SHIP_CHECK_DATABASE_URL=postgresql://... ship-check scan . --inspect-database --database-platform supabase\n  ship-check scan . --inspect-database --database-url-env MY_READONLY_DATABASE_URL --database-platform neon\n  ship-check scan . --pack secure-build --local-semgrep-scan\n  ship-check scan . --networked-dependency-scan
   ship-check scan . --git-history-secrets\n  ship-check scan https://github.com/tomcwxyz/Ship-check --ref main --pack secure-build\n  ship-check scan . --pack cost-aware\n  ship-check scan . --format rack --gate ship-check-secure-build --step-id release-security --fail-on high\n  ship-check scan . --format oos --gate ship-check\n  SHIP_CHECK_CLOUD_URL=https://cloud.example SHIP_CHECK_CLOUD_TOKEN=shipcheck_... ship-check cloud connect ./ship-check-metadata.json --display-name "My project"\n`;
 }
 
@@ -217,7 +219,11 @@ function renderReport(
   failOn: string
 ): void {
   if (values.format === "json") {
-    console.log(JSON.stringify(report, null, 2));
+    // A completed scan can be deliberately carried to Cloud from the
+    // public Playground without exposing source paths or the full report.
+    let monitoringHandoff: ReturnType<typeof buildMonitoringHandoff> | undefined;
+    try { monitoringHandoff=buildMonitoringHandoff(report); } catch { /* partial discovery: no handoff */ }
+    console.log(JSON.stringify({...report,...(monitoringHandoff ? {monitoringHandoff} : {})}, null, 2));
   } else if (values.format === "markdown") {
     console.log(renderReportMarkdown(report));
   } else if (values.format === "metadata") {
@@ -241,6 +247,47 @@ function renderReport(
       process.exitCode = 2;
     }
   }
+}
+
+/** Single consented publication path for CLI/npm and Desktop. Only source-free
+ * history metadata and the small validated component inventory leave the device.
+ * No raw report, source path, source code or credentials enter the payload.
+ */
+async function publishScanToCloud(
+  report: ScanReport,
+  values: Record<string,string|boolean|string[]|undefined>,
+  monitor: boolean
+) {
+  // Validate before any write. Incomplete discovery must never clear prior data.
+  const inventory = monitor ? extractTechnologyInventory(report) : undefined;
+  const config = resolveCloudClientConfig({ cloudUrl: typeof values["cloud-url"] === "string" ? values["cloud-url"] : undefined });
+  const client = createCloudHistoryClient(config);
+  const result = await client.connectProject({
+    event: toProjectHistoryMetadata(report),
+    retention: CloudHistoryRetentionSchema.parse(values.retention ?? "90-days"),
+    ...(values["display-name"] ? {displayName:String(values["display-name"])} : {})
+  });
+  let monitoringStatus: "enabled" | "not-requested" | "failed" = "not-requested";
+  let technologyCount: number | null = null;
+  if (inventory) {
+    try {
+      const receipt = await client.syncDiscoveredTechnologies(result.project.id,inventory,true);
+      technologyCount = receipt.componentCount;
+      monitoringStatus = "enabled";
+    } catch {
+      // History publication has succeeded. Don't misrepresent that as an
+      // all-or-nothing failure, and never echo upstream response or source.
+      monitoringStatus = "failed";
+    }
+  }
+  return {
+    schemaVersion:"0.1",
+    projectId:result.project.id,
+    projectName:result.project.displayName??null,
+    scanStatus:result.ingest.status,
+    ingestedAt:result.ingest.ingestedAt,
+    monitoringStatus,technologyCount
+  };
 }
 
 async function readScanReportFile(file: string): Promise<ScanReport> {
@@ -296,6 +343,8 @@ async function main(): Promise<void> {
       "networked-dependency-scan": { type: "boolean", default: false },
       "git-history-secrets": { type: "boolean", default: false },
       "cloud-url": { type: "string" },
+      monitor: { type: "boolean", default: false },
+      "monitor-technologies": { type: "boolean", default: false },
       "display-name": { type: "string" },
       retention: { type: "string" },
       force: { type: "boolean", default: false },
@@ -368,24 +417,10 @@ async function main(): Promise<void> {
     if (action === "publish") {
       const file = positionals[2];
       if (!file) throw new Error("ship-check cloud publish requires a JSON report path or - for stdin.");
-      // Use the exact canonical metadata conversion used by scan --format metadata.
-      // The full report remains on this machine; only the minimal summary is
-      // included in the Cloud request performed by connectProject().
       const report = await readScanReportFile(file);
-      const event = toProjectHistoryMetadata(report);
-      const retention = CloudHistoryRetentionSchema.parse(values.retention ?? "90-days");
-      const result = await client.connectProject({
-        event,
-        retention,
-        ...(values["display-name"] ? { displayName: String(values["display-name"]) } : {})
-      });
-      console.log(JSON.stringify({
-        schemaVersion: "0.1",
-        projectId: result.project.id,
-        projectName: result.project.displayName ?? null,
-        scanStatus: result.ingest.status,
-        ingestedAt: result.ingest.ingestedAt
-      }));
+      const receipt = await publishScanToCloud(report,values,values["monitor-technologies"] === true);
+      console.log(JSON.stringify(receipt));
+      if (receipt.monitoringStatus === "failed") process.exitCode = 3;
       return;
     }
 
@@ -562,6 +597,7 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (command === "scan-dir" && values.monitor) throw new Error("Use ship-check scan --monitor for one project at a time.");
   if (command === "scan-dir") {
     if (!new Set(["pretty", "json", "markdown"]).has(String(values.format))) {
       throw new Error(`Unknown scan-dir format: ${values.format}. Use pretty, json or markdown.`);
@@ -672,6 +708,13 @@ async function main(): Promise<void> {
         )
       : runtimeReport;
     renderReport(report, values, gateId, gateThreshold, failOn);
+    if (values.monitor) {
+      const receipt=await publishScanToCloud(report,values,true);
+      console.error(receipt.monitoringStatus==="enabled"
+        ? "Ship Check Cloud: monitoring enabled for "+receipt.technologyCount+" discovered technologies. "+receipt.projectId
+        : "Ship Check Cloud: scan history saved, but monitoring could not be enabled.");
+      if(receipt.monitoringStatus!=="enabled") process.exitCode=3;
+    }
     return;
   }
 
@@ -708,6 +751,13 @@ async function main(): Promise<void> {
       ? combineScanReports(sourceReport, ...additionalReports)
       : sourceReport;
     renderReport(report, values, gateId, gateThreshold, failOn);
+    if (values.monitor) {
+      const receipt=await publishScanToCloud(report,values,true);
+      console.error(receipt.monitoringStatus==="enabled"
+        ? "Ship Check Cloud: monitoring enabled for "+receipt.technologyCount+" discovered technologies. "+receipt.projectId
+        : "Ship Check Cloud: scan history saved, but monitoring could not be enabled.");
+      if(receipt.monitoringStatus!=="enabled") process.exitCode=3;
+    }
   } finally {
     await source.cleanup();
   }

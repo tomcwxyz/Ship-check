@@ -245,7 +245,36 @@ export const cookieCorsBoundaryCheck: RuntimeCheckDefinition = {
   }
 };
 
+/** Public CMS hints are not verified installed software. Never manufacture
+ * versions or security advisories from a page fingerprint.
+ */
+export const publicCmsFingerprintCheck: RuntimeCheckDefinition = {
+  id: "runtime.cms-fingerprint",
+  version: "1",
+  pack: "production-ready",
+  title: "Public WordPress/Drupal detection",
+  description: "Uses ordinary public-page generator, REST discovery and asset signals.",
+  requiresEvidence: ["runtime-http"],
+  coverage: [{area:"runtime",status:"partial"}],
+  async run(context) {
+    const cms = context.http.cms;
+    if (!cms) return {observations:[]};
+    return {observations:[{
+      id:"runtime.cms-fingerprint:"+cms.id,
+      checkId:"runtime.cms-fingerprint",
+      pack:"production-ready" as const,
+      area:"runtime" as const,
+      kind:"inventory" as const,
+      title: cms.id==="wordpress"?"Possible WordPress website":"Possible Drupal website",
+      summary:(cms.confidence==="likely"?"Likely":"Possibly")+" "+(cms.id==="wordpress"?"WordPress":"Drupal")+
+        " from public website signals; installed extensions and versions are not verified.",
+      evidence:[{kind:"configuration" as const,detail:"Public signals: "+cms.signals.join(", ")+". The HTTP response body was discarded."}]
+    }]};
+  }
+};
+
 export const runtimeHttpChecks: RuntimeCheckDefinition[] = [
+  publicCmsFingerprintCheck,
   transportSecurityCheck,
   responseSecurityHeadersCheck,
   cookieCorsBoundaryCheck

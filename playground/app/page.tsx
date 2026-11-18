@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { Coverage, Finding, ScanReport } from "../lib/types";
 
 type Mode = "github" | "site";
+const SITE_SCAN_AVAILABLE = process.env.NEXT_PUBLIC_SHIP_CHECK_PLAYGROUND_SITE_SCANS_ENABLED === "1";
 type Panel = "findings" | "verify" | "coverage";
 const demo: ScanReport = {
   schemaVersion: "0.1", tool: { name: "ship-check", version: "demo" },
@@ -89,8 +90,17 @@ function FindingRow({ item }: { item: Finding }) {
     </div>}
   </article>;
 }
+function encodeHandoff(value: NonNullable<ScanReport["monitoringHandoff"]>):string {
+  const bytes=new TextEncoder().encode(JSON.stringify(value));
+  if(bytes.byteLength>18_000) throw new Error("This scan has too much metadata for browser handoff.");
+  let raw="";
+  for(const byte of bytes) raw+=String.fromCharCode(byte);
+  return btoa(raw).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+}
+
 function Results({ report, example, onReset }: { report: ScanReport; example: boolean; onReset: () => void }) {
   const [panel, setPanel] = useState<Panel>("findings");
+  const [handoffError,setHandoffError]=useState("");
   const notAssessed = useMemo(() => report.coverage.filter(c => c.status === "not-assessed").length, [report]);
   return <section className="results" aria-live="polite">
     <div className="results-head">
@@ -114,6 +124,19 @@ function Results({ report, example, onReset }: { report: ScanReport; example: bo
       {panel === "verify" && (report.gaps.length ? report.gaps.map(g => <article key={g.id} className="gap"><span className="gap-icon"><Icon name="question"/></span><div><h3>{g.title}</h3><p>{g.summary}</p><div className="verify"><b>How to check:</b> {g.verify}</div></div></article>) : <div className="empty">No explicit unanswered controls surfaced. This is not full coverage.</div>)}
       {panel === "coverage" && report.coverage.map((c: Coverage) => <div key={c.area} className="coverage"><span className={`coverage-dot ${c.status}`}/><div><b>{c.area.replaceAll("-", " ")}</b><p>{c.detail}</p></div><span className="coverage-status">{c.status.replace("-", " ")}</span></div>)}
     </div>
+    {!example && <div className="disclaimer" style={{marginTop:24,display:"grid",gap:10}}>
+      <strong>Keep this project monitored in Cloud</strong>
+      <span>Monitor discovered AI models and relevant WordPress/Drupal security notices after this scan. Cloud stores only a source-free summary and recognised technology identifiers, with your consent. No GitHub Actions required.</span>
+      {report.monitoringHandoff
+        ? <button type="button" className="primary" style={{justifySelf:"start"}} onClick={()=>{
+            try {
+              const encoded=encodeHandoff(report.monitoringHandoff!);
+              window.location.assign("https://cloud-check.good-ship.co.uk/import#"+encoded);
+            } catch(e) {setHandoffError(e instanceof Error?e.message:"Could not continue to Cloud.");}
+          }}>Keep this monitored <Icon name="arrow"/></button>
+        : <span className="hint">Monitoring handoff isn't available from this scanner version yet. The scan report is still available to download.</span>}
+      {handoffError && <span role="alert" className="form-error">{handoffError}</span>}
+    </div>}
     <div className="results-footer">
       <span className="subtle">Keep the report to share with a developer or agent.</span>
       <div className="actions">
@@ -164,16 +187,16 @@ export default function Page() {
     <section className="scan-section" aria-labelledby="scan-title">
       <div className="section-index">01 / START HERE</div>
       <div className="scan-grid">
-        <div className="scan-intro"><h2 id="scan-title">A second pair<br/>of eyes.</h2><p>No installation. No sign-up. Just an evidence-led review of a public GitHub project.</p><p className="micro">You get 3 scans per day. We don't keep your source code or scan history.</p></div>
+        <div className="scan-intro"><h2 id="scan-title">A second pair<br/>of eyes.</h2><p>No installation or sign-up to scan a public GitHub repository or website. Choose to keep it monitored afterwards.</p><p className="micro">You get 3 scans per day. We don't keep your source code or scan history.</p></div>
         <form className="scan-card" onSubmit={scan}>
           <div className="mode-switch" role="group" aria-label="What to scan">
             <button type="button" aria-pressed={mode === "github"} className={mode === "github" ? "active" : ""} onClick={() => { setMode("github"); setUrl(""); setError(""); }}><Icon name="github"/> GitHub repo</button>
-            <button type="button" disabled title="Coming soon — public GitHub scans are available now"><Icon name="globe"/> Website (soon)</button>
+            <button type="button" disabled={!SITE_SCAN_AVAILABLE} title={SITE_SCAN_AVAILABLE ? "Scan a public website" : "Website scanning is being safety-tested"} aria-pressed={mode === "site"} className={mode === "site" ? "active" : ""} onClick={() => { setMode("site"); setUrl(""); setError(""); setVulnerabilityIntelligence(false); }}><Icon name="globe"/> Website</button>
           </div>
           <label htmlFor="project-url">{mode === "github" ? "Public GitHub repository" : "Public website URL"}</label>
           <input id="project-url" type="text" autoComplete="off" spellCheck={false} maxLength={500} required value={url} onChange={e => setUrl(e.target.value)} placeholder={mode === "github" ? "https://github.com/owner/repository" : "https://your-app.example"} />
-          <p className="hint">{mode === "github" ? "Selected source and configuration checks. Private repositories aren't supported yet." : "Checks visible HTTPS, headers and other bounded runtime evidence. Not a code scan."}</p>
-          <label className="hint" style={{display:"flex",gap:"0.65rem",alignItems:"flex-start",cursor:"pointer"}}><input type="checkbox" checked={vulnerabilityIntelligence} onChange={e=>setVulnerabilityIntelligence(e.target.checked)} style={{width:"auto",marginTop:"0.2rem"}} /><span><b>Check known dependency vulnerabilities (optional)</b><br/>This may send package names and versions to OSV and request official Node.js release information. It does not send application source files. Networked checking may take longer.</span></label>
+          <p className="hint">{mode === "github" ? "Selected source and configuration checks. Private repositories aren't supported yet." : "Reads public HTTPS metadata and a small HTML sample to suggest WordPress or Drupal. Does not inspect installed plugins or perform vulnerability probing."}</p>
+          {mode === "github" && <label className="hint" style={{display:"flex",gap:"0.65rem",alignItems:"flex-start",cursor:"pointer"}}><input type="checkbox" checked={vulnerabilityIntelligence} onChange={e=>setVulnerabilityIntelligence(e.target.checked)} style={{width:"auto",marginTop:"0.2rem"}} /><span><b>Check known dependency vulnerabilities (optional)</b><br/>This may send package names and versions to OSV and request official Node.js release information. It does not send application source files. Networked checking may take longer.</span></label>}
           {error && <div className="form-error" role="alert">{error}</div>}
           <button type="submit" className="primary" disabled={busy || !url.trim()}><Icon name="scan"/>{busy ? "Running bounded checks…" : "Check my project"}<Icon name="arrow"/></button>
           {busy && <p className="hint" role="status">An isolated, temporary scan is running. This may take a little time; keep this tab open.</p>}

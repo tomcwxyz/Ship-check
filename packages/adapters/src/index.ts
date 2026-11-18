@@ -1,3 +1,5 @@
+export { extractTechnologyInventory, buildMonitoringHandoff } from "./technologyInventory.js";
+export type { DiscoveredTechnology, TechnologyInventory, SiteHint } from "./technologyInventory.js";
 export { createCloudR0WebHandler } from "./cloudR0Web.js";
 export type {
   CloudR0CredentialKind,

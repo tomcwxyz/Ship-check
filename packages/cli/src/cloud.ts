@@ -168,7 +168,7 @@ export function createCloudHistoryClient(options: CloudHistoryClientOptions) {
       throw new CloudHistoryClientError(
         parsed.success
           ? parsed.data.message
-          : `Cloud request failed with HTTP ${response.status}.`,
+          : (payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string" ? payload.error : `Cloud request failed with HTTP ${response.status}.`),
         {
           status: response.status,
           ...(parsed.success ? { code: parsed.data.code } : {})
@@ -228,6 +228,31 @@ export function createCloudHistoryClient(options: CloudHistoryClientOptions) {
       );
     },
 
+    /** User-triggered direct monitoring; existing CI callers omit monitor and still
+     * require prior dashboard opt-in. Only identifiers and CMS hints are sent. */
+    async syncDiscoveredTechnologies(
+      projectId: string,
+      inventory: {
+        schemaVersion: "ship-check-technology-inventory/0.1";
+        components: Array<{kind:string;id:string;version?:string;evidence:"source-declared"}>;
+        siteHints?:Array<{cms:"wordpress"|"drupal";confidence:"likely"|"possible"}>;
+        sourceInventory?: "complete" | "not-assessed";
+      },
+      monitor = false
+    ): Promise<{synced:boolean;componentCount:number;monitoringEnabled:boolean}> {
+      return request(
+        `/api/intelligence/projects/${encodeURIComponent(projectId)}/discover`,
+        {method:"POST",body:JSON.stringify({...inventory,...(monitor?{monitor:true}:{})})},
+        value => {
+          if(!value||typeof value!=="object"||Array.isArray(value)) throw new Error("Invalid receipt.");
+          const receipt=value as Record<string,unknown>;
+          if(receipt.synced!==true||!Number.isSafeInteger(receipt.componentCount)||receipt.monitoringEnabled!==true)
+            throw new Error("Invalid monitoring receipt.");
+          return {synced:true,componentCount:Number(receipt.componentCount),monitoringEnabled:true};
+        }
+      );
+    },
+
     async listProjects(limit = 50, cursor?: string): Promise<CloudProjectListPage> {
       const params = new URLSearchParams({ limit: String(limit) });
       if (cursor) params.set("cursor", cursor);
@@ -254,7 +279,7 @@ export function resolveCloudClientConfig(values: {
   env?: NodeJS.ProcessEnv;
 }): { baseUrl: string; token: string } {
   const env = values.env ?? process.env;
-  const baseUrl = values.cloudUrl ?? env[SHIP_CHECK_CLOUD_URL_ENV];
+  const baseUrl = values.cloudUrl ?? env[SHIP_CHECK_CLOUD_URL_ENV] ?? "https://cloud-check.good-ship.co.uk";
   const token = values.cloudToken ?? env[SHIP_CHECK_CLOUD_TOKEN_ENV];
 
   if (!baseUrl) {

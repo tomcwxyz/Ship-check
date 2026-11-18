@@ -3,7 +3,7 @@
   "version": "0.0.0-alpha.12",
   "private": true,
   "scripts": {
-    "build": "next build",
+    "build": "node ../../scripts/build-cms-connectors.mjs && next build",
     "check": "tsc --noEmit",
     "dev": "next dev",
     "start": "next start",
@@ -12,6 +12,7 @@
   "dependencies": {
     "@ship-check/adapters": "workspace:*",
     "@ship-check/cloud-runtime": "workspace:*",
+    "@ship-check/schemas": "workspace:*",
     "next": "^15.5.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
