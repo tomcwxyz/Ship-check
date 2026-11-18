@@ -99,7 +99,7 @@ jobs:
           - platform: ubuntu-latest
             label: Linux x64
             suffix: linux-x64
-          - platform: macos-14
+          - platform: macos-15
             label: macOS Apple Silicon
             suffix: darwin-arm64
     steps:
