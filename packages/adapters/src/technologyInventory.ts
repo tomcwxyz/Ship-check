@@ -24,7 +24,7 @@ const MODEL = /^(?:gpt-|o[134](?:-|$)|claude-|gemini-|mistral-|codestral-|deepse
 
 function versionFrom(text: string): string | undefined {
   const v = /\b(?:declares? version|version declared as)\s+([A-Za-z0-9._+/-]{1,80})\b/i.exec(text)?.[1];
-  return v && VERSION.test(v) ? v : undefined;
+  return v && v!=="unknown" && VERSION.test(v) ? v : undefined;
 }
 
 /** Extracts identifiers from the scanner's structured, bounded observations.
@@ -101,7 +101,7 @@ export function extractTechnologyInventory(report: ScanReport): TechnologyInvent
     schemaVersion: "ship-check-technology-inventory/0.1",
     components:[...found.values()].sort((a,b)=>(a.kind+":"+a.id).localeCompare(b.kind+":"+b.id)),
     sourceInventory:sourceComplete?"complete":"not-assessed",
-    ...(siteHints.length ? {siteHints} : {})
+    ...(runtimeCheck && runtimeCheck.status!=="not-assessed" ? {siteHints} : {})
   };
 }
 
