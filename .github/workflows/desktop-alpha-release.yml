@@ -159,7 +159,7 @@ jobs:
           - platform: ubuntu-latest
             label: Linux x64 desktop
             bundle: deb
-          - platform: macos-14
+          - platform: macos-15
             label: macOS Apple Silicon desktop
             bundle: app
 
