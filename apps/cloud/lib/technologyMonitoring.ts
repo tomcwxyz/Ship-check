@@ -238,6 +238,9 @@ export async function syncDiscoveredTechnologyInventory(
     );
     if (consent.rows.length !== 1) return false;
     if(options.replaceComponents!==false) await tx.query("DELETE FROM ship_check_discovered_components WHERE project_id=$1",[projectId]);
+    // A complete runtime check can legitimately find no CMS. Clear stale hints
+    // only when it explicitly supplies a site-hint inventory (including []).
+    if (options.siteHints !== undefined) await tx.query("DELETE FROM ship_check_cms_site_hints WHERE project_id=$1",[projectId]);
     for (const hint of options.siteHints ?? []) {
       await tx.query(`INSERT INTO ship_check_cms_site_hints(project_id,cms,confidence,observed_at)
         VALUES($1,$2,$3,now()) ON CONFLICT(project_id,cms) DO UPDATE
