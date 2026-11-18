@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     const message = cause instanceof Error ? cause.message : "Invalid scan request.";
     return error(message === "Request too large." ? 413 : 400, message);
   }
-  if (source.kind !== "github") return error(422, "Live website scanning is not yet available. Choose a public GitHub repository.");
+  if (source.kind === "site" && vulnerabilityIntelligence) return error(400, "Dependency vulnerability checks require source code. Use a GitHub repository.");
   try {
     await claimAnonymousScan(request);
     const report = await scanInSandbox(source, vulnerabilityIntelligence);
