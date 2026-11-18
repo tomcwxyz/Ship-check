@@ -35,7 +35,7 @@ describe("shared source-free technology discovery",()=>{
   });
   it("preserves source data on URL-only runtime scans and emits unverified CMS hints",()=>{
     const report=synthetic({
-      project:{snapshot:{inventory:{}}} as ScanReport["project"]["snapshot"]} as ScanReport["project"],
+      project:{snapshot:{inventory:{}}} as unknown as ScanReport["project"],
       checks:[{checkId:model,status:"not-assessed"},{checkId:cms,status:"not-assessed"},{checkId:runtime,status:"passed"}] as ScanReport["checks"],
       observations:[{checkId:runtime,id:runtime+":wordpress",summary:"Likely WordPress from public website signals; not verified.",evidence:[]}] as ScanReport["observations"]
     });
@@ -44,7 +44,7 @@ describe("shared source-free technology discovery",()=>{
   });
   it("refuses partial or broken source inventories",()=>{
     const report=synthetic({
-      project:{snapshot:{inventory:{fingerprint:{completeness:"partial"}}}} as ScanReport["project"]["snapshot"]} as ScanReport["project"],
+      project:{snapshot:{inventory:{fingerprint:{completeness:"partial"}}}} as unknown as ScanReport["project"],
     });
     expect(()=>extractTechnologyInventory(report)).toThrow(/complete source inventory/);
     const errored=synthetic({checks:[{checkId:model,status:"error"},{checkId:cms,status:"passed"}] as ScanReport["checks"]});
