@@ -27,6 +27,7 @@ test("mixed DNS records fail closed, rather than choosing a convenient public A 
 
 test("runtime connections are HTTPS-only, same-host and credential-free",()=>{
   assert.equal(allowedUrl("https://www.example.org/about", "www.example.org").pathname,"/about");
+  assert.equal(allowedUrl("https://example.org/about","www.example.org").hostname,"example.org");
   for(const input of [
     "http://www.example.org","https://www.example.org:8443",
     "https://user:pass@www.example.org","https://127.0.0.1",
