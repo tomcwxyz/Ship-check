@@ -3,7 +3,7 @@
   "version": "0.0.0-alpha.12",
   "private": true,
   "scripts": {
-    "build": "next build",
+    "build": "node ../../scripts/build-cms-connectors.mjs && next build",
     "check": "tsc --noEmit",
     "dev": "next dev",
     "start": "next start",
