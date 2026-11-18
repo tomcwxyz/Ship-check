@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { boundedReport, boundedTechnologies, resolveProjectRoot, parsePublicWebsiteUrl, requireCloudMonitoringConsent, scanWebsite, websiteScannerConfiguration } from "./runner.mjs";
+import { boundedReport, boundedTechnologies, resolveProjectRoot, parsePublicWebsiteUrl, requireCloudMonitoringConsent, scanWebsite, websiteScannerConfiguration, parsePublicGitHubRepo } from "./runner.mjs";
 
 describe("local MCP security boundaries", () => {
   it("rejects traversal and absolute paths", async () => {
@@ -65,6 +65,13 @@ describe("MCP scanner discovery and consent",()=>{
       assert.throws(()=>parsePublicWebsiteUrl(url),undefined,url);
     }
     assert.equal(parsePublicWebsiteUrl("https://wordpress.org/about/").hostname,"wordpress.org");
+  });
+  it("accepts only public GitHub owner/repository shorthand",()=>{
+    assert.equal(parsePublicGitHubRepo("tomcwxyz/Ship-check"),"tomcwxyz/Ship-check");
+    for(const input of ["https://github.com/owner/repo","../../etc/passwd","owner/repo/path",
+      "owner;rm -rf/repo","owner/.","owner/..","ssh://github.com/owner/repo"]) {
+      assert.throws(()=>parsePublicGitHubRepo(input),undefined,input);
+    }
   });
   it("Cloud write requires both administrator configuration and per-call consent",()=>{
     const beforeToken=process.env.SHIP_CHECK_CLOUD_TOKEN;
