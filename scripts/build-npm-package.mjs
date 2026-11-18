@@ -5,6 +5,7 @@ import path from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
+await import("./check-cli-version.mjs");
 const root = process.cwd();
 const npmRoot = path.join(root, "dist", "npm", "node_modules", "@good-ship");
 const mainOutput = path.join(npmRoot, "ship-check");
