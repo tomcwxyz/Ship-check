@@ -1,4 +1,5 @@
 import type { ScanReport } from "@ship-check/schemas";
+import { toProjectHistoryMetadata } from "./history.js";
 
 export type DiscoveredTechnology = {
   kind: "ai-model" | "wordpress-core" | "wordpress-plugin" | "wordpress-theme" | "drupal-package";
@@ -101,5 +102,17 @@ export function extractTechnologyInventory(report: ScanReport): TechnologyInvent
     components:[...found.values()].sort((a,b)=>(a.kind+":"+a.id).localeCompare(b.kind+":"+b.id)),
     sourceInventory:sourceComplete?"complete":"not-assessed",
     ...(siteHints.length ? {siteHints} : {})
+  };
+}
+
+/** The browser handoff contains only pseudonymous project/scan metadata,
+ * recognised component identifiers and public CMS hints. Never the report.
+ */
+export function buildMonitoringHandoff(report: ScanReport) {
+  const inventory=extractTechnologyInventory(report);
+  return {
+    schemaVersion: "ship-check-monitoring-handoff/0.1" as const,
+    metadata: toProjectHistoryMetadata(report),
+    inventory
   };
 }
