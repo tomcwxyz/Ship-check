@@ -102,6 +102,7 @@ function Results({ report, example, onReset }: { report: ScanReport; example: bo
   const [panel, setPanel] = useState<Panel>("findings");
   const [handoffError,setHandoffError]=useState("");
   const notAssessed = useMemo(() => report.coverage.filter(c => c.status === "not-assessed").length, [report]);
+  const cmsFingerprints=(report.observations??[]).filter(o=>o.checkId==="runtime.cms-fingerprint" && /^runtime\\.cms-fingerprint:(wordpress|drupal)$/.test(o.id));
   return <section className="results" aria-live="polite">
     <div className="results-head">
       <div><div className="eyebrow">{example ? "ILLUSTRATIVE DEMONSTRATION · NOT A REAL SCAN" : "SCAN COMPLETED"}</div>
@@ -114,6 +115,10 @@ function Results({ report, example, onReset }: { report: ScanReport; example: bo
       <div><b>{report.gaps.length}</b><span>To verify</span></div>
       <div><b>{notAssessed}</b><span>Areas not assessed</span></div>
     </div>
+    {cmsFingerprints.length>0&&<div className="site-cms-finding" aria-label="Website technology detected">
+      <strong><Icon name="globe"/> Website technology recognised</strong>
+      {cmsFingerprints.map(o=><p key={o.id}>{o.summary} No installed plugin or module versions were verified. To monitor them, install the connector on a website you administer.</p>)}
+    </div>}
     <p className="disclaimer"><Icon name="alert"/> No findings does not mean safe to ship. These checks assess only the evidence available.</p>
     <div className="tabs" role="tablist" aria-label="Scan results">
       {([["findings", "What needs fixing"], ["verify", "What needs checking"], ["coverage", "What we inspected"]] as const).map(([id, label]) =>
