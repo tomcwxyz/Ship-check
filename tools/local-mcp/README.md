@@ -32,16 +32,17 @@ Why a separate website entry? Website requests must run with the guarded Node HT
 | `ship_check_daily` | Existing cached, bounded security assessment |
 | `ship_check_project` | Local source scan, coverage, bounded findings and discovered AI/CMS inventory |
 | `ship_check_technologies` | Source-declared AI models and CMS components only; distinguishes incomplete/unknown inventories |
+| `ship_check_github_repository` | Explicitly permitted public GitHub owner/repository scan, with bounded findings and technology discovery |
 | `ship_check_website` | Public HTTPS evidence and WordPress/Drupal hints using the same scanner with socket-level safeguards |
 
-**Networking and consent:** Source scans are local by default. Set `networked: true` for optional package-advisory lookups. Website scans require an explicit `confirmExternalRequest: true` per invocation and are limited to public HTTPS hostnames. Never use them against private/internal targets or websites you are not authorised to test. Only low-impact public metadata and the bounded runtime scanner are collected.
+**Networking and consent:** Source scans are local by default. Set `networked: true` for optional package-advisory lookups. Public GitHub repository and website scans require an explicit `confirmExternalRequest: true` per invocation and are limited to public HTTPS hostnames. Never use them against private/internal targets or websites you are not authorised to test. Only low-impact public metadata and the bounded runtime scanner are collected.
 
 ### Optional Cloud monitoring from local MCP
 
 Cloud monitoring is **off by default**. It takes two separate permissions:
 
 1. The user configures `SHIP_CHECK_MCP_ALLOW_CLOUD_WRITE=1` and a user-created `SHIP_CHECK_CLOUD_TOKEN` with the **history:sync** scope in the MCP process environment. Never supply a token as a tool argument or commit it to a file.
-2. The user explicitly approves `monitor: true` in the particular `ship_check_project` or `ship_check_website` invocation.
+2. The user explicitly approves `monitor: true` in the particular `ship_check_project`, `ship_check_github_repository` or `ship_check_website` invocation.
 
 If either requirement is missing, the MCP tool refuses the upload. When enabled, the canonical CLI sends only the approved source-free scan summary and recognised technology identifiers; no full report or source code. The tool never changes repository files.
 
