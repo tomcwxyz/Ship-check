@@ -21,8 +21,8 @@ describe("shared source-free technology discovery",()=>{
         {checkId:cms,id:cms+":wordpress-core",summary:"WordPress core version declared as 6.8.1.",evidence:[]},
         {checkId:cms,id:cms+":wordpress-plugins/akismet",summary:"Akismet declares version 5.0.",evidence:[]},
         {checkId:cms,id:cms+":drupal-drupal/token",summary:"drupal/token declares version 1.15.0.",evidence:[]}
-      ] as ScanReport["observations"],
-      findings:[{checkId:model,evidence:[{excerpt:"Declared model: gpt-5",path:"src/private.ts",detail:"secret"}]}] as ScanReport["findings"]
+      ] as unknown as ScanReport["observations"],
+      findings:[{checkId:model,evidence:[{excerpt:"Declared model: gpt-5",path:"src/private.ts",detail:"secret"}]}] as unknown as ScanReport["findings"]
     });
     const inventory=extractTechnologyInventory(report);
     expect(inventory.components.map(c=>c.id)).toEqual(["claude-sonnet-4-5-20250929","gpt-5","drupal/token","wordpress","akismet"].sort((a,b)=> {
@@ -36,8 +36,8 @@ describe("shared source-free technology discovery",()=>{
   it("preserves source data on URL-only runtime scans and emits unverified CMS hints",()=>{
     const report=synthetic({
       project:{snapshot:{inventory:{}}} as unknown as ScanReport["project"],
-      checks:[{checkId:model,status:"not-assessed"},{checkId:cms,status:"not-assessed"},{checkId:runtime,status:"passed"}] as ScanReport["checks"],
-      observations:[{checkId:runtime,id:runtime+":wordpress",summary:"Likely WordPress from public website signals; not verified.",evidence:[]}] as ScanReport["observations"]
+      checks:[{checkId:model,status:"not-assessed"},{checkId:cms,status:"not-assessed"},{checkId:runtime,status:"passed"}] as unknown as ScanReport["checks"],
+      observations:[{checkId:runtime,id:runtime+":wordpress",summary:"Likely WordPress from public website signals; not verified.",evidence:[]}] as unknown as ScanReport["observations"]
     });
     const inventory=extractTechnologyInventory(report);
     expect(inventory).toMatchObject({sourceInventory:"not-assessed",components:[],siteHints:[{cms:"wordpress",confidence:"likely"}]});
@@ -47,13 +47,13 @@ describe("shared source-free technology discovery",()=>{
       project:{snapshot:{inventory:{fingerprint:{completeness:"partial"}}}} as unknown as ScanReport["project"],
     });
     expect(()=>extractTechnologyInventory(report)).toThrow(/complete source inventory/);
-    const errored=synthetic({checks:[{checkId:model,status:"error"},{checkId:cms,status:"passed"}] as ScanReport["checks"]});
+    const errored=synthetic({checks:[{checkId:model,status:"error"},{checkId:cms,status:"passed"}] as unknown as ScanReport["checks"]});
     expect(()=>extractTechnologyInventory(errored)).toThrow(/did not complete/);
   });
   it("rejects arbitrary observation text, unsafe IDs and over-limit inventories",()=>{
-    const report=synthetic({observations:[{checkId:model,id:"untrusted",summary:"Found my-secret-token in source;",evidence:[]}] as ScanReport["observations"]});
+    const report=synthetic({observations:[{checkId:model,id:"untrusted",summary:"Found my-secret-token in source;",evidence:[]}] as unknown as ScanReport["observations"]});
     expect(extractTechnologyInventory(report).components).toEqual([]);
-    report.observations=Array.from({length:51},(_,n)=>({checkId:model,id:"id-"+n,summary:"Found gpt-"+n+" in source;",evidence:[]})) as ScanReport["observations"];
+    report.observations=Array.from({length:51},(_,n)=>({checkId:model,id:"id-"+n,summary:"Found gpt-"+n+" in source;",evidence:[]})) as unknown as ScanReport["observations"];
     expect(()=>extractTechnologyInventory(report)).toThrow(/50/);
   });
 });
