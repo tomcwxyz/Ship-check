@@ -279,7 +279,7 @@ export function resolveCloudClientConfig(values: {
   env?: NodeJS.ProcessEnv;
 }): { baseUrl: string; token: string } {
   const env = values.env ?? process.env;
-  const baseUrl = values.cloudUrl ?? env[SHIP_CHECK_CLOUD_URL_ENV];
+  const baseUrl = values.cloudUrl ?? env[SHIP_CHECK_CLOUD_URL_ENV] ?? "https://cloud-check.good-ship.co.uk";
   const token = values.cloudToken ?? env[SHIP_CHECK_CLOUD_TOKEN_ENV];
 
   if (!baseUrl) {
