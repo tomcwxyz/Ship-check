@@ -60,10 +60,11 @@ export async function POST(request: Request, context: Context): Promise<Response
     catch { return failure(400,"Invalid or oversized inventory."); }
     if(!payload||typeof payload!=="object"||Array.isArray(payload)) return failure(400,"Inventory object required.");
     const body=payload as Record<string,unknown>;
-    if(Object.keys(body).some(k=>!["schemaVersion","components","monitor","siteHints"].includes(k)) ||
+    if(Object.keys(body).some(k=>!["schemaVersion","components","monitor","siteHints","sourceInventory"].includes(k)) ||
        body.schemaVersion!=="ship-check-technology-inventory/0.1" ||
        !Array.isArray(body.components) ||
        (body.monitor!==undefined && body.monitor!==true) ||
+       (body.sourceInventory!==undefined && body.sourceInventory!=="complete" && body.sourceInventory!=="not-assessed") ||
        (body.siteHints!==undefined && !Array.isArray(body.siteHints))) return failure(400,"Unsupported inventory contract.");
     const siteHints:Array<{cms:"wordpress"|"drupal";confidence:"likely"|"possible"}>=[];
     if(Array.isArray(body.siteHints)) {
@@ -82,7 +83,7 @@ export async function POST(request: Request, context: Context): Promise<Response
     try { components=body.components.length ? parseComponents(body.components) : []; }
     catch { return failure(400,"Invalid component identifiers."); }
     const saved=await syncDiscoveredTechnologyInventory(db,id,authenticated.accountId,components,
-      {optIn:body.monitor===true,siteHints});
+      {optIn:body.monitor===true,siteHints,replaceComponents:body.sourceInventory!=="not-assessed"});
     if(!saved) return failure(409,"Enable automatic discovery in Cloud or explicitly opt in when publishing a scan.");
     return Response.json({synced:true,componentCount:components.length,monitoringEnabled:true},{headers});
   } catch (e) {
