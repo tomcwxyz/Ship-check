@@ -185,7 +185,7 @@ export default function Page() {
       <div className="hero-content">
         <div className="eyebrow"><span className="live-dot"/> PUBLIC PLAYGROUND <span className="middot">·</span> NO LOGIN</div>
         <h1>Before you ship,<br/><em>check.</em></h1>
-        <p className="hero-lede">Built something with AI? Let's find out what might need fixing, what still needs checking, and what you can do next.</p>
+        <p className="hero-lede">Scan a public GitHub repository or website. See what needs fixing, what remains unverified, and where to focus before you launch.</p>
       </div>
       <div className="hero-art" aria-hidden="true"><div className="orbit orbit-one"/><div className="orbit orbit-two"/><div className="hero-symbol">✓</div><div className="orbit-note orbit-note-top">Understand</div><div className="orbit-note orbit-note-bottom">Improve</div></div>
     </section>
@@ -221,6 +221,24 @@ export default function Page() {
         <div><span>01</span><h3>Findings</h3><p>Concrete concerns supported by the evidence we could inspect.</p></div>
         <div><span>02</span><h3>Unanswered questions</h3><p>Important things we can't establish, with guidance for verifying them.</p></div>
         <div><span>03</span><h3>Coverage</h3><p>What was actually checked, and what remains outside the scan.</p></div>
+      </div>
+    </section>
+    <section className="playground-questions" aria-labelledby="questions-heading">
+      <div className="section-index">03 / GOOD TO KNOW</div>
+      <h2 id="questions-heading">What can Ship Check tell you?</h2>
+      <div className="questions-grid">
+        <article>
+          <h3>Can I scan a GitHub repository?</h3>
+          <p>Yes, if it is public. Ship Check reviews selected source code and configuration evidence, then separates findings from things it cannot verify. Known dependency vulnerability lookups are optional.</p>
+        </article>
+        <article>
+          <h3>What about a live website?</h3>
+          <p>Public HTTPS checks examine visible security headers and other bounded browser evidence. They can suggest WordPress or Drupal, but cannot establish an installed plugin list or replace a full security test.</p>
+        </article>
+        <article>
+          <h3>Do you store my code?</h3>
+          <p>No. Playground runs temporary scans and does not retain your source code or reports. If you choose Cloud monitoring afterwards, you explicitly approve sharing a source-free summary and recognised technology identifiers.</p>
+        </article>
       </div>
     </section>
     <footer><div className="wordmark"><span className="mark">✳</span> ship/check</div><p>Built by <a href="https://good-ship.co.uk" target="_blank" rel="noreferrer">The Good Ship ↗</a>. Open-source code, transparent limits, practical next actions.</p><p className="small">Ship Check is an assurance aid, not a penetration test or certification. Public playground scans are temporary and subject to limits.</p></footer>
