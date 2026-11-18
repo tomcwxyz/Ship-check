@@ -26,6 +26,9 @@ importers:
 
   apps/cloud:
     dependencies:
+      '@ship-check/schemas':
+        specifier: workspace:*
+        version: link:../../packages/schemas
       '@ship-check/adapters':
         specifier: workspace:*
         version: link:../../packages/adapters
