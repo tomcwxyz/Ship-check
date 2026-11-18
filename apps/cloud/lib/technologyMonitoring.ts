@@ -275,6 +275,8 @@ export async function stopTechnologyMonitoring(db: CloudHistoryDatabase, project
       [projectId,accountId]
     );
     if (owned.rows.length!==1) throw new Error("Project unavailable.");
+    // Revoke outstanding one-time pairing codes as well as active connectors.
+    await tx.query("DELETE FROM ship_check_cms_pairings WHERE project_id=$1 AND account_id=$2",[projectId,accountId]);
     // Revocation is irreversible for existing connector bearer tokens.
     await tx.query(
       "UPDATE ship_check_cms_connectors SET revoked_at=now() WHERE project_id=$1 AND account_id=$2 AND revoked_at IS NULL",
