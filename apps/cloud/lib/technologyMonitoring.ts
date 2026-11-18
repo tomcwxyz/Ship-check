@@ -11,6 +11,7 @@ export type InventoryState = {
   autoDiscovery: boolean;
   components: MonitoredComponent[];
   discoveredComponents: MonitoredComponent[];
+  cmsConnectors: Array<{id:string;cms:string;lastSeenAt:string|null;components:number}>;
   alerts: Array<{
     identity: string;
     provider: string;
@@ -82,7 +83,12 @@ export async function getTechnologyInventory(
     "SELECT project_id, auto_discovery_enabled FROM ship_check_technology_monitoring WHERE project_id=$1 AND account_id=$2",
     [projectId, accountId]
   );
-  const enabled = consent.rows.length > 0;
+  const connectors = await db.query<{id:string;cms:string;last_seen_at:string|Date|null;components:string}>(
+    `SELECT s.id,s.cms,s.last_seen_at,count(c.component_id)::text AS components
+     FROM ship_check_cms_connectors s LEFT JOIN ship_check_cms_components c ON c.connector_id=s.id
+     WHERE s.project_id=$1 AND s.account_id=$2 AND s.revoked_at IS NULL
+     GROUP BY s.id,s.cms,s.last_seen_at ORDER BY s.created_at DESC`,[projectId,accountId]);
+  const enabled = consent.rows.length > 0 || connectors.rows.length > 0;
   const [components, discovered, alerts, feeds] = await Promise.all([
     enabled ? db.query<ComponentRow>(
       "SELECT kind, component_id, version, evidence FROM ship_check_technology_components WHERE project_id=$1 ORDER BY kind, component_id",
@@ -102,6 +108,7 @@ export async function getTechnologyInventory(
   ]);
   return {
     enabled,
+    cmsConnectors: connectors.rows.map(r=>({id:r.id,cms:r.cms,lastSeenAt:r.last_seen_at?asISO(r.last_seen_at):null,components:Number(r.components)})),
     autoDiscovery: enabled && consent.rows[0]?.auto_discovery_enabled === true,
     discoveredComponents: discovered.rows.map(r => ({
       kind: r.kind, id: r.component_id,

@@ -10,6 +10,7 @@ type Monitoring = {
   autoDiscovery: boolean;
   components: Component[];
   discoveredComponents: Component[];
+  cmsConnectors: Array<{id:string;cms:string;lastSeenAt:string|null;components:number}>;
   alerts: Array<{
     identity: string; provider: string; componentId: string; status: string; scope: string;
     summary: string; sourceUrl: string; effectiveDate: string | null; lastSeenAt: string;
@@ -35,6 +36,28 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  const [pairingCode, setPairingCode] = useState("");
+  async function revokeCmsConnector(connectorId:string) {
+    if(!window.confirm("Disconnect this CMS connector and delete its inventory?")) return;
+    setBusy(true);setError("");
+    try {
+      const response=await fetch(endpoint+"/cms-connectors/"+connectorId,{method:"DELETE"});
+      const result=await response.json();
+      if(!response.ok) throw new Error(result.error??"Unable to disconnect.");
+      await load();setInfo("CMS connector revoked and its inventory deleted.");
+    } catch(e) {setError(e instanceof Error?e.message:"Unable to disconnect.");}
+    finally {setBusy(false);}
+  }
+  async function createCmsPairing() {
+    setBusy(true);setError("");setPairingCode("");
+    try {
+      const response=await fetch(endpoint+"/cms-pairing",{method:"POST"});
+      const result=await response.json();
+      if(!response.ok) throw new Error(result.error??"Could not generate pairing code.");
+      setPairingCode(result.pairingCode);
+    } catch(e) {setError(e instanceof Error?e.message:"Could not connect.");}
+    finally {setBusy(false);}
+  }
 
   const load = useCallback(async () => {
     const response = await fetch(endpoint, { cache: "no-store" });
@@ -150,6 +173,22 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
     {!data && !error && <p>Loading monitoring settings…</p>}
     {data && <>
       <p><strong>{data.enabled ? "Monitoring enabled" : "Monitoring off"}</strong> · Your project is only monitored after you save an inventory.</p>
+      <div className="technology-notice">
+        <h3>Connect WordPress or Drupal</h3>
+        <p>Install the read-only connector on your WordPress or Drupal website, then pair it here. It automatically sends installed components and versions. No GitHub Actions required.</p>
+        <button type="button" disabled={busy} onClick={() => void createCmsPairing()}>Generate website pairing code</button>
+        {pairingCode && <div>
+          <p>Copy this code into WordPress → Tools → Ship Check, or Drupal → Configuration → System → Ship Check Connector, within ten minutes. It can only be used once.</p>
+          <code style={{overflowWrap:"anywhere"}}>{pairingCode}</code>
+          <button type="button" onClick={() => void navigator.clipboard.writeText(pairingCode)}>Copy code</button>
+        </div>}
+        {(data.cmsConnectors??[]).map(site=><p key={site.id}>
+          <strong>{site.cms==="wordpress"?"WordPress":"Drupal"} connected</strong> · {site.components} components
+          {site.lastSeenAt?" · Last synced "+new Date(site.lastSeenAt).toLocaleString("en-GB"):" · Waiting for first sync"}
+          {" "}<button type="button" disabled={busy} onClick={() => void revokeCmsConnector(site.id)}>Disconnect</button>
+        </p>)}
+        <p><a href="https://github.com/tomcwxyz/Ship-check/tree/main/integrations/wordpress/ship-check-connector">WordPress connector</a> · <a href="https://github.com/tomcwxyz/Ship-check/tree/main/integrations/drupal/ship_check_connector">Drupal connector</a></p>
+      </div>
       <div className="technology-notice">
         <h3>Automatically discover from your scans</h3>
         <p>Recommended: Ship Check finds declared AI models, WordPress components and Drupal packages during a local or CI scan. With your permission, it sends only their identifiers and versions to Cloud — never the source files or full report.</p>

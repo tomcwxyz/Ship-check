@@ -1,0 +1,6 @@
+name: Ship Check Connector
+type: module
+description: 'Read-only component inventory sync to Ship Check Cloud'
+package: Monitoring
+core_version_requirement: ^10 || ^11
+configure: ship_check_connector.settings

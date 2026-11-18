@@ -1,0 +1,4 @@
+services:
+  ship_check_connector.sync:
+    class: Drupal\ship_check_connector\Service\InventorySync
+    arguments: ['@http_client', '@config.factory', '@state', '@extension.list.module', '@extension.list.theme', '@logger.factory']

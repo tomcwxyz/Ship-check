@@ -1,0 +1,19 @@
+<?php
+
+/**
+ * @file
+ * Ship Check Connector hooks.
+ */
+
+/**
+ * Implements hook_cron().
+ */
+function ship_check_connector_cron(): void {
+  $state = \Drupal::state();
+  $last = (int) $state->get('ship_check_connector.last_attempt', 0);
+  if (\Drupal::time()->getRequestTime() - $last < 86400) {
+    return;
+  }
+  $state->set('ship_check_connector.last_attempt', \Drupal::time()->getRequestTime());
+  \Drupal::service('ship_check_connector.sync')->sync();
+}

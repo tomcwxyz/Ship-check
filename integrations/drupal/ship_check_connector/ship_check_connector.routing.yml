@@ -1,0 +1,7 @@
+ship_check_connector.settings:
+  path: '/admin/config/system/ship-check'
+  defaults:
+    _form: '\Drupal\ship_check_connector\Form\ConnectorSettingsForm'
+    _title: 'Ship Check Connector'
+  requirements:
+    _permission: 'administer site configuration'
