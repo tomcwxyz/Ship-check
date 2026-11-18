@@ -68,9 +68,13 @@ npx --yes @good-ship/ship-check@alpha scan-dir ~/Code --max-depth 4
 
 The local tool also supports exported ZIP projects, optional Git-history and dependency checks, and explicitly authorised read-only Postgres metadata inspection. See the [CLI guide](docs/CLI_GUIDE.md) for exact commands, evidence boundaries and additional options.
 
-## Technology lifecycle intelligence (in development)
+## Discovery and optional Cloud monitoring
 
-Production-ready scans on the technology-intelligence feature branch can recognise source-declared AI models and identify WordPress/Drupal components. Exact model IDs are checked against a **dated** provider retirement snapshot; CMS extension versions are recorded as source evidence, not proof of a live site's installed versions or vulnerability state. See [technology intelligence and Cloud rollout gates](docs/TECHNOLOGY_INTELLIGENCE.md). **Continuous Cloud advisory feeds and alerts are not yet live.**
+The shared scan engine can recognise source-declared AI models, WordPress/Drupal source components, and likely CMS technology from bounded public website evidence. A source declaration is not proof of production use, and public website detection cannot establish installed plugin versions.
+
+After a scan, choose to keep the project monitored in [Ship Check Cloud](https://cloud-check.good-ship.co.uk). The Cloud connection stores a source-free scan summary and only recognised technology identifiers with explicit consent. It checks independent provider feeds for retirement and security notices. **No GitHub Actions are required for ordinary monitoring.** Existing CI integrations remain an advanced option. See [one scan-to-monitor workflow](docs/CLOUD_MONITORING.md).
+
+New direct monitoring and public CMS fingerprint support is under development for the next published CLI/Desktop release. Browser Playground monitoring handoff also requires that published scanner version; anonymous live website scanning remains gated behind network-safety validation. Drupal and WordPress connector implementations are early pilots and still need live-site integration testing. See [CMS connector guide](docs/CMS_CONNECTORS.md).
 
 ## What the report tells you
 
