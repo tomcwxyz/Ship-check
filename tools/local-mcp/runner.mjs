@@ -165,7 +165,7 @@ export function parsePublicGitHubRepo(value) {
 export async function scanGitHubRepository(value,cwd,options={}) {
   const repository=parsePublicGitHubRepo(value);
   const monitor=requireCloudMonitoringConsent(options.monitor===true);
-  const raw=await invokeShipCheck(["scan",repository,"--format","json",...(monitor?["--monitor"]:[])],cwd);
+  const raw=await invokeShipCheck(["scan","https://github.com/"+repository,"--format","json",...(monitor?["--monitor"]:[])],cwd);
   return {...boundedReport(JSON.parse(raw)),repository,
     cloudMonitoring:monitor?"enabled":"not-requested"};
 }
