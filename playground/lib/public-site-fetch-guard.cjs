@@ -105,6 +105,11 @@ async function publicSiteFetch(input, init = {}, configuredHost) {
   return new Promise((resolve, reject) => {
     let complete = false;
     let request;
+    const toResponse = (status, headers, bytes) => {
+      const safeStatus = Number.isInteger(status) && status >= 200 && status <= 599 ? status : 502;
+      const body = [204,205,304].includes(safeStatus) ? null : bytes;
+      return new Response(body, { status:safeStatus, headers });
+    };
     const finish = (error, response) => {
       if (complete) return;
       complete = true;
@@ -124,7 +129,7 @@ async function publicSiteFetch(input, init = {}, configuredHost) {
         const status = response.statusCode || 502;
         if (status >= 300 && status < 400) {
           response.destroy();
-          return finish(null, new Response(null, { status, headers }));
+          return finish(null, toResponse(status, headers, null));
         }
         let size=0; const parts=[];
         response.on("data", part => {
@@ -134,7 +139,7 @@ async function publicSiteFetch(input, init = {}, configuredHost) {
           if (remaining>0) { parts.push(chunk.subarray(0,remaining)); size+=Math.min(remaining,chunk.length); }
           if (size>=MAX_BODY) {
             response.destroy();
-            finish(null,new Response(Buffer.concat(parts),{status,headers}));
+            finish(null,toResponse(status,headers,Buffer.concat(parts)));
           }
         });
         response.on("end",()=>{if (!complete) finish(null,new Response(Buffer.concat(parts),{status,headers}));});
