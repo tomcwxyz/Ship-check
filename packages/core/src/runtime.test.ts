@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseRuntimeTargetUrl, scanRuntimeTarget, type RuntimeCheckDefinition } from "./runtime.js";
+import { detectPublicCms, parseRuntimeTargetUrl, probeRuntimeTarget, scanRuntimeTarget, type RuntimeCheckDefinition } from "./runtime.js";
 
 function sequentialFetch(responses: Response[]): typeof fetch {
   let index = 0;
@@ -81,5 +81,28 @@ describe("runtime URL evidence", () => {
     });
     expect(report.coverage.find((entry) => entry.area === "runtime")?.status).toBe("assessed");
     expect(report.coverage.find((entry) => entry.area === "database")?.status).toBe("not-assessed");
+  });
+});
+
+describe("bounded public CMS fingerprint",()=>{
+  it("identifies WordPress from an ordinary public metadata signal",()=>{
+    expect(detectPublicCms(new Headers({"x-generator":"WordPress 6.8"}))).toMatchObject({id:"wordpress",confidence:"likely"});
+    expect(detectPublicCms(new Headers(),'<link href="/wp-content/themes/sample/style.css">')).toMatchObject({id:"wordpress",confidence:"possible"});
+  });
+  it("identifies Drupal from public browser attributes, not installed modules",()=>{
+    expect(detectPublicCms(new Headers(),'<!doctype html><div data-drupal-selector="example"></div>')).toMatchObject({id:"drupal",confidence:"likely"});
+    expect(detectPublicCms(new Headers(),'<img src="/sites/default/files/image.jpg">')).toMatchObject({id:"drupal",confidence:"possible"});
+  });
+  it("avoids speculative/conflicting identifiers",()=>{
+    expect(detectPublicCms(new Headers(),"plain HTML")).toBeUndefined();
+    expect(detectPublicCms(new Headers({"x-generator":"Drupal"}),'<img src="/wp-content/themes/theme/style.css">')).toBeUndefined();
+  });
+  it("reads a bounded HTML prefix and discards page content",async()=>{
+    const html='<meta name="generator" content="WordPress 6.8"><p>'+ "private".repeat(12000)+'</p>';
+    const probe=await probeRuntimeTarget(new URL("https://example.org"),{
+      fetchImpl:async()=>new Response(html,{headers:{"content-type":"text/html"}})
+    });
+    expect(probe.cms?.id).toBe("wordpress");
+    expect(JSON.stringify(probe)).not.toContain("private");
   });
 });
