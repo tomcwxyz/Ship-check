@@ -41,7 +41,8 @@ export default function SignInPage() {
           : payload.error?.message;
         throw new Error(message || payload.message || "Could not sign in. Please check your details.");
       }
-      window.location.assign("/dashboard");
+      const next = new URLSearchParams(window.location.search).get("next");
+      window.location.assign(next === "/import" ? "/import" : "/dashboard");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Sign-in failed.");
     } finally {
