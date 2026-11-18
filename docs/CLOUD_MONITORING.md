@@ -1,69 +1,60 @@
-# Ship Check Cloud Alpha 12
+# Ship Check Cloud monitoring
 
-**Cloud domain:** https://cloud-check.good-ship.co.uk
-**Status:** Alpha. Cloud stores and compares source-free assurance metadata, not source code or full report evidence. Each project is isolated to a Neon-verified account and is only monitored when its owner explicitly configures CI. A quiet scan does **not** establish that an application is safe.
+Cloud is the optional home for source-free scan history and ongoing notices about technologies recognised by Ship Check.
 
-## Getting started
+**Cloud:** https://cloud-check.good-ship.co.uk
 
-1. Sign in or sign up with **email and password** at `/auth`. Google and other sign-in methods are not available in this alpha.
-2. Open `/dashboard`, and create a **CI metadata sync** token. The raw token appears **once**, and expires in 90 days; save it in the repository's GitHub Actions secret `SHIP_CHECK_CLOUD_HISTORY_SYNC_TOKEN`.
-3. Set a repository variable `SHIP_CHECK_CLOUD_URL` to `https://cloud-check.good-ship.co.uk`. This domain's DNS and Vercel ownership have been verified.
-4. Opt in to a scheduled job in the repository you wish to check. A simple example is below; for production replace any `@main` action reference with a reviewed immutable commit SHA.
-5. Run the workflow manually once, then inspect the Cloud project history. Tokens can be revoked from the dashboard at any time.
+## One process, whichever scanner you use
 
-## Opt-in weekly workflow
+1. **Scan.** Use the Ship Check CLI, npm/npx, Desktop, or the public Playground. The shared scanner identifies source-declared AI models and recognisable WordPress/Drupal components when the source includes that evidence. Public website scans can identify likely CMS technology from non-invasive metadata, but cannot identify a complete installed plugin list.
+2. **Choose to keep it monitored.** This is never automatic or implied by running a scan. Monitoring is optional.
+3. **View your project in Cloud.** Cloud retains a source-free assurance summary and a small list of known technology identifiers. Its independent provider checks can surface relevant model retirement/security notices without a GitHub Action or a new scan.
+4. **Re-scan when the code changes.** Cloud monitors technologies it already knows about. It does not continuously pull or rescan private code; a new scan is needed to refresh source-declared technologies.
 
-~~~yaml
-name: Ship Check weekly evidence review
-on:
-  workflow_dispatch:
-  schedule:
-    - cron: "45 6 * * 1"
-permissions:
-  contents: read
-jobs:
-  review:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          persist-credentials: false
-      - name: Scan and sync source-free assurance metadata
-        uses: tomcwxyz/Ship-check@main # Replace with a reviewed SHA
-        with:
-          fail-on: never
-          networked-dependency-scan: "true"
-          cloud-url: ${{ vars.SHIP_CHECK_CLOUD_URL }}
-          cloud-token: ${{ secrets.SHIP_CHECK_CLOUD_HISTORY_SYNC_TOKEN }}
-          cloud-retention: 90-days
-~~~
+### CLI / npm
 
-A blank `cloud-url` triggers no upload. Sync is never performed from pull-request events and the token must be secret-scoped. Repeated identical scan events are deduplicated. The Cloud API retains only the `assurance-metadata/0.1` summary with ruleset, coverage and aggregate counts, never raw source or credentials. Users choose a retention period.
+Once a scanner release containing the unified monitoring feature is installed:
 
-## Agent and MCP connection
+```bash
+# Scanning itself remains free, offline by default, and needs no account
+npx --yes @good-ship/ship-check@alpha scan .
 
-An authenticated JSON-RPC **Streamable HTTP** endpoint is available at `https://cloud-check.good-ship.co.uk/mcp`. For Alpha 12 use a client that lets you manually configure a `history:read` bearer token (create the **Read-only MCP / agent** token on the dashboard). The server offers five tools:
+# Explicitly connect the scan to Cloud and enable technology monitoring
+# Create an 'Upload scan summaries' token in your Cloud dashboard first.
+# Store it privately; never include it in shell arguments, source or log files.
+export SHIP_CHECK_CLOUD_TOKEN="your-token-from-cloud"
+npx --yes @good-ship/ship-check@alpha scan . --monitor
+unset SHIP_CHECK_CLOUD_TOKEN
+```
 
-- `ship_check_list_projects`: account-scoped connected project directory
-- `ship_check_get_project_status`: latest counts and freshness
-- `ship_check_get_project_history`: bounded last 20 scans and continuity
-- `ship_check_get_coverage`: assessed, partial and unassessed coverage
-- `ship_check_get_attention_changes`: bounded aggregate deltas with caveats
+The official Cloud URL is the default. Use `--cloud-url` only for a deliberately chosen environment. To monitor a report you've already saved: `ship-check cloud publish ./review.json --monitor-technologies`.
 
-**Not implemented in Alpha 12:** OAuth-based connection discovery for ChatGPT/other MCP clients, scheduled Cloud-side scans, automatic CVE alert subscriptions, full finding-level evidence storage and automatic Lookout synchronisation. A manual bearer token connects compatible MCP clients today; OAuth and consented Lookout project mapping remain release gates for future integration.
+### Desktop
 
-## API security and limits
+Sign in to Cloud in your browser and create an **Upload scan summaries** token. Enter it in Desktop's Cloud connection section; Desktop stores it in your operating system credential store. Run a scan, select **Keep discovered technologies monitored**, and choose **Send to Cloud**. Neither storing a token nor running a scan uploads anything automatically.
 
-- Sign-in and signup are delegated to the existing Neon Auth service through a same-origin email/password proxy. Every browser API request verifies the session upstream.
-- Token creation and revocation require a signed-in browser session and an authorised Origin. No pilot-secret identity may create or read accounts.
-- CI tokens have the minimum `history:sync` permission, and MCP tokens `history:read` only. Tokens expire automatically and raw token values are not persisted.
-- Postgres rate limiting is shared between Vercel instances; the health endpoint checks actual database schema availability.
-- `/api/v1/projects`, `/api/v1/tokens` and their scoped subpaths use the existing Cloud API contracts; **directly posting source code or full scan reports is unsupported**.
-- Only a user-authorised owner can retrieve their project history. Never interpret a scan with no findings as proof of safety.
+### Public Playground
 
-## Release testing and operations
+On a compatible published scanner build, the scan results offer **Keep this monitored**. That opens the Cloud handoff in your browser; you sign in and approve the minimal inventory. The Playground never sends full reports or repository source to Cloud. Public URL scanning remains gated off until sandbox IPv6 and DNS rebinding protections are verified.
 
-Before expanding beyond the alpha pilot, validate production login, logout, account isolation, token issuance/revocation, retention deletion, first CI sync and the independent MCP client against the real domain. Test error paths as well as the happy path. The endpoint `/api/health` returns 200 **only** when the required environment variables and database schema are available. It does not prove sign-in and MCP workflows pass.
+### WordPress / Drupal websites
 
-The existing [MCP / Lookout design](./CLOUD_MCP_AND_LOOKOUT.md) describes the broader OAuth, history and agent architecture.
+A public website scan may say *Likely WordPress* or *Possibly Drupal*. This is a hint, not an installed-software inventory and not a vulnerability result. Site administrators who want ongoing monitoring of actual installed versions can optionally install the small outbound-only connector. Download WordPress/Drupal connector ZIPs from the Cloud website and pair with a ten-minute, one-use code; **no GitHub Actions are required**. See [CMS connector guide](CMS_CONNECTORS.md). Both connectors still need live-site integration validation before broad distribution.
+
+## What Cloud stores
+
+- Account-scoped, pseudonymous project identity, scan identity, assurance counts and coverage;
+- Recognised model IDs, CMS component IDs and optional declared versions, with source-declared provenance;
+- Public CMS hints separately from verified installed components;
+- Advisory matches, timestamps and provider health information;
+- WordPress/Drupal connector inventory only if an administrator installs and pairs the connector.
+
+It does **not** receive source files, raw report evidence, secret values, full file paths or dependency source text. These distinctions matter: a source declaration doesn't establish active production use; a website fingerprint doesn't identify installed plugins; no matched notice doesn't mean everything is secure.
+
+## Optional automation for experienced users
+
+Existing CI/GitHub Actions history and technology synchronisation are still supported, but **not part of the normal onboarding path**. See [advanced scan synchronisation](CLOUD_AUTO_DISCOVERY.md). Cloud's provider-intelligence refresh is separate from repository CI.
+
+## How to stop
+
+Cloud project monitoring can be disabled from the project page. This removes stored technology inventories and related notices, revokes paired CMS connector credentials, and leaves historical source-free scan summaries intact. A local Desktop credential can be forgotten independently; revoke the token in Cloud to disable its server-side access.
