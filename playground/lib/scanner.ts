@@ -51,7 +51,7 @@ export async function scanInSandbox(source: ParsedSource, vulnerabilityIntellige
       throw new ScanStageError("github-preflight", cause);
     }
   }
-  const version = process.env.SHIP_CHECK_PLAYGROUND_SCANNER_VERSION || "0.0.0-alpha.11";
+  const version = process.env.SHIP_CHECK_PLAYGROUND_SCANNER_VERSION || "0.0.0-alpha.13";
   if (!/^\d+\.\d+\.\d+-alpha\.\d+$/.test(version))
     throw new Error("A pinned Ship-check alpha version must be configured.");
   if (source.kind === "site" && Number(version.split(".").at(-1)) < 13) {
