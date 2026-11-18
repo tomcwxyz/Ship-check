@@ -153,7 +153,7 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
   }
 
   async function disable() {
-    if (!window.confirm("Stop monitoring and permanently delete this project's component list and alerts?")) return;
+    if (!window.confirm("Stop monitoring, revoke CMS connections and delete monitored technologies and alerts? Scan history will remain.")) return;
     setBusy(true); setError(""); setInfo("");
     try {
       const response = await fetch(endpoint, { method: "DELETE" });
@@ -178,6 +178,13 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
         <span>{data.discoveredComponents.filter(x=>x.kind==="ai-model").length} AI models · {data.discoveredComponents.filter(x=>x.kind!=="ai-model").length} source-declared CMS components · {(data.cmsConnectors??[]).reduce((n,s)=>n+s.components,0)} installed CMS components</span>
       </div>
       {!data.enabled && <p>Run a CLI scan with <code>--monitor</code>, or select <strong>Keep discovered technologies monitored</strong> in Desktop. You can also connect a website below.</p>}
+      {data.discoveredComponents.length>0 && <div className="technology-notice">
+        <h3>Discovered from your scans</h3>
+        <p>These identifiers were found in source code, not verified as active in production.</p>
+        {data.discoveredComponents.map(item=><div key={item.kind+":"+item.id} className="technology-component">
+          <span><strong>{item.id}</strong><small>{item.kind.replaceAll("-"," ")}{item.version?" · "+item.version:""}</small></span>
+        </div>)}
+      </div>}
       {(data.siteHints??[]).length>0 && <div className="technology-notice">
         <h3>Websites recognised in scans</h3>
         {(data.siteHints??[]).map(h=><p key={h.cms}><strong>{h.confidence==="likely"?"Likely ":"Possibly "}{h.cms==="wordpress"?"WordPress":"Drupal"}</strong> · Public-page identification on {new Date(h.lastSeenAt).toLocaleDateString("en-GB")}. This doesn't tell us which extensions are installed. A connector below can provide that information.</p>)}
@@ -221,9 +228,6 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
             <p>Optional for repositories already using the Ship Check GitHub Action. To send recognised model and CMS declarations to Cloud, enable synchronisation and set <code>cloud-technology-sync: "true"</code> alongside the existing Cloud settings in your action. This step is not required for connected WordPress or Drupal websites.</p>
             <button type="button" disabled={busy} onClick={() => void setDiscovery(!data.autoDiscovery)}>{data.autoDiscovery?"Disable scan synchronisation":"Enable scan synchronisation"}</button>
             <p><a href="https://github.com/tomcwxyz/Ship-check/blob/main/docs/CLOUD_AUTO_DISCOVERY.md">Scan synchronisation instructions</a></p>
-            <p><strong>Technologies found by scans ({data.discoveredComponents.length})</strong></p>
-            {data.discoveredComponents.length===0 && <p>No technologies have been received from scans yet.</p>}
-            {data.discoveredComponents.map(item=><div key={item.kind+item.id} className="technology-component"><span><strong>{item.id}</strong><small>{item.kind}{item.version?" · "+item.version:""} · declared in code</small></span></div>)}
           </details>
         </div>
       </details>
@@ -259,19 +263,25 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
         <button type="button" disabled={busy || !components.length} onClick={save}>{busy ? "Saving…" : "Save manual components"}</button>
       </div>
       </details>
-      {data.enabled && <div className="technology-actions"><button type="button" disabled={busy} onClick={disable}>Stop monitoring and delete its data</button></div>}
       {data.enabled && <>
-        <h3>Provider intelligence</h3>
-        <p>OpenAI and Anthropic retirement notices are checked against provider information. Drupal security notices use official feeds; WordPress notices require a signed Wordfence Intelligence connection. A match does not establish which version is installed on a live site.</p>
-        {data.feeds.length === 0 && <p>Provider checks have not run yet.</p>}
-        {data.feeds.map(feed => <p key={feed.provider}><strong>{feed.provider}</strong> · {feed.errorCode ? "Unavailable: " + feed.errorCode : "Checked " + new Date(feed.checkedAt).toLocaleString("en-GB")} {feed.successAt && feed.errorCode ? " · Last successful check " + new Date(feed.successAt).toLocaleString("en-GB") : ""}</p>)}
         <h3>Relevant notices</h3>
-        {data.alerts.length === 0 && <p>No matched notices are stored. This is not evidence that every dependency is safe.</p>}
+        {data.alerts.length === 0 && <p>No matching notices are stored. This does not mean the project is safe: some providers may have incomplete or unavailable intelligence.</p>}
         {data.alerts.map(alert => <article key={alert.identity} className="technology-notice">
           <p><strong>{alert.componentId}</strong> · {alert.status} · {alert.scope}</p>
           <p>{alert.summary}</p>
           <small>Last confirmed {new Date(alert.lastSeenAt).toLocaleString("en-GB")}{alert.effectiveDate ? " · Dated " + alert.effectiveDate : ""} · <a href={alert.sourceUrl} target="_blank" rel="noreferrer">Provider notice</a></small>
         </article>)}
+        <details className="technology-notice"><summary>Intelligence sources and health</summary>
+        <h3>Provider intelligence</h3>
+        <p>OpenAI and Anthropic retirement notices are checked against provider information. Drupal security notices use official feeds; WordPress notices require a signed Wordfence Intelligence connection. A match does not establish which version is installed on a live site.</p>
+        {data.feeds.length === 0 && <p>Provider checks have not run yet.</p>}
+        {data.feeds.map(feed => <p key={feed.provider}><strong>{feed.provider}</strong> · {feed.errorCode ? "Unavailable: " + feed.errorCode : "Checked " + new Date(feed.checkedAt).toLocaleString("en-GB")} {feed.successAt && feed.errorCode ? " · Last successful check " + new Date(feed.successAt).toLocaleString("en-GB") : ""}</p>)}
+        </details>
+        <details className="technology-notice">
+          <summary>Stop monitoring and remove its data</summary>
+          <p>This revokes website connections and removes monitored technologies and notices. Existing scan history will remain.</p>
+          <button type="button" disabled={busy} onClick={disable}>Stop monitoring and remove data</button>
+        </details>
       </>}
     </>}
   </section>;
