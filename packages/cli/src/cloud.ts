@@ -168,7 +168,7 @@ export function createCloudHistoryClient(options: CloudHistoryClientOptions) {
       throw new CloudHistoryClientError(
         parsed.success
           ? parsed.data.message
-          : `Cloud request failed with HTTP ${response.status}.`,
+          : (payload && typeof payload === "object" && "error" in payload && typeof payload.error === "string" ? payload.error : `Cloud request failed with HTTP ${response.status}.`),
         {
           status: response.status,
           ...(parsed.success ? { code: parsed.data.code } : {})
@@ -225,6 +225,30 @@ export function createCloudHistoryClient(options: CloudHistoryClientOptions) {
           })
         },
         (value) => CloudHistoryIngestResultSchema.parse(value)
+      );
+    },
+
+    /** User-triggered direct monitoring; existing CI callers omit monitor and still
+     * require prior dashboard opt-in. Only identifiers and CMS hints are sent. */
+    async syncDiscoveredTechnologies(
+      projectId: string,
+      inventory: {
+        schemaVersion: "ship-check-technology-inventory/0.1";
+        components: Array<{kind:string;id:string;version?:string;evidence:"source-declared"}>;
+        siteHints?:Array<{cms:"wordpress"|"drupal";confidence:"likely"|"possible"}>;
+      },
+      monitor = false
+    ): Promise<{synced:boolean;componentCount:number;monitoringEnabled:boolean}> {
+      return request(
+        `/api/intelligence/projects/${encodeURIComponent(projectId)}/discover`,
+        {method:"POST",body:JSON.stringify({...inventory,...(monitor?{monitor:true}:{})})},
+        value => {
+          if(!value||typeof value!=="object"||Array.isArray(value)) throw new Error("Invalid receipt.");
+          const receipt=value as Record<string,unknown>;
+          if(receipt.synced!==true||!Number.isSafeInteger(receipt.componentCount)||receipt.monitoringEnabled!==true)
+            throw new Error("Invalid monitoring receipt.");
+          return {synced:true,componentCount:Number(receipt.componentCount),monitoringEnabled:true};
+        }
       );
     },
 
