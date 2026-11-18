@@ -5,6 +5,8 @@ const sourceRepo = "https://github.com/tomcwxyz/Ship-check";
 const config: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  // Bundle the audited Node network guard with the scan server function.
+  outputFileTracingIncludes: { "/api/scan": ["./lib/public-site-fetch-guard.cjs"] },
   async redirects() {
     return [
       { source: "/source", destination: sourceRepo, permanent: false },
