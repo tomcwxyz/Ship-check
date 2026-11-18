@@ -14,4 +14,5 @@ test("rejects internal website and unsafe schemes", () => {
     assert.throws(() => parseSource(source, "site"), source);
   }
   assert.equal(parseSource("https://example.org/", "site").target, "https://example.org/");
+  for(const url of ["https://169.254.169.254/","https://[::1]/","https://example.internal/","https://metadata.google.internal/","https://example.org:8443/","ftp://example.org"]) assert.throws(()=>parseSource(url,"site"));
 });
