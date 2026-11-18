@@ -220,7 +220,7 @@ export async function setAutomaticDiscovery(
  */
 export async function syncDiscoveredTechnologyInventory(
   db: CloudHistoryDatabase, projectId: string, accountId: string, components: MonitoredComponent[],
-  options: {optIn?:boolean; siteHints?:Array<{cms:"wordpress"|"drupal";confidence:"likely"|"possible"}>} = {}
+  options: {optIn?:boolean; replaceComponents?:boolean; siteHints?:Array<{cms:"wordpress"|"drupal";confidence:"likely"|"possible"}>} = {}
 ): Promise<boolean> {
   return db.transaction(async tx => {
     if(options.optIn) {
@@ -237,13 +237,13 @@ export async function syncDiscoveredTechnologyInventory(
          AND m.auto_discovery_enabled=true FOR UPDATE OF m`,[projectId,accountId]
     );
     if (consent.rows.length !== 1) return false;
-    await tx.query("DELETE FROM ship_check_discovered_components WHERE project_id=$1",[projectId]);
+    if(options.replaceComponents!==false) await tx.query("DELETE FROM ship_check_discovered_components WHERE project_id=$1",[projectId]);
     for (const hint of options.siteHints ?? []) {
       await tx.query(`INSERT INTO ship_check_cms_site_hints(project_id,cms,confidence,observed_at)
         VALUES($1,$2,$3,now()) ON CONFLICT(project_id,cms) DO UPDATE
         SET confidence=excluded.confidence,observed_at=now()`,[projectId,hint.cms,hint.confidence]);
     }
-    for (const item of components) {
+    for (const item of options.replaceComponents===false ? [] : components) {
       await tx.query(
         `INSERT INTO ship_check_discovered_components(project_id,kind,component_id,version,evidence)
          VALUES ($1,$2,$3,$4,'source-declared')`,
