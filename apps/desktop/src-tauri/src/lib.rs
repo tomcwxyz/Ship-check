@@ -170,6 +170,7 @@ async fn cloud_publish_summary(
     app: AppHandle,
     report: Value,
     display_name: String,
+    monitor_technologies: bool,
 ) -> Result<cloud::CloudSyncResult, String> {
     tauri::async_runtime::spawn_blocking(move || cloud::publish_report(&app, report, display_name, monitor_technologies))
         .await
