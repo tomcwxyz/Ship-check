@@ -33,8 +33,8 @@ export const desktopBridge = {
   cloudForgetToken() {
     return invokeCommand("cloud_forget_token");
   },
-  cloudPublishSummary(report, displayName) {
-    return invokeCommand("cloud_publish_summary", { report, displayName });
+  cloudPublishSummary(report, displayName, monitorTechnologies = false) {
+    return invokeCommand("cloud_publish_summary", { report, displayName, monitorTechnologies });
   },
 
   chooseProject() {
