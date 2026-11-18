@@ -1,6 +1,8 @@
 # Ship Check Cloud: MCP and Lookout integration design
 
-**Status:** Proposed interface and trust contract, **not** a deployed MCP server. Ship Check Cloud currently persists only deliberately synced `assurance-metadata/0.1` counts, coverage, provenance and change metadata. Its normal browser authentication, hosted project dashboard and operational shared rate limiter are not yet ready.
+**Current implementation (November 2026):** Ship Check Cloud has a deployed, read-only MCP endpoint at `https://cloud-check.good-ship.co.uk/mcp`. A dedicated `history:read` bearer token authorises account-owned project history and status queries. The Alpha 14 update adds technologies monitored from scans, public CMS hints, connector-reported versions, active retirement/security notices, feed health and a server-version tool. Its HTTP JSON-RPC route is **not delegated OAuth**, is not intended to be open to unrelated agents, and cannot initiate scans.
+
+For local scanner MCP configuration and the full current tool list see [Local and Cloud MCP](../tools/local-mcp/README.md). The rest of this document records the longer-term trust model and remaining plans.
 
 ## Product promise
 
@@ -68,4 +70,4 @@ Do **not** make Lookout receive Ship Check's raw scanner inputs, token secrets o
 - MCP 2026-07-28 auth: https://github.com/modelcontextprotocol/modelcontextprotocol/blob/main/docs/specification/2026-07-28/basic/authorization/index.mdx
 - Current TypeScript SDK v2: https://ts.sdk.modelcontextprotocol.io/v2/
 
-**This document reserves interface names; there is intentionally no unauthenticated `/mcp` route, stub response or broadly scoped token in production today.**
+**The deployed `/mcp` endpoint requires a bearer credential and is read-only.** Dedicated project ownership and token scopes apply; OAuth delegation remains a separate future requirement.
