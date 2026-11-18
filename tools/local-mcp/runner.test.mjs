@@ -96,7 +96,9 @@ describe("MCP scanner discovery and consent",()=>{
       await writeFile(entry,'console.log(JSON.stringify({tool:{version:"0.0.0-alpha.14"},summary:{total:0},findings:[],checks:[],gaps:[],coverage:[],monitoringHandoff:{inventory:{schemaVersion:"ship-check-technology-inventory/0.1",sourceInventory:"not-assessed",components:[],siteHints:[{cms:"wordpress",confidence:"likely"}]}}}));');
       const cfg=await websiteScannerConfiguration(parsePublicWebsiteUrl("https://wordpress.org/"),{entry});
       assert.equal(cfg.bin,process.execPath);
-      assert.ok(cfg.env.NODE_OPTIONS.includes("public-site-fetch-guard.cjs"));
+      assert.equal(cfg.prefixArgs[0],"--require");
+      assert.ok(cfg.prefixArgs[1].includes("public-site-fetch-guard.cjs"));
+      assert.equal(cfg.env.NODE_OPTIONS,"");
       assert.equal(cfg.env.SHIP_CHECK_SAFE_SITE_HOST,"wordpress.org");
       const result=await scanWebsite("https://wordpress.org/",tmp,{entry});
       assert.deepEqual(result.technologies.siteHints,[{cms:"wordpress",confidence:"likely",evidence:"public-website-hint"}]);
