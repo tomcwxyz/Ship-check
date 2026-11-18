@@ -126,10 +126,10 @@ export async function websiteScannerConfiguration(url, options = {}) {
   if (!(await stat(guard)).isFile()) throw new Error("Ship Check public-website network guard is missing.");
   return {
     bin:process.execPath,
-    prefixArgs:[entry],
+    prefixArgs:["--require",guard,entry],
     env:{...process.env,
       SHIP_CHECK_SAFE_SITE_HOST:url.hostname,
-      NODE_OPTIONS:"--require " + JSON.stringify(guard)
+      NODE_OPTIONS:""
     }
   };
 }
