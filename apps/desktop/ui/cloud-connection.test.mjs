@@ -14,7 +14,7 @@ function setup() {
   const selectors = {
     "#cloud-status":element(), "#cloud-token":element(),
     "#cloud-connect":element(), "#cloud-forget":element(),
-    "#cloud-send":element(), "#cloud-project-name":element("My project"),
+    "#cloud-send":element(), "#cloud-monitor":element(), "#cloud-project-name":element("My project"),
     "#cloud-receipt":element(), "#cloud-history-link":element(), "#cloud-dashboard-link":element()
   };
   const root={querySelector:s=>selectors[s]??null};
@@ -24,7 +24,7 @@ function setup() {
     async openCloudUrl(url){calls.push(["browser",url]);},
     async cloudConnectToken(token){calls.push(["connect",token]);return {saved:true,message:"Token saved"}},
     async cloudForgetToken(){calls.push(["forget"]);return {saved:false,message:"Forgotten"}},
-    async cloudPublishSummary(report,name){calls.push(["publish",report,name]);return {
+    async cloudPublishSummary(report,name,monitor){calls.push(["publish",report,name,monitor]);return {
       status:"stored",ingestedAt:"2026-10-23T10:00:00.000Z",
       timelineUrl:"https://cloud-check.good-ship.co.uk/dashboard/projects/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
     }}
@@ -58,6 +58,19 @@ test("never retains submitted token in DOM, and upload requires a separate expli
   assert.equal(calls[1][0],"publish");
   assert.match(selectors["#cloud-receipt"].textContent,/summary received/i);
   assert.match(selectors["#cloud-history-link"].href,/^https:\/\/cloud-check\.good-ship\.co\.uk\/dashboard\/projects\//);
+});
+
+test("monitoring must be explicitly selected and passed to native publishing",async()=>{
+  const {selectors,calls,controller}=setup();
+  await tick();
+  selectors["#cloud-token"].value="shipcheck_"+"A".repeat(43);
+  await selectors["#cloud-connect"].fire("click");
+  controller.onScanCompleted({tool:{name:"ship-check"}},"example");
+  await selectors["#cloud-send"].fire("click");
+  assert.equal(calls.at(-1)[3],false);
+  selectors["#cloud-monitor"].checked=true;
+  await selectors["#cloud-send"].fire("click");
+  assert.equal(calls.at(-1)[3],true);
 });
 
 test("reset discards the current report and forbids accidental stale project sync",async()=>{
