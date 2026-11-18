@@ -61,7 +61,7 @@ import { renderDailyAgentCheck, runDailyAgentCheck } from "./agentCheck.js";
 import { installAgentSessionHook } from "./agentHook.js";
 import { renderFocusedReview, selectFocusedReview } from "./focus.js";
 
-const version = "0.0.0-alpha.12";
+const version = "0.0.0-alpha.14";
 const severityRank: Record<Severity, number> = { info: 0, low: 1, medium: 2, high: 3, critical: 4 };
 const areaNames: Record<AssessmentArea, string> = {
   secrets: "Secrets",

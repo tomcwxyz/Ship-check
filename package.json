@@ -1,6 +1,6 @@
 {
   "name": "ship-check",
-  "version": "0.0.0-alpha.13",
+  "version": "0.0.0-alpha.14",
   "private": true,
   "type": "module",
   "description": "Local-first software assurance checks with portable findings and repair guidance.",
@@ -13,7 +13,7 @@
     "build": "turbo run build",
     "build:engine": "pnpm build && bun build packages/cli/src/index.ts --compile --outfile dist/ship-check",
     "calibrate:alpha8": "node scripts/alpha8-corpus.mjs",
-    "check": "turbo run check",
+    "check": "node scripts/check-cli-version.mjs && turbo run check",
     "desktop:assets": "node scripts/generate-desktop-assets.cjs",
     "dogfood": "pnpm ship-check -- scan . --fail-on high",
     "format": "prettier --write .",

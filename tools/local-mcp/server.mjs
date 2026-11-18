@@ -1,46 +1,105 @@
+import { readFileSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/server";
 import { serveStdio } from "@modelcontextprotocol/server/stdio";
 import * as z from "zod/v4";
-import { boundedReport, invokeShipCheck, resolveProjectRoot } from "./runner.mjs";
+import {
+  boundedReport, boundedTechnologies, invokeShipCheck,
+  requireCloudMonitoringConsent, resolveProjectRoot, scanWebsite, scanGitHubRepository, scannerVersion
+} from "./runner.mjs";
 
 const root = process.env.SHIP_CHECK_PROJECT_ROOT || process.cwd();
+const adapterVersion = JSON.parse(readFileSync(new URL("./package.json",import.meta.url),"utf8")).version;
+
+function reply(value) {
+  return {content:[{type:"text",text:typeof value==="string"?value:JSON.stringify(value)}]};
+}
+function rejected(error) {
+  return {isError:true,content:[{type:"text",text:error instanceof Error?error.message:"Ship Check could not complete the request."}]};
+}
 
 serveStdio(() => {
-  const server = new McpServer({ name: "ship-check-local", version: "0.0.0-alpha.1" });
+  const server = new McpServer({ name: "ship-check-local", version: adapterVersion });
+
+  server.registerTool("ship_check_version", {
+    description:"Report the installed canonical scanner version, package version if configured, and any mismatch. Never claims the package was automatically updated.",
+    inputSchema:z.object({})
+  }, async () => {
+    try {return reply({adapterVersion,...await scannerVersion(root)});}
+    catch(error){return rejected(error);}
+  });
 
   server.registerTool("ship_check_daily", {
-    description: "Run or reuse a once-a-day local Ship Check security assessment. Optional network access sends dependency metadata to OSV and CVE IDs to CISA/FIRST.",
-    inputSchema: z.object({
-      project: z.string().max(512).default("."),
-      networked: z.boolean().default(false),
-      force: z.boolean().default(false)
+    description:"Run or reuse a once-a-day local Ship Check security assessment. Optional network access sends dependency metadata to OSV and CVE IDs to CISA/FIRST.",
+    inputSchema:z.object({
+      project:z.string().max(512).default("."),
+      networked:z.boolean().default(false),
+      force:z.boolean().default(false)
     })
-  }, async ({ project, networked, force }) => {
+  }, async ({project,networked,force}) => {
     try {
-      const cwd = await resolveProjectRoot(root, project);
-      const text = await invokeShipCheck(["agent-check", ".", ...(networked ? ["--networked-dependency-scan"] : []), ...(force ? ["--force"] : [])], cwd);
-      return { content: [{ type: "text", text }] };
-    } catch (error) {
-      return { isError: true, content: [{ type: "text", text: error instanceof Error ? error.message : "Security check failed." }] };
-    }
+      const cwd=await resolveProjectRoot(root,project);
+      const result=await invokeShipCheck(["agent-check",".",...(networked?["--networked-dependency-scan"]:[]),...(force?["--force"]:[])],cwd);
+      return reply(result);
+    } catch(error){return rejected(error);}
   });
 
   server.registerTool("ship_check_project", {
-    description: "Run the canonical Ship Check engine and return bounded findings, questions and coverage (not source code or raw scanner evidence). Dependency network lookups require explicit opt-in.",
-    inputSchema: z.object({
-      project: z.string().max(512).default("."),
-      networked: z.boolean().default(false)
+    description:"Scan a local project with the canonical scanner. Returns bounded findings, gaps, coverage, detected AI/CMS technologies, and scanner version; never raw source evidence. Cloud upload requires explicit per-call opt-in AND local owner configuration.",
+    inputSchema:z.object({
+      project:z.string().max(512).default("."),
+      networked:z.boolean().default(false),
+      monitor:z.boolean().default(false)
     })
-  }, async ({ project, networked }) => {
+  }, async ({project,networked,monitor}) => {
     try {
-      const cwd = await resolveProjectRoot(root, project);
-      const output = await invokeShipCheck(["scan", ".", "--format", "json",
-        ...(networked ? ["--networked-dependency-scan"] : [])], cwd);
-      const summary = boundedReport(JSON.parse(output));
-      return { content: [{ type: "text", text: JSON.stringify(summary) }] };
-    } catch (error) {
-      return { isError: true, content: [{ type: "text", text: error instanceof Error ? error.message : "Project check failed." }] };
-    }
+      requireCloudMonitoringConsent(monitor);
+      const cwd=await resolveProjectRoot(root,project);
+      const result=await invokeShipCheck(["scan",".","--format","json",
+        ...(networked?["--networked-dependency-scan"]:[]),
+        ...(monitor?["--monitor"]:[])],cwd);
+      return reply({...boundedReport(JSON.parse(result)),cloudMonitoring:monitor?"enabled":"not-requested"});
+    } catch(error){return rejected(error);}
+  });
+
+  server.registerTool("ship_check_technologies", {
+    description:"Discover source-declared AI models and CMS components from a local project without uploading anything. A missing or incomplete scan is reported as unknown, not empty. No live-site plugin verification.",
+    inputSchema:z.object({project:z.string().max(512).default(".")})
+  },async ({project})=>{
+    try {
+      const cwd=await resolveProjectRoot(root,project);
+      const output=await invokeShipCheck(["scan",".","--format","json"],cwd);
+      const report=JSON.parse(output);
+      return reply({scannerVersion:report.tool?.version??null,
+        technologies:boundedTechnologies(report)});
+    }catch(error){return rejected(error);}
+  });
+
+  server.registerTool("ship_check_github_repository", {
+    description:"Scan a public GitHub owner/repository through the canonical Ship Check engine. Requires explicit external-request permission; returns only bounded findings and recognised AI/CMS technologies, never raw repository source. Cloud monitoring is off without a separate owner-configured double opt-in.",
+    inputSchema:z.object({
+      repository:z.string().max(140),
+      confirmExternalRequest:z.literal(true),
+      monitor:z.boolean().default(false)
+    })
+  },async ({repository,monitor})=>{
+    try {
+      const cwd=await resolveProjectRoot(root,".");
+      return reply(await scanGitHubRepository(repository,cwd,{monitor}));
+    }catch(error){return rejected(error);}
+  });
+
+  server.registerTool("ship_check_website", {
+    description:"Scan ordinary public HTTPS website evidence with the canonical scanner and a socket-level private-IP/DNS-rebinding guard. Requires explicit permission for the external request. Shows possible WordPress/Drupal fingerprints, not private installed plugins. Optional Cloud monitoring also requires separately configured owner consent.",
+    inputSchema:z.object({
+      url:z.string().max(1700),
+      confirmExternalRequest:z.literal(true),
+      monitor:z.boolean().default(false)
+    })
+  },async ({url,monitor})=>{
+    try {
+      const cwd=await resolveProjectRoot(root,".");
+      return reply(await scanWebsite(url,cwd,{monitor}));
+    }catch(error){return rejected(error);}
   });
 
   return server;
