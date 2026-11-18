@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import { parseArgs } from "node:util";
 import {
   buildProjectHistoryTimeline,
+  buildMonitoringHandoff,
   evaluateAssuranceGate,
   toOrganisationalAssuranceSummary,
   toProjectHistoryMetadata,
@@ -218,7 +219,11 @@ function renderReport(
   failOn: string
 ): void {
   if (values.format === "json") {
-    console.log(JSON.stringify(report, null, 2));
+    // A completed scan can be deliberately carried to Cloud from the
+    // public Playground without exposing source paths or the full report.
+    let monitoringHandoff: ReturnType<typeof buildMonitoringHandoff> | undefined;
+    try { monitoringHandoff=buildMonitoringHandoff(report); } catch { /* partial discovery: no handoff */ }
+    console.log(JSON.stringify({...report,...(monitoringHandoff ? {monitoringHandoff} : {})}, null, 2));
   } else if (values.format === "markdown") {
     console.log(renderReportMarkdown(report));
   } else if (values.format === "metadata") {
