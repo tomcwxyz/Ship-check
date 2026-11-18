@@ -94,9 +94,9 @@ export function parsePublicWebsiteUrl(input) {
   let url;
   try {url = new URL(input);} catch {throw new Error("Enter a valid public HTTPS URL.");}
   if (url.protocol !== "https:" || url.username || url.password || url.port ||
-      url.hash || isIP(url.hostname) || !/^[a-z0-9.-]+$/i.test(url.hostname) ||
+      (url.hash || url.search) || isIP(url.hostname) || !/^[a-z0-9.-]+$/i.test(url.hostname) ||
       !url.hostname.includes(".") || INVALID_HOST_SUFFIX.test(url.hostname) ||
-      url.pathname.length > 1024 || url.search.length > 160) {
+      url.pathname.length > 1024) {
     throw new Error("Only public HTTPS hostnames are permitted; IP addresses, private hosts, credentials and ports are not allowed.");
   }
   return url;
