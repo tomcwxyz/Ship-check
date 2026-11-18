@@ -81,6 +81,8 @@ export type RuntimeHttpEvidence = {
     accessControlAllowCredentials?: string;
   };
   cookies: RuntimeHttpCookieEvidence[];
+  /** Public-page fingerprint only. Never evidence of installed extension versions. */
+  cms?: { id: "wordpress" | "drupal"; confidence: "likely" | "possible"; signals: string[] };
 };
 
 export type RuntimeContext = {
@@ -243,6 +245,67 @@ function setCookieHeaders(headers: Headers): string[] {
   return combined ? [combined] : [];
 }
 
+/** Inspects a bounded HTML prefix and public HTTP metadata, without retaining HTML.
+ * A single generic asset path is only a possible hint; generator/REST markers
+ * support a likely classification. Conflicting CMS signals are inconclusive.
+ */
+export function detectPublicCms(headers: Headers, html = ""):
+  RuntimeHttpEvidence["cms"] {
+  const generator = headers.get("x-generator") ?? "";
+  const links = headers.get("link") ?? "";
+  const signals = {
+    wordpress: [
+      /\bwordpress(?:[ /][0-9.]+)?\b/i.test(generator) || /<meta\s+[^>]*name\s*=\s*["']generator["'][^>]*content\s*=\s*["']WordPress\b/i.test(html) ? "WordPress generator" : null,
+      /api\.w\.org/i.test(links) || /<link\s+[^>]*rel\s*=\s*["']https:\/\/api\.w\.org\//i.test(html) ? "WordPress REST discovery" : null,
+      /\/wp-content\/(?:themes|plugins)\//i.test(html) ? "WordPress asset path" : null
+    ],
+    drupal: [
+      /\bdrupal\b/i.test(generator) || /<meta\s+[^>]*content\s*=\s*["']Drupal\b/i.test(html) ? "Drupal generator" : null,
+      /\bdrupalSettings\b|data-drupal-selector\s*=/i.test(html) ? "Drupal front-end attributes" : null,
+      /\/sites\/(?:default|all)\/files\//i.test(html) ? "Drupal asset path" : null
+    ]
+  };
+  const wp = signals.wordpress.filter((x): x is string => x !== null);
+  const dr = signals.drupal.filter((x): x is string => x !== null);
+  if (wp.length && dr.length) return undefined;
+  const id = wp.length ? "wordpress" : dr.length ? "drupal" : undefined;
+  if (!id) return undefined;
+  const observed = id==="wordpress" ? wp : dr;
+  const confidence = observed.some(x=>x.includes("generator")||x.includes("REST")||x.includes("front-end")) || observed.length > 1
+    ? "likely" : "possible";
+  return {id,confidence,signals:observed};
+}
+
+async function readPublicHtmlPrefix(response: Response): Promise<string> {
+  if (!/\btext\/html\b|\bapplication\/xhtml\+xml\b/i.test(response.headers.get("content-type")??"")) {
+    await response.body?.cancel();
+    return "";
+  }
+  const reader = response.body?.getReader();
+  if (!reader) return "";
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  const limit = 32 * 1024;
+  const timer = setTimeout(()=>{void reader.cancel().catch(()=>{});},3000);
+  try {
+    while (size < limit) {
+      const {done,value} = await reader.read();
+      if (done) break;
+      const chunk = value.subarray(0,limit-size);
+      chunks.push(chunk);
+      size += chunk.byteLength;
+      if (chunk.length < value.length) break;
+    }
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timer);
+    await reader.cancel().catch(()=>{});
+    reader.releaseLock();
+  }
+  return new TextDecoder("utf-8",{fatal:false}).decode(Buffer.concat(chunks,size));
+}
+
 export async function probeRuntimeTarget(
   target: URL,
   options: Pick<RuntimeScanOptions, "fetchImpl" | "timeoutMs"> = {}
@@ -280,7 +343,10 @@ export async function probeRuntimeTarget(
     const cookies = setCookieHeaders(response.headers)
       .map(cookieEvidence)
       .filter((cookie): cookie is RuntimeHttpCookieEvidence => cookie !== null);
+    const html = await readPublicHtmlPrefix(response);
+    const cms = detectPublicCms(response.headers,html);
     const evidence: RuntimeHttpEvidence = {
+      ...(cms ? {cms} : {}),
       requestedUrl: target.toString(),
       finalUrl: current.toString(),
       status: response.status,
@@ -289,7 +355,6 @@ export async function probeRuntimeTarget(
       headers: selectedHeaders(response.headers),
       cookies
     };
-    await response.body?.cancel();
     return evidence;
   }
 
