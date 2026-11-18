@@ -11,6 +11,7 @@ export type TechnologyInventory = {
   schemaVersion: "ship-check-technology-inventory/0.1";
   components: DiscoveredTechnology[];
   siteHints?: SiteHint[];
+  sourceInventory: "complete" | "not-assessed";
 };
 
 const MODEL_CHECK = "production.ai-model-lifecycle";
@@ -52,6 +53,7 @@ export function extractTechnologyInventory(report: ScanReport): TechnologyInvent
     }
   }
   if (runtimeCheck && runtimeCheck.status === "error") throw new Error("Runtime CMS discovery failed.");
+  if (!sourceComplete && !runtimeCheck) throw new Error("No completed source or runtime discovery check was found.");
 
   const found = new Map<string, DiscoveredTechnology>();
   const add = (kind: DiscoveredTechnology["kind"], id: string, version?: string) => {
@@ -97,6 +99,7 @@ export function extractTechnologyInventory(report: ScanReport): TechnologyInvent
   return {
     schemaVersion: "ship-check-technology-inventory/0.1",
     components:[...found.values()].sort((a,b)=>(a.kind+":"+a.id).localeCompare(b.kind+":"+b.id)),
+    sourceInventory:sourceComplete?"complete":"not-assessed",
     ...(siteHints.length ? {siteHints} : {})
   };
 }
