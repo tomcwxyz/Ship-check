@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { Sandbox } from "@vercel/sandbox";
 import type { ScanReport } from "./types";
 import type { ParsedSource } from "./sourceTypes";
@@ -64,11 +66,21 @@ export async function scanInSandbox(source: ParsedSource, vulnerabilityIntellige
     throw new ScanStageError("sandbox-startup", cause);
   }
   try {
+    if (source.kind === "site") {
+      // DNS and public IPv4 validation occur at every actual socket connect.
+      // The scanner may not use the unguarded global Node fetch.
+      const guard = await readFile(path.join(process.cwd(), "lib/public-site-fetch-guard.cjs"));
+      await sandbox.writeFiles([{path:"/vercel/sandbox/public-site-fetch-guard.cjs",content:guard}]);
+    }
     const spec = `@good-ship/ship-check@${version}`;
     let run: Awaited<ReturnType<typeof sandbox.runCommand>>;
     try {
       run = await sandbox.runCommand({
         cmd: "npm",
+        ...(source.kind === "site" ? { env: {
+          NODE_OPTIONS: "--require /vercel/sandbox/public-site-fetch-guard.cjs",
+          SHIP_CHECK_SAFE_SITE_HOST: new URL(source.target).hostname
+        }} : {}),
         args: ["exec", "--yes", `--package=${spec}`, "--", "ship-check", "scan",
           source.target, "--format", "json", "--fail-on", "never",
           ...(vulnerabilityIntelligence ? ["--networked-dependency-scan"] : [])]
