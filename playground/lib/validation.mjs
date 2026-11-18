@@ -1,7 +1,7 @@
 import { isIP } from "node:net";
 
 const REPO_PART = /^[A-Za-z0-9_.-]{1,100}$/;
-const DENIED_SUFFIXES = [".localhost", ".local", ".internal", ".test", ".invalid", ".home", ".lan"];
+const DENIED_SUFFIXES = [".localhost", ".local", ".internal", ".test", ".invalid", ".home", ".lan", ".arpa", ".onion"];
 
 export function parseSource(raw, kind) {
   if (typeof raw !== "string" || raw.length > 500) throw new Error("Enter a shorter public URL.");

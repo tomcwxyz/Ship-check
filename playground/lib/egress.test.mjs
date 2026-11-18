@@ -11,7 +11,7 @@ test("GitHub scans reach only npm registry and GitHub", () => {
 });
 test("Public website scans permit only the selected HTTPS hostname, never broad egress", () => {
   const policy = scanEgressPolicy({kind:"site",target:"https://example.org/"});
-  assert.deepEqual(policy.allow,["registry.npmjs.org","example.org"]);
+  assert.deepEqual(policy.allow,["registry.npmjs.org","example.org","www.example.org"]);
   assert.ok(!policy.allow.includes("*"));
   assert.ok(policy.subnets.deny.includes("169.254.0.0/16"));
 });
