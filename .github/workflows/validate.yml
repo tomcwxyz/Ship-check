@@ -73,6 +73,12 @@ jobs:
       - run: pnpm test
       - name: Test isolated local MCP boundaries (no dependency install)
         run: node --test tools/local-mcp/runner.test.mjs
+      - name: Verify local MCP SDK v2 server imports
+        run: |
+          cd tools/local-mcp
+          npm install --ignore-scripts --no-audit --no-fund
+          node --input-type=module -e 'import { McpServer } from "@modelcontextprotocol/server"; import { serveStdio } from "@modelcontextprotocol/server/stdio"; if (typeof McpServer !== "function" || typeof serveStdio !== "function") process.exit(1);'
+          npm test
       - run: pnpm build
       - name: Dogfood Ship Check against its own repository
         run: pnpm dogfood
