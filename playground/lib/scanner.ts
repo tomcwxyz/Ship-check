@@ -54,6 +54,9 @@ export async function scanInSandbox(source: ParsedSource, vulnerabilityIntellige
   const version = process.env.SHIP_CHECK_PLAYGROUND_SCANNER_VERSION || "0.0.0-alpha.11";
   if (!/^\d+\.\d+\.\d+-alpha\.\d+$/.test(version))
     throw new Error("A pinned Ship-check alpha version must be configured.");
+  if (source.kind === "site" && Number(version.split(".").at(-1)) < 13) {
+    throw new ScanStageError("scanner-run",new Error("Website CMS recognition requires the published Alpha 13 scanner."));
+  }
   let sandbox: Awaited<ReturnType<typeof Sandbox.create>>;
   try {
     sandbox = await Sandbox.create({
