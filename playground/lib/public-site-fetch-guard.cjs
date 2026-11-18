@@ -32,10 +32,16 @@ function publicIPv4(value) {
   return true;
 }
 
+function siteHostnames(configuredHost) {
+  const host = configuredHost.toLowerCase();
+  const alternative = host.startsWith("www.") ? host.slice(4) : "www." + host;
+  return [host,alternative];
+}
+
 function allowedUrl(raw, configuredHost) {
   const url = new URL(raw);
   if (url.protocol !== "https:" || url.username || url.password || url.port ||
-      url.hostname.toLowerCase() !== configuredHost.toLowerCase() ||
+      !siteHostnames(configuredHost).includes(url.hostname.toLowerCase()) ||
       isIP(url.hostname) || !/^[a-z0-9.-]+$/i.test(url.hostname) ||
       url.pathname.length > 1024 || url.search.length > 160) {
     throw new Error("Public website scan blocked an unsafe URL or redirect.");
@@ -157,4 +163,4 @@ if (process.env.SHIP_CHECK_SAFE_SITE_HOST) {
     return publicSiteFetch(input,init,expected);
   };
 }
-module.exports = { publicIPv4, allowedUrl, selectAddress, publicSiteFetch };
+module.exports = { publicIPv4, allowedUrl, selectAddress, siteHostnames, publicSiteFetch };
