@@ -83,7 +83,7 @@ export async function POST(request: Request, context: Context): Promise<Response
     try { components=body.components.length ? parseComponents(body.components) : []; }
     catch { return failure(400,"Invalid component identifiers."); }
     const saved=await syncDiscoveredTechnologyInventory(db,id,authenticated.accountId,components,
-      {optIn:body.monitor===true,siteHints,replaceComponents:body.sourceInventory!=="not-assessed"});
+      {optIn:body.monitor===true,...(body.siteHints!==undefined?{siteHints}:{}),replaceComponents:body.sourceInventory!=="not-assessed"});
     if(!saved) return failure(409,"Enable automatic discovery in Cloud or explicitly opt in when publishing a scan.");
     return Response.json({synced:true,componentCount:components.length,monitoringEnabled:true},{headers});
   } catch (e) {
