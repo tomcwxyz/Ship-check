@@ -260,7 +260,7 @@ async function publishScanToCloud(
 ) {
   // Validate before any write. Incomplete discovery must never clear prior data.
   const inventory = monitor ? extractTechnologyInventory(report) : undefined;
-  const config = resolveCloudClientConfig({ cloudUrl: values["cloud-url"] });
+  const config = resolveCloudClientConfig({ cloudUrl: typeof values["cloud-url"] === "string" ? values["cloud-url"] : undefined });
   const client = createCloudHistoryClient(config);
   const result = await client.connectProject({
     event: toProjectHistoryMetadata(report),
