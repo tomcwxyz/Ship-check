@@ -181,7 +181,7 @@ export default function TechnologyMonitoring({ projectId }: { projectId: string 
       {(data.siteHints??[]).length>0 && <div className="technology-notice">
         <h3>Websites recognised in scans</h3>
         {(data.siteHints??[]).map(h=><p key={h.cms}><strong>{h.confidence==="likely"?"Likely ":"Possibly "}{h.cms==="wordpress"?"WordPress":"Drupal"}</strong> · Public-page identification on {new Date(h.lastSeenAt).toLocaleDateString("en-GB")}. This doesn't tell us which extensions are installed. A connector below can provide that information.</p>)}
-      </div>
+      </div>}
       <div className="technology-notice" style={{ padding: "1.25rem", borderRadius: 12 }}>
         <h3>Connect a website</h3>
         <p>Connect a WordPress or Drupal website to keep track of its installed components and versions. Once connected, Ship Check updates its inventory automatically. You don't need to configure GitHub Actions.</p>
