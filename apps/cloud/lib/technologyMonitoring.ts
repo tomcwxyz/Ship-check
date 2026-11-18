@@ -12,6 +12,7 @@ export type InventoryState = {
   components: MonitoredComponent[];
   discoveredComponents: MonitoredComponent[];
   cmsConnectors: Array<{id:string;cms:string;lastSeenAt:string|null;components:number}>;
+  siteHints: Array<{cms:"wordpress"|"drupal";confidence:"likely"|"possible";lastSeenAt:string}>;
   alerts: Array<{
     identity: string;
     provider: string;
@@ -89,6 +90,9 @@ export async function getTechnologyInventory(
      WHERE s.project_id=$1 AND s.account_id=$2 AND s.revoked_at IS NULL
      GROUP BY s.id,s.cms,s.last_seen_at ORDER BY s.created_at DESC`,[projectId,accountId]);
   const enabled = consent.rows.length > 0 || connectors.rows.length > 0;
+  const hints = await db.query<{cms:"wordpress"|"drupal";confidence:"likely"|"possible";observed_at:string|Date}>(
+    "SELECT cms,confidence,observed_at FROM ship_check_cms_site_hints WHERE project_id=$1 ORDER BY observed_at DESC",[projectId]
+  );
   const [components, discovered, alerts, feeds] = await Promise.all([
     enabled ? db.query<ComponentRow>(
       "SELECT kind, component_id, version, evidence FROM ship_check_technology_components WHERE project_id=$1 ORDER BY kind, component_id",
@@ -108,6 +112,7 @@ export async function getTechnologyInventory(
   ]);
   return {
     enabled,
+    siteHints: hints.rows.map(h=>({cms:h.cms,confidence:h.confidence,lastSeenAt:asISO(h.observed_at)})),
     cmsConnectors: connectors.rows.map(r=>({id:r.id,cms:r.cms,lastSeenAt:r.last_seen_at?asISO(r.last_seen_at):null,components:Number(r.components)})),
     autoDiscovery: enabled && consent.rows[0]?.auto_discovery_enabled === true,
     discoveredComponents: discovered.rows.map(r => ({
@@ -209,11 +214,22 @@ export async function setAutomaticDiscovery(
   });
 }
 
-/** CI can update discovered source IDs only when the project owner has explicitly enabled it. */
+/** Existing CI sync still requires prior consent. A direct, user-triggered scan publish
+ * may explicitly opt in, using the same account-scoped history:sync token.
+ * A public CMS hint never becomes a verified installed component.
+ */
 export async function syncDiscoveredTechnologyInventory(
-  db: CloudHistoryDatabase, projectId: string, accountId: string, components: MonitoredComponent[]
+  db: CloudHistoryDatabase, projectId: string, accountId: string, components: MonitoredComponent[],
+  options: {optIn?:boolean; siteHints?:Array<{cms:"wordpress"|"drupal";confidence:"likely"|"possible"}>} = {}
 ): Promise<boolean> {
   return db.transaction(async tx => {
+    if(options.optIn) {
+      const owned=await tx.query("SELECT id FROM ship_check_projects WHERE id=$1 AND account_id=$2 FOR UPDATE",[projectId,accountId]);
+      if(owned.rows.length!==1) return false;
+      await tx.query(`INSERT INTO ship_check_technology_monitoring(project_id,account_id,auto_discovery_enabled)
+        VALUES($1,$2,true) ON CONFLICT(project_id) DO UPDATE SET auto_discovery_enabled=true,updated_at=now()
+        WHERE ship_check_technology_monitoring.account_id=$2`,[projectId,accountId]);
+    }
     const consent = await tx.query(
       `SELECT m.project_id FROM ship_check_technology_monitoring m
        JOIN ship_check_projects p ON p.id=m.project_id
@@ -222,6 +238,11 @@ export async function syncDiscoveredTechnologyInventory(
     );
     if (consent.rows.length !== 1) return false;
     await tx.query("DELETE FROM ship_check_discovered_components WHERE project_id=$1",[projectId]);
+    for (const hint of options.siteHints ?? []) {
+      await tx.query(`INSERT INTO ship_check_cms_site_hints(project_id,cms,confidence,observed_at)
+        VALUES($1,$2,$3,now()) ON CONFLICT(project_id,cms) DO UPDATE
+        SET confidence=excluded.confidence,observed_at=now()`,[projectId,hint.cms,hint.confidence]);
+    }
     for (const item of components) {
       await tx.query(
         `INSERT INTO ship_check_discovered_components(project_id,kind,component_id,version,evidence)
