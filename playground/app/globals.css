@@ -50,3 +50,23 @@ footer{padding:55px 6%;background:#e8ebdf;border-top:1px solid #cfd9ce}footer .w
 .site-cms-finding strong{display:flex;align-items:center;gap:9px;font-size:15px;}
 .site-cms-finding strong svg{width:18px;height:18px;color:#466c56;}
 .site-cms-finding p{font-size:13px;line-height:1.65;margin:10px 0 0;color:#526b59;}
+
+/* Search landing content — useful answers, not a keyword-heavy footer. */
+.playground-questions{padding:10px 6% 85px;}
+.playground-questions .section-index{color:#5b7a60;}
+.playground-questions h2{
+  font:400 clamp(36px,4.5vw,59px)/1.1 "DM Serif Display",Georgia,serif;
+  letter-spacing:-.045em;
+  max-width:760px;
+  margin:22px 0 35px;
+}
+.questions-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:36px;}
+.questions-grid article{border-top:1px solid #a7b9a9;padding-top:18px;}
+.questions-grid h3{font-size:17px;line-height:1.35;letter-spacing:-.018em;margin:0 0 12px;}
+.questions-grid p{font-size:14px;line-height:1.7;color:var(--grey);max-width:420px;}
+@media(max-width:800px){
+  .playground-questions{padding:10px 5% 60px;}
+  .questions-grid{grid-template-columns:1fr;gap:16px;}
+  .questions-grid article{padding-top:15px;}
+  .questions-grid p{max-width:640px;}
+}
