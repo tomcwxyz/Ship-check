@@ -148,6 +148,28 @@ export async function scanWebsite(urlInput, cwd, options = {}) {
     cloudMonitoring:monitor?"enabled":"not-requested"};
 }
 
+/** Only GitHub's owner/repo shorthand is accepted. Shell commands,
+ * arbitrary Git endpoints and URLs are not valid MCP scan inputs.
+ */
+export function parsePublicGitHubRepo(value) {
+  if(typeof value!=="string" || value.length>140 ||
+     !/^[A-Za-z0-9][A-Za-z0-9_.-]{0,38}\/[A-Za-z0-9][A-Za-z0-9_.-]{0,99}$/.test(value)) {
+    throw new Error("Enter a public GitHub repository in owner/repository format.");
+  }
+  const [owner,name]=value.split("/");
+  if (owner==="."||owner===".."||name==="."||name==="..") {
+    throw new Error("Invalid GitHub repository name.");
+  }
+  return value;
+}
+export async function scanGitHubRepository(value,cwd,options={}) {
+  const repository=parsePublicGitHubRepo(value);
+  const monitor=requireCloudMonitoringConsent(options.monitor===true);
+  const raw=await invokeShipCheck(["scan",repository,"--format","json",...(monitor?["--monitor"]:[])],cwd);
+  return {...boundedReport(JSON.parse(raw)),repository,
+    cloudMonitoring:monitor?"enabled":"not-requested"};
+}
+
 export async function scannerVersion(cwd) {
   const reported = (await invokeShipCheck(["--version"],cwd)).trim().slice(0,64);
   let packageVersion=null;
