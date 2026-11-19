@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 
 const siteUrl = "https://check.good-ship.co.uk";
@@ -71,6 +72,7 @@ const structuredData = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return <html lang="en-GB">
     <body>
+      <Script src="https://good-ship.co.uk/analytics/browser.js" strategy="afterInteractive" />
       {children}
       <script
         type="application/ld+json"
